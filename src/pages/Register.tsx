@@ -6,18 +6,19 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 
-const Index = () => {
+const Register = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     // Simulating API call
     await new Promise((resolve) => setTimeout(resolve, 1000));
     setIsLoading(false);
-    console.log("Login attempted with:", { email, password });
+    console.log("Registration attempted with:", { email, password });
   };
 
   return (
@@ -27,13 +28,11 @@ const Index = () => {
           <h1 className="text-4xl font-bold tracking-tight text-theme-900">
             SnakkaZ
           </h1>
-          <p className="text-muted-foreground">
-            Secure messaging for everyone
-          </p>
+          <p className="text-muted-foreground">Create your account</p>
         </div>
 
         <Card className="p-6 backdrop-blur-sm bg-white/80 border border-theme-200">
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleRegister} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -60,22 +59,31 @@ const Index = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Confirm your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full"
+                required
+              />
+            </div>
+
             <Button
               type="submit"
               className="w-full bg-theme-600 hover:bg-theme-700 text-white transition-all"
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              {isLoading ? "Creating account..." : "Create account"}
             </Button>
           </form>
 
           <div className="mt-4 text-center">
-            <Button
-              variant="link"
-              className="text-theme-600 hover:text-theme-700"
-              asChild
-            >
-              <Link to="/register">Create an account</Link>
+            <Button variant="link" className="text-theme-600 hover:text-theme-700" asChild>
+              <Link to="/">Already have an account? Sign in</Link>
             </Button>
           </div>
         </Card>
@@ -88,4 +96,4 @@ const Index = () => {
   );
 };
 
-export default Index;
+export default Register;
