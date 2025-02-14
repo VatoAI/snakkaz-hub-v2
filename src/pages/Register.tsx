@@ -31,36 +31,37 @@ const Register = () => {
 
     setIsLoading(true);
     try {
+      // First sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            username,
-            full_name: fullName,
-          },
-        },
       });
 
       if (authError) throw authError;
 
       if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: authData.user.id,
-            username,
-            full_name: fullName,
-          });
-
-        if (profileError) throw profileError;
-
-        toast({
-          title: "Success!",
-          description: "Your account has been created. Please check your email for verification.",
-        });
+        // Wait for the session to be established
+        const { data: session } = await supabase.auth.getSession();
         
-        navigate("/");
+        if (session) {
+          // Create the profile with the established session
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .insert({
+              id: authData.user.id,
+              username,
+              full_name: fullName,
+            });
+
+          if (profileError) throw profileError;
+
+          toast({
+            title: "Success!",
+            description: "Your account has been created. Please check your email for verification.",
+          });
+          
+          navigate("/");
+        }
       }
     } catch (error: any) {
       toast({
