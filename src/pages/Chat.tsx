@@ -5,12 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { RealtimeChannel } from "@supabase/supabase-js";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   id: string;
-  content: string;
+  encrypted_content: string;
   created_at: string;
   sender: {
     username: string | null;
@@ -32,8 +31,8 @@ const Chat = () => {
       if (!session) {
         navigate("/");
         toast({
-          title: "Not authorized",
-          description: "Please sign in to access the chat",
+          title: "Ikke autorisert",
+          description: "Vennligst logg inn for å få tilgang til chatten",
           variant: "destructive",
         });
       } else {
@@ -51,7 +50,7 @@ const Chat = () => {
       .from('messages')
       .select(`
         id,
-        content,
+        encrypted_content,
         created_at,
         sender:profiles(username, full_name)
       `)
@@ -59,8 +58,8 @@ const Chat = () => {
 
     if (error) {
       toast({
-        title: "Error",
-        description: "Failed to load messages",
+        title: "Feil",
+        description: "Kunne ikke laste meldinger",
         variant: "destructive",
       });
       return;
@@ -80,12 +79,11 @@ const Chat = () => {
           table: 'messages'
         },
         async (payload) => {
-          // Fetch the complete message with sender information
           const { data, error } = await supabase
             .from('messages')
             .select(`
               id,
-              content,
+              encrypted_content,
               created_at,
               sender:profiles(username, full_name)
             `)
@@ -104,26 +102,76 @@ const Chat = () => {
     };
   };
 
+  const encryptMessage = async (message: string): Promise<{ encryptedContent: string, key: string, iv: string }> => {
+    // Generate a random encryption key
+    const key = await window.crypto.subtle.generateKey(
+      { name: "AES-GCM", length: 256 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+
+    // Generate a random IV
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+    // Encode the message
+    const encodedMessage = new TextEncoder().encode(message);
+
+    // Encrypt the message
+    const encryptedContent = await window.crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      encodedMessage
+    );
+
+    // Convert the encrypted content to base64
+    const encryptedBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptedContent)));
+    
+    // Export the key and convert to base64
+    const exportedKey = await window.crypto.subtle.exportKey("raw", key);
+    const keyBase64 = btoa(String.fromCharCode(...new Uint8Array(exportedKey)));
+    
+    // Convert IV to base64
+    const ivBase64 = btoa(String.fromCharCode(...iv));
+
+    return {
+      encryptedContent: encryptedBase64,
+      key: keyBase64,
+      iv: ivBase64
+    };
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !userId) return;
 
     setIsLoading(true);
-    const { error } = await supabase
-      .from('messages')
-      .insert({
-        content: newMessage.trim(),
-        sender_id: userId
-      });
+    try {
+      const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
+      
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          encrypted_content: encryptedContent,
+          encryption_key: key,
+          iv: iv,
+          sender_id: userId
+        });
 
-    if (error) {
+      if (error) {
+        toast({
+          title: "Feil",
+          description: "Kunne ikke sende melding",
+          variant: "destructive",
+        });
+      } else {
+        setNewMessage("");
+      }
+    } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to send message",
+        title: "Krypteringsfeil",
+        description: "Kunne ikke kryptere meldingen",
         variant: "destructive",
       });
-    } else {
-      setNewMessage("");
     }
     setIsLoading(false);
   };
@@ -141,9 +189,9 @@ const Chat = () => {
                   <div className="flex items-start gap-x-2">
                     <div className="flex-1">
                       <p className="font-medium text-theme-900">
-                        {message.sender.full_name || message.sender.username || 'Anonymous'}
+                        {message.sender.full_name || message.sender.username || 'Anonym'}
                       </p>
-                      <p className="text-gray-600">{message.content}</p>
+                      <p className="text-gray-600">{message.encrypted_content}</p>
                       <p className="text-xs text-gray-400 mt-1">
                         {new Date(message.created_at).toLocaleString()}
                       </p>
@@ -158,7 +206,7 @@ const Chat = () => {
             <Input
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
+              placeholder="Skriv din melding..."
               className="flex-1"
               disabled={isLoading}
             />

@@ -9,25 +9,61 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      friendships: {
+        Row: {
+          created_at: string
+          friend_id: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          friend_id: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          friend_id?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
-          content: string
           created_at: string
+          encrypted_content: string
+          encryption_key: string | null
+          ephemeral_ttl: number | null
           id: string
+          iv: string | null
           sender_id: string
           updated_at: string
         }
         Insert: {
-          content: string
           created_at?: string
+          encrypted_content: string
+          encryption_key?: string | null
+          ephemeral_ttl?: number | null
           id?: string
+          iv?: string | null
           sender_id: string
           updated_at?: string
         }
         Update: {
-          content?: string
           created_at?: string
+          encrypted_content?: string
+          encryption_key?: string | null
+          ephemeral_ttl?: number | null
           id?: string
+          iv?: string | null
           sender_id?: string
           updated_at?: string
         }
