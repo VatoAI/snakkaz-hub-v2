@@ -85,11 +85,11 @@ export class WebRTCManager {
       // Send signaldata til den andre peeren via Supabase
       await supabase
         .from('signaling')
-        .insert({
+        .insert([{
           sender_id: this.userId,
           receiver_id: peerId,
           signal_data: data
-        });
+        }] as any);  // Using type assertion since the table is not yet in the types
     });
 
     peer.on('connect', () => {
