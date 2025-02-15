@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,38 +13,75 @@ export const useMessages = (userId: string | null) => {
   const { toast } = useToast();
 
   const fetchMessages = async () => {
-    console.log("Henter meldinger...");
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        encrypted_content,
-        encryption_key,
-        iv,
-        created_at,
-        sender:profiles(username, full_name)
-      `)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      console.error("Feil ved henting av meldinger:", error);
-      toast({
-        title: "Feil",
-        description: "Kunne ikke laste meldinger: " + error.message,
-        variant: "destructive",
-      });
+    if (!userId) {
+      console.log("Ingen bruker pålogget, hopper over meldingshenting");
       return;
     }
 
-    console.log("Mottatte meldinger:", data);
-    const decryptedMessages = await Promise.all(
-      (data || []).map(async (message) => ({
-        ...message,
-        content: await decryptMessage(message)
-      }))
-    );
-    console.log("Dekrypterte meldinger:", decryptedMessages);
-    setMessages(decryptedMessages);
+    console.log("Henter meldinger...");
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          encrypted_content,
+          encryption_key,
+          iv,
+          ephemeral_ttl,
+          created_at,
+          sender:profiles(username, full_name)
+        `)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error("Feil ved henting av meldinger:", error);
+        toast({
+          title: "Feil",
+          description: "Kunne ikke laste meldinger: " + error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      console.log("Mottatte meldinger:", data);
+      
+      if (!data) {
+        console.log("Ingen meldinger funnet");
+        setMessages([]);
+        return;
+      }
+
+      const decryptedMessages = await Promise.all(
+        data.map(async (message) => {
+          try {
+            const content = message.encryption_key && message.iv
+              ? await decryptMessage(message)
+              : message.encrypted_content;
+            
+            return {
+              ...message,
+              content: content || "[Krypteringsfeil]"
+            };
+          } catch (error) {
+            console.error("Decryption error:", error);
+            return {
+              ...message,
+              content: "[Krypteringsfeil]"
+            };
+          }
+        })
+      );
+      
+      console.log("Dekrypterte meldinger:", decryptedMessages);
+      setMessages(decryptedMessages);
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      toast({
+        title: "Uventet feil",
+        description: "Det oppstod en feil ved lasting av meldinger",
+        variant: "destructive",
+      });
+    }
   };
 
   const setupRealtimeSubscription = () => {
@@ -59,31 +97,50 @@ export const useMessages = (userId: string | null) => {
         },
         async (payload) => {
           console.log("Ny melding mottatt:", payload);
-          const { data, error } = await supabase
-            .from('messages')
-            .select(`
-              id,
-              encrypted_content,
-              encryption_key,
-              iv,
-              created_at,
-              sender:profiles(username, full_name)
-            `)
-            .eq('id', payload.new.id)
-            .single();
+          try {
+            const { data, error } = await supabase
+              .from('messages')
+              .select(`
+                id,
+                encrypted_content,
+                encryption_key,
+                iv,
+                ephemeral_ttl,
+                created_at,
+                sender:profiles(username, full_name)
+              `)
+              .eq('id', payload.new.id)
+              .single();
 
-          if (error) {
-            console.error("Feil ved henting av ny melding:", error);
-            return;
-          }
+            if (error) {
+              console.error("Feil ved henting av ny melding:", error);
+              return;
+            }
 
-          if (data) {
-            console.log("Dekrypterer ny melding:", data);
-            const decryptedMessage = {
-              ...data,
-              content: await decryptMessage(data)
-            };
-            setMessages(prev => [...prev, decryptedMessage]);
+            if (data) {
+              console.log("Dekrypterer ny melding:", data);
+              try {
+                const content = data.encryption_key && data.iv
+                  ? await decryptMessage(data)
+                  : data.encrypted_content;
+                
+                const decryptedMessage = {
+                  ...data,
+                  content: content || "[Krypteringsfeil]"
+                };
+                
+                setMessages(prev => [...prev, decryptedMessage]);
+              } catch (error) {
+                console.error("Decryption error for new message:", error);
+                const errorMessage = {
+                  ...data,
+                  content: "[Krypteringsfeil]"
+                };
+                setMessages(prev => [...prev, errorMessage]);
+              }
+            }
+          } catch (error) {
+            console.error("Error processing new message:", error);
           }
         }
       )
@@ -195,3 +252,4 @@ export const useMessages = (userId: string | null) => {
     handleMessageExpired
   };
 };
+
