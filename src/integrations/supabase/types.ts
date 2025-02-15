@@ -104,6 +104,30 @@ export type Database = {
         }
         Relationships: []
       }
+      signaling: {
+        Row: {
+          created_at: string
+          id: string
+          receiver_id: string
+          sender_id: string
+          signal_data: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          receiver_id: string
+          sender_id: string
+          signal_data: Json
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          receiver_id?: string
+          sender_id?: string
+          signal_data?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

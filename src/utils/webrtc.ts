@@ -2,12 +2,15 @@
 import SimplePeer from 'simple-peer';
 import { generateKeyPair, establishSecureConnection } from './encryption';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 
 interface PeerConnection {
   peer: SimplePeer.Instance;
   connection: RTCPeerConnection;
   dataChannel: RTCDataChannel | null;
 }
+
+type SignalingInsert = Database['public']['Tables']['signaling']['Insert'];
 
 export class WebRTCManager {
   private connections: Map<string, PeerConnection> = new Map();
@@ -83,13 +86,15 @@ export class WebRTCManager {
   private setupPeerEventHandlers(peer: SimplePeer.Instance, peerId: string) {
     peer.on('signal', async (data) => {
       // Send signaldata til den andre peeren via Supabase
+      const signalMessage: SignalingInsert = {
+        sender_id: this.userId,
+        receiver_id: peerId,
+        signal_data: data
+      };
+
       await supabase
         .from('signaling')
-        .insert([{
-          sender_id: this.userId,
-          receiver_id: peerId,
-          signal_data: data
-        }] as any);  // Using type assertion since the table is not yet in the types
+        .insert([signalMessage]);
     });
 
     peer.on('connect', () => {
