@@ -60,7 +60,6 @@ const Chat = () => {
 
         console.log("Session found:", session);
         console.log("Access token:", session.access_token);
-        console.log("Supabase URL:", supabase.supabaseUrl);
         console.log("Supabase connection status:", supabase);
         
         setUserId(session.user.id);
