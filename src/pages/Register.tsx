@@ -72,129 +72,167 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen bg-cyberdark-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-8 relative">
-        {/* Decorative elements */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-cybergold-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-cyberblue-500/10 rounded-full blur-3xl"></div>
-        
-        <Card className="bg-cyberdark-900/80 backdrop-blur-lg border-cybergold-500/30 p-8 relative z-10">
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-full bg-cyberdark-800 border-2 border-cybergold-500 flex items-center justify-center mb-4 shadow-neon-gold">
-              <Shield className="w-8 h-8 text-cybergold-400" />
-            </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-cybergold-400 to-cybergold-200 bg-clip-text text-transparent">
-              Opprett konto
-            </h1>
-            <p className="text-cyberblue-300 mt-2">Bli med i SnakkaZ i dag</p>
-          </div>
+    <div className="min-h-screen bg-cyberdark-950 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-r from-cybergold-500/20 to-transparent rounded-full filter blur-3xl animate-pulse-slow"></div>
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gradient-to-l from-cybergold-500/20 to-transparent rounded-full filter blur-3xl animate-pulse-slow delay-200"></div>
+      </div>
 
-          <form onSubmit={handleRegister} className="space-y-6">
-            <div className="space-y-2">
-              <label htmlFor="username" className="block text-sm font-medium text-cyberblue-300">
-                Brukernavn
-              </label>
-              <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
-                placeholder="Velg et brukernavn"
-                required
-              />
+      <div className="w-full max-w-md space-y-8 relative z-10">
+        <Card className="bg-cyberdark-800/90 backdrop-blur-xl border-2 border-cybergold-400/50 p-8 rounded-lg shadow-[0_0_25px_rgba(230,179,0,0.15)]">
+          <div className="relative">
+            {/* Decorative corner elements */}
+            <div className="absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 border-cybergold-400"></div>
+            <div className="absolute -top-2 -right-2 w-6 h-6 border-t-2 border-r-2 border-cybergold-400"></div>
+            <div className="absolute -bottom-2 -left-2 w-6 h-6 border-b-2 border-l-2 border-cybergold-400"></div>
+            <div className="absolute -bottom-2 -right-2 w-6 h-6 border-b-2 border-r-2 border-cybergold-400"></div>
+
+            <div className="flex flex-col items-center mb-8 relative">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cybergold-400 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(230,179,0,0.3)] relative">
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cybergold-400/20 to-transparent animate-spin-slow"></div>
+                <Shield className="w-10 h-10 text-cybergold-300 relative z-10" />
+              </div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-cybergold-300 via-cybergold-200 to-cybergold-300 bg-clip-text text-transparent animate-gradient">
+                Opprett konto
+              </h1>
+              <p className="text-cybergold-400 mt-2 text-lg">Bli med i SnakkaZ i dag</p>
+              <div className="absolute -top-4 -left-4 w-8 h-8 border-t-2 border-l-2 border-cybergold-400/30"></div>
+              <div className="absolute -top-4 -right-4 w-8 h-8 border-t-2 border-r-2 border-cybergold-400/30"></div>
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="fullName" className="block text-sm font-medium text-cyberblue-300">
-                Fullt navn
-              </label>
-              <Input
-                id="fullName"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
-                placeholder="Ditt fulle navn"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-cyberblue-300">
-                E-post
-              </label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
-                placeholder="din@epost.no"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-cyberblue-300">
-                Passord
-              </label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-cyberblue-300">
-                Bekreft passord
-              </label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-900 shadow-neon-gold transition-all duration-300"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <Power className="w-4 h-4 animate-spin" />
-                  Oppretter konto...
+            <form onSubmit={handleRegister} className="space-y-6">
+              <div className="space-y-2">
+                <label htmlFor="username" className="block text-sm font-medium text-cybergold-300">
+                  Brukernavn
+                </label>
+                <div className="relative group">
+                  <Input
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
+                    placeholder="Velg et brukernavn"
+                    required
+                  />
+                  <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
                 </div>
-              ) : (
-                "Opprett konto"
-              )}
-            </Button>
-          </form>
+              </div>
 
-          <div className="mt-6 text-center">
-            <Button
-              variant="link"
-              className="text-cyberblue-400 hover:text-cyberblue-300"
-              asChild
-            >
-              <Link to="/">Har du allerede en konto? Logg inn</Link>
-            </Button>
+              <div className="space-y-2">
+                <label htmlFor="fullName" className="block text-sm font-medium text-cybergold-300">
+                  Fullt navn
+                </label>
+                <div className="relative group">
+                  <Input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
+                    placeholder="Ditt fulle navn"
+                    required
+                  />
+                  <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-sm font-medium text-cybergold-300">
+                  E-post
+                </label>
+                <div className="relative group">
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
+                    placeholder="din@epost.no"
+                    required
+                  />
+                  <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="password" className="block text-sm font-medium text-cybergold-300">
+                  Passord
+                </label>
+                <div className="relative group">
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-cybergold-300">
+                  Bekreft passord
+                </label>
+                <div className="relative group">
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full relative group overflow-hidden bg-gradient-to-r from-cybergold-500 via-cybergold-400 to-cybergold-500 hover:from-cybergold-400 hover:to-cybergold-400 text-cyberdark-950 font-semibold shadow-[0_0_15px_rgba(230,179,0,0.3)] transition-all duration-300 border border-cybergold-300/50 hover:shadow-[0_0_25px_rgba(230,179,0,0.5)]"
+                disabled={isLoading}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
+                <span className="relative text-lg">
+                  {isLoading ? (
+                    <div className="flex items-center gap-2 justify-center">
+                      <Power className="w-4 h-4 animate-spin" />
+                      Oppretter konto...
+                    </div>
+                  ) : (
+                    "Opprett konto"
+                  )}
+                </span>
+              </Button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <Button
+                variant="link"
+                className="text-cybergold-400 hover:text-cybergold-300 transition-colors relative group"
+                asChild
+              >
+                <Link to="/">
+                  Har du allerede en konto? Logg inn
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cybergold-400 to-cybergold-300 group-hover:w-full transition-all duration-300"></span>
+                </Link>
+              </Button>
+            </div>
           </div>
         </Card>
 
-        <p className="text-center text-sm text-cyberdark-500">
-          Beskyttet av industri-ledende sikkerhet
-        </p>
+        <div className="relative">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cybergold-400/50 to-transparent"></div>
+          <p className="text-center text-sm text-cybergold-400/50 py-4">
+            Beskyttet av industri-ledende sikkerhet
+          </p>
+          <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-cybergold-400/50 to-transparent"></div>
+        </div>
       </div>
     </div>
   );
