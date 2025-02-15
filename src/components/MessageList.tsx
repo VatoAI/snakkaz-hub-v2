@@ -23,8 +23,10 @@ const MessageTimer = ({ message }: { message: DecryptedMessage }) => {
       return difference > 0 ? Math.ceil(difference / 1000) : 0;
     };
 
+    // Set initial time
     setTimeLeft(calculateTimeLeft());
     
+    // Update every second
     const timer = setInterval(() => {
       const remaining = calculateTimeLeft();
       setTimeLeft(remaining);
@@ -34,10 +36,14 @@ const MessageTimer = ({ message }: { message: DecryptedMessage }) => {
       }
     }, 1000);
 
-    return () => clearInterval(timer);
+    // Cleanup on unmount
+    return () => {
+      clearInterval(timer);
+    };
   }, [message.created_at, message.ephemeral_ttl]);
 
-  if (!timeLeft || !message.ephemeral_ttl) return null;
+  if (timeLeft === null || !message.ephemeral_ttl) return null;
+  if (timeLeft <= 0) return null;
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
