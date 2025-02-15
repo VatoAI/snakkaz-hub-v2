@@ -1,6 +1,7 @@
 
 import SimplePeer from 'simple-peer';
 import { generateKeyPair, establishSecureConnection } from './encryption';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PeerConnection {
   peer: SimplePeer.Instance;
@@ -12,9 +13,12 @@ export class WebRTCManager {
   private connections: Map<string, PeerConnection> = new Map();
   private localKeyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey } | null = null;
   private onMessageCallback: ((message: string, peerId: string) => void) | null = null;
+  private userId: string;
 
-  constructor() {
+  constructor(userId: string) {
+    this.userId = userId;
     this.initializeKeyPair();
+    this.setupSignalingListener();
   }
 
   private async initializeKeyPair() {
@@ -24,6 +28,94 @@ export class WebRTCManager {
     } catch (error) {
       console.error('Failed to generate key pair:', error);
     }
+  }
+
+  private setupSignalingListener() {
+    const channel = supabase
+      .channel('signaling')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'signaling',
+          filter: `receiver_id=eq.${this.userId}`
+        },
+        async (payload) => {
+          console.log('Received signal:', payload);
+          await this.handleIncomingSignal(payload.new);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }
+
+  private async handleIncomingSignal(signal: any) {
+    const { sender_id, signal_data } = signal;
+    
+    let connection = this.connections.get(sender_id);
+    if (!connection) {
+      // Opprett ny peer-forbindelse hvis vi ikke har en fra før
+      const peer = new SimplePeer({
+        initiator: false,
+        trickle: false
+      });
+
+      connection = {
+        peer,
+        connection: peer._pc,
+        dataChannel: null
+      };
+
+      this.connections.set(sender_id, connection);
+
+      // Sett opp hendelseshåndterere for den nye forbindelsen
+      this.setupPeerEventHandlers(peer, sender_id);
+    }
+
+    // Signal til peer
+    connection.peer.signal(signal_data);
+  }
+
+  private setupPeerEventHandlers(peer: SimplePeer.Instance, peerId: string) {
+    peer.on('signal', async (data) => {
+      // Send signaldata til den andre peeren via Supabase
+      await supabase
+        .from('signaling')
+        .insert({
+          sender_id: this.userId,
+          receiver_id: peerId,
+          signal_data: data
+        });
+    });
+
+    peer.on('connect', () => {
+      console.log('Connected to peer:', peerId);
+    });
+
+    peer.on('data', async (data) => {
+      if (this.onMessageCallback) {
+        try {
+          const message = data.toString();
+          this.onMessageCallback(message, peerId);
+        } catch (error) {
+          console.error('Error handling incoming message:', error);
+        }
+      }
+    });
+
+    peer.on('error', (err) => {
+      console.error('Peer error:', err);
+      this.connections.delete(peerId);
+    });
+
+    peer.on('close', () => {
+      console.log('Peer connection closed:', peerId);
+      this.connections.delete(peerId);
+    });
   }
 
   public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey) {
@@ -38,29 +130,8 @@ export class WebRTCManager {
         trickle: false
       });
 
-      // Håndter signalering
-      peer.on('signal', data => {
-        // Her må du implementere en måte å sende signaleringsdataene til den andre peeren
-        console.log('Signal data generated:', data);
-      });
-
-      // Håndter forbindelsen
-      peer.on('connect', () => {
-        console.log('Connected to peer:', peerId);
-      });
-
-      // Håndter innkommende data
-      peer.on('data', async (data) => {
-        if (this.onMessageCallback) {
-          try {
-            // Dekrypter meldingen med den delte hemmeligheten
-            const message = data.toString();
-            this.onMessageCallback(message, peerId);
-          } catch (error) {
-            console.error('Error handling incoming message:', error);
-          }
-        }
-      });
+      // Sett opp hendelseshåndterere
+      this.setupPeerEventHandlers(peer, peerId);
 
       // Etabler sikker forbindelse
       const sharedKey = await establishSecureConnection(
@@ -120,4 +191,4 @@ export class WebRTCManager {
   }
 }
 
-export const createWebRTCManager = () => new WebRTCManager();
+export const createWebRTCManager = (userId: string) => new WebRTCManager(userId);
