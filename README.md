@@ -1,4 +1,7 @@
+
 # Welcome to your Lovable project
+
+[![Netlify Status](https://api.netlify.com/api/v1/badges/afd27fa7-117f-469b-b022-d089d5d67038/deploy-status)](https://app.netlify.com/sites/snakkaz/deploys)
 
 ## Project info
 
