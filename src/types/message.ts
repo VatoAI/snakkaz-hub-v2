@@ -5,6 +5,7 @@ export interface Message {
   encryption_key: string;
   iv: string;
   created_at: string;
+  ephemeral_ttl?: number | null;
   sender: {
     username: string | null;
     full_name: string | null;

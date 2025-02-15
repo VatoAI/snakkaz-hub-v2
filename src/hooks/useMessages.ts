@@ -9,6 +9,7 @@ export const useMessages = (userId: string | null) => {
   const [messages, setMessages] = useState<DecryptedMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [ttl, setTtl] = useState<number | null>(null);
   const { toast } = useToast();
 
   const fetchMessages = async () => {
@@ -135,7 +136,8 @@ export const useMessages = (userId: string | null) => {
           encrypted_content: encryptedContent,
           encryption_key: key,
           iv: iv,
-          sender_id: userId
+          sender_id: userId,
+          ephemeral_ttl: ttl
         });
 
       if (error) {
@@ -166,6 +168,8 @@ export const useMessages = (userId: string | null) => {
     newMessage,
     setNewMessage,
     isLoading,
+    ttl,
+    setTtl,
     fetchMessages,
     setupRealtimeSubscription,
     addP2PMessage,

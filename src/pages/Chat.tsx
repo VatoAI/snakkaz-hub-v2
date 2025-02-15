@@ -92,6 +92,8 @@ const Chat = () => {
                 messages.handleSendMessage(webRTC.webRTCManager, webRTC.onlineUsers);
               }}
               isLoading={messages.isLoading}
+              ttl={messages.ttl}
+              setTtl={messages.setTtl}
             />
           </div>
         </div>
