@@ -54,7 +54,7 @@ const Index = () => {
       </div>
 
       <div className="w-full max-w-md space-y-8 relative z-10">
-        <Card className="bg-cyberdark-900/90 backdrop-blur-xl border-2 border-cybergold-400/50 p-8 rounded-lg shadow-[0_0_25px_rgba(230,179,0,0.15)]">
+        <Card className="bg-cyberdark-800/90 backdrop-blur-xl border-2 border-cybergold-400/50 p-8 rounded-lg shadow-[0_0_25px_rgba(230,179,0,0.15)]">
           <div className="relative">
             {/* Decorative corner elements */}
             <div className="absolute -top-2 -left-2 w-6 h-6 border-t-2 border-l-2 border-cybergold-400"></div>
@@ -63,7 +63,7 @@ const Index = () => {
             <div className="absolute -bottom-2 -right-2 w-6 h-6 border-b-2 border-r-2 border-cybergold-400"></div>
 
             <div className="flex flex-col items-center mb-8 relative">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-cyberdark-800 to-cyberdark-900 border-2 border-cybergold-400 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(230,179,0,0.3)] relative">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cybergold-400 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(230,179,0,0.3)] relative">
                 <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cybergold-400/20 to-transparent animate-spin-slow"></div>
                 <KeyRound className="w-10 h-10 text-cybergold-300 relative z-10" />
               </div>
@@ -86,7 +86,7 @@ const Index = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
+                    className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
                     placeholder="din@epost.no"
                     required
                   />
@@ -104,7 +104,7 @@ const Index = () => {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
+                    className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
                     placeholder="••••••••"
                     required
                   />
@@ -114,11 +114,11 @@ const Index = () => {
 
               <Button
                 type="submit"
-                className="w-full relative group overflow-hidden bg-gradient-to-r from-cybergold-500 via-cybergold-400 to-cybergold-500 hover:from-cybergold-400 hover:to-cybergold-400 text-cyberdark-900 shadow-[0_0_15px_rgba(230,179,0,0.3)] transition-all duration-300 border border-cybergold-300/50 hover:shadow-[0_0_25px_rgba(230,179,0,0.5)]"
+                className="w-full relative group overflow-hidden bg-gradient-to-r from-cybergold-500 via-cybergold-400 to-cybergold-500 hover:from-cybergold-400 hover:to-cybergold-400 text-cyberdark-950 font-semibold shadow-[0_0_15px_rgba(230,179,0,0.3)] transition-all duration-300 border border-cybergold-300/50 hover:shadow-[0_0_25px_rgba(230,179,0,0.5)]"
                 disabled={isLoading}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
-                <span className="relative">
+                <span className="relative text-lg">
                   {isLoading ? (
                     <div className="flex items-center gap-2 justify-center">
                       <Power className="w-4 h-4 animate-spin" />
