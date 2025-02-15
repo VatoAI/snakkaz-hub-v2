@@ -49,7 +49,7 @@ const Chat = () => {
         <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-4 flex-1 flex flex-col">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="text-2xl font-bold text-theme-900">SnakkaZ Chat</h1>
+              <h1 className="text-2xl font-bold text-theme-900">SnakkaZ</h1>
               <p className="text-sm text-gray-600">
                 {webRTC.onlineUsers.size} online {webRTC.onlineUsers.size === 1 ? 'bruker' : 'brukere'}
               </p>
