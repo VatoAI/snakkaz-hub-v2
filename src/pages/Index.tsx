@@ -49,23 +49,23 @@ const Index = () => {
     <div className="min-h-screen bg-cyberdark-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md space-y-8 relative">
         {/* Decorative elements */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-cybergold-500/10 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-cyberblue-500/10 rounded-full blur-3xl"></div>
+        <div className="absolute -top-20 -right-20 w-40 h-40 bg-cybergold-500/20 rounded-full blur-3xl animate-pulse-slow"></div>
+        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-cybergold-500/20 rounded-full blur-3xl animate-pulse-slow"></div>
         
-        <Card className="bg-cyberdark-900/80 backdrop-blur-lg border-cybergold-500/30 p-8 relative z-10">
+        <Card className="bg-cyberdark-900/80 backdrop-blur-lg border-2 border-cybergold-400 p-8 relative z-10 shadow-[0_0_15px_rgba(230,179,0,0.3)]">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 rounded-full bg-cyberdark-800 border-2 border-cybergold-500 flex items-center justify-center mb-4 shadow-neon-gold">
-              <KeyRound className="w-8 h-8 text-cybergold-400" />
+            <div className="w-16 h-16 rounded-full bg-cyberdark-800 border-2 border-cybergold-400 flex items-center justify-center mb-4 shadow-[0_0_15px_rgba(230,179,0,0.5)]">
+              <KeyRound className="w-8 h-8 text-cybergold-300" />
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-cybergold-400 to-cybergold-200 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-cybergold-300 via-cybergold-200 to-cybergold-300 bg-clip-text text-transparent">
               SnakkaZ
             </h1>
-            <p className="text-cyberblue-300 mt-2">Sikker meldingsutveksling</p>
+            <p className="text-cybergold-400 mt-2">Sikker meldingsutveksling</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-cyberblue-300">
+              <label htmlFor="email" className="block text-sm font-medium text-cybergold-300">
                 E-post
               </label>
               <Input
@@ -73,14 +73,14 @@ const Index = () => {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
+                className="bg-cyberdark-800 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400 focus:border-cybergold-400"
                 placeholder="din@epost.no"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-cyberblue-300">
+              <label htmlFor="password" className="block text-sm font-medium text-cybergold-300">
                 Passord
               </label>
               <Input
@@ -88,7 +88,7 @@ const Index = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
+                className="bg-cyberdark-800 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400 focus:border-cybergold-400"
                 placeholder="••••••••"
                 required
               />
@@ -96,7 +96,7 @@ const Index = () => {
 
             <Button
               type="submit"
-              className="w-full bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-900 shadow-neon-gold transition-all duration-300"
+              className="w-full bg-gradient-to-r from-cybergold-500 via-cybergold-400 to-cybergold-500 hover:from-cybergold-400 hover:to-cybergold-400 text-cyberdark-900 shadow-[0_0_15px_rgba(230,179,0,0.5)] transition-all duration-300 border border-cybergold-300/50"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -113,7 +113,7 @@ const Index = () => {
           <div className="mt-6 text-center">
             <Button
               variant="link"
-              className="text-cyberblue-400 hover:text-cyberblue-300"
+              className="text-cybergold-400 hover:text-cybergold-300 transition-colors"
               asChild
             >
               <Link to="/register">Opprett en konto</Link>
@@ -121,7 +121,7 @@ const Index = () => {
           </div>
         </Card>
 
-        <p className="text-center text-sm text-cyberdark-500">
+        <p className="text-center text-sm text-cybergold-400/50">
           Beskyttet av industri-ledende sikkerhet
         </p>
       </div>
