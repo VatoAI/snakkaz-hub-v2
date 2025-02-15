@@ -6,7 +6,6 @@ import { MessageInput } from '@/components/MessageInput';
 import { useMessages } from '@/hooks/useMessages';
 import { useToast } from "@/components/ui/use-toast";
 import { useWebRTC } from '@/hooks/useWebRTC';
-import { OnlineUsers } from '@/components/OnlineUsers';
 import { supabase } from "@/integrations/supabase/client";
 
 const Chat = () => {
@@ -36,6 +35,7 @@ const Chat = () => {
         }
 
         console.log("Session found:", session);
+        console.log("Access token:", session.access_token); // Legg til denne for å sjekke tokenet
         setUserId(session.user.id);
         setAuthLoading(false);
         
@@ -54,6 +54,7 @@ const Chat = () => {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session); // Legg til denne for å spore auth-endringer
       if (event === 'SIGNED_OUT') {
         navigate('/login');
       } else if (session) {
