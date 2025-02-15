@@ -1,4 +1,40 @@
 
+import { webcrypto } from 'crypto';
+
+// Generer nøkkelpar for asymmetrisk kryptering
+export const generateKeyPair = async () => {
+  try {
+    const keyPair = await window.crypto.subtle.generateKey(
+      {
+        name: "ECDH",
+        namedCurve: "P-256",
+      },
+      true,
+      ["deriveKey", "deriveBits"]
+    );
+    
+    // Eksporter offentlig nøkkel
+    const publicKeyExported = await window.crypto.subtle.exportKey(
+      "jwk",
+      keyPair.publicKey
+    );
+    
+    // Eksporter privat nøkkel
+    const privateKeyExported = await window.crypto.subtle.exportKey(
+      "jwk",
+      keyPair.privateKey
+    );
+    
+    return {
+      publicKey: publicKeyExported,
+      privateKey: privateKeyExported
+    };
+  } catch (error) {
+    console.error('Error generating key pair:', error);
+    throw error;
+  }
+};
+
 export const encryptMessage = async (message: string): Promise<{ encryptedContent: string, key: string, iv: string }> => {
   try {
     // Generate a new 256-bit key
@@ -84,5 +120,60 @@ export const decryptMessage = async (message: { encrypted_content: string; encry
   } catch (error) {
     console.error('Decryption error:', error);
     return '[Krypteringsfeil]';
+  }
+};
+
+// Funksjon for å etablere en sikker forbindelse mellom to peers
+export const establishSecureConnection = async (publicKeyA: JsonWebKey, privateKeyA: JsonWebKey, publicKeyB: JsonWebKey) => {
+  try {
+    // Importer nøklene
+    const privateKey = await window.crypto.subtle.importKey(
+      "jwk",
+      privateKeyA,
+      {
+        name: "ECDH",
+        namedCurve: "P-256",
+      },
+      true,
+      ["deriveKey", "deriveBits"]
+    );
+
+    const publicKey = await window.crypto.subtle.importKey(
+      "jwk",
+      publicKeyB,
+      {
+        name: "ECDH",
+        namedCurve: "P-256",
+      },
+      true,
+      []
+    );
+
+    // Utled en delt hemmelighet
+    const sharedSecret = await window.crypto.subtle.deriveBits(
+      {
+        name: "ECDH",
+        public: publicKey,
+      },
+      privateKey,
+      256
+    );
+
+    // Konverter den delte hemmeligheten til en nøkkel for meldingskryptering
+    const derivedKey = await window.crypto.subtle.importKey(
+      "raw",
+      sharedSecret,
+      {
+        name: "AES-GCM",
+        length: 256,
+      },
+      true,
+      ["encrypt", "decrypt"]
+    );
+
+    return derivedKey;
+  } catch (error) {
+    console.error('Error establishing secure connection:', error);
+    throw error;
   }
 };
