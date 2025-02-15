@@ -10,6 +10,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 interface Message {
   id: string;
   encrypted_content: string;
+  encryption_key: string;
+  iv: string;
   created_at: string;
   sender: {
     username: string | null;
@@ -17,8 +19,12 @@ interface Message {
   };
 }
 
+interface DecryptedMessage extends Omit<Message, 'encrypted_content'> {
+  content: string;
+}
+
 const Chat = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<DecryptedMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -45,12 +51,45 @@ const Chat = () => {
     setupRealtimeSubscription();
   }, []);
 
+  const decryptMessage = async (message: Message): Promise<string> => {
+    try {
+      // Convert base64 to array buffer
+      const encryptedData = Uint8Array.from(atob(message.encrypted_content), c => c.charCodeAt(0));
+      const keyData = Uint8Array.from(atob(message.encryption_key), c => c.charCodeAt(0));
+      const iv = Uint8Array.from(atob(message.iv), c => c.charCodeAt(0));
+
+      // Import the key
+      const key = await window.crypto.subtle.importKey(
+        "raw",
+        keyData,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["decrypt"]
+      );
+
+      // Decrypt the data
+      const decryptedContent = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        encryptedData
+      );
+
+      // Convert the decrypted array buffer to string
+      return new TextDecoder().decode(decryptedContent);
+    } catch (error) {
+      console.error('Decryption error:', error);
+      return '[Krypteringsfeil]';
+    }
+  };
+
   const fetchMessages = async () => {
     const { data, error } = await supabase
       .from('messages')
       .select(`
         id,
         encrypted_content,
+        encryption_key,
+        iv,
         created_at,
         sender:profiles(username, full_name)
       `)
@@ -65,7 +104,15 @@ const Chat = () => {
       return;
     }
 
-    setMessages(data || []);
+    // Decrypt all messages
+    const decryptedMessages = await Promise.all(
+      (data || []).map(async (message) => ({
+        ...message,
+        content: await decryptMessage(message)
+      }))
+    );
+
+    setMessages(decryptedMessages);
   };
 
   const setupRealtimeSubscription = () => {
@@ -84,6 +131,8 @@ const Chat = () => {
             .select(`
               id,
               encrypted_content,
+              encryption_key,
+              iv,
               created_at,
               sender:profiles(username, full_name)
             `)
@@ -91,7 +140,11 @@ const Chat = () => {
             .single();
 
           if (!error && data) {
-            setMessages(prev => [...prev, data]);
+            const decryptedMessage = {
+              ...data,
+              content: await decryptMessage(data)
+            };
+            setMessages(prev => [...prev, decryptedMessage]);
           }
         }
       )
@@ -191,7 +244,7 @@ const Chat = () => {
                       <p className="font-medium text-theme-900">
                         {message.sender.full_name || message.sender.username || 'Anonym'}
                       </p>
-                      <p className="text-gray-600">{message.encrypted_content}</p>
+                      <p className="text-gray-600">{message.content}</p>
                       <p className="text-xs text-gray-400 mt-1">
                         {new Date(message.created_at).toLocaleString()}
                       </p>
