@@ -22,6 +22,7 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -35,6 +36,8 @@ const Chat = () => {
           description: "Please sign in to access the chat",
           variant: "destructive",
         });
+      } else {
+        setUserId(session.user.id);
       }
     };
     
@@ -103,13 +106,14 @@ const Chat = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !userId) return;
 
     setIsLoading(true);
     const { error } = await supabase
       .from('messages')
       .insert({
         content: newMessage.trim(),
+        sender_id: userId
       });
 
     if (error) {
