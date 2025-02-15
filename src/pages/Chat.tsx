@@ -177,15 +177,17 @@ const Chat = () => {
         });
 
       if (error) {
+        console.error('Send message error:', error);
         toast({
           title: "Feil",
-          description: "Kunne ikke sende melding",
+          description: "Kunne ikke sende melding: " + error.message,
           variant: "destructive",
         });
       } else {
         setNewMessage("");
       }
     } catch (error) {
+      console.error('Encryption error:', error);
       toast({
         title: "Krypteringsfeil",
         description: "Kunne ikke kryptere meldingen",
