@@ -50,7 +50,7 @@ const Chat = () => {
         id,
         content,
         created_at,
-        sender:profiles!inner(username, full_name)
+        sender:profiles(username, full_name)
       `)
       .order('created_at', { ascending: true });
 
@@ -84,7 +84,7 @@ const Chat = () => {
               id,
               content,
               created_at,
-              sender:profiles!inner(username, full_name)
+              sender:profiles(username, full_name)
             `)
             .eq('id', payload.new.id)
             .single();
