@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { KeyRound, Power, Lock, Smartphone, Monitor, Video, MessageCircle, Shield, Download, LogIn, UserPlus } from "lucide-react";
+import { KeyRound, Power, Lock, Smartphone, Monitor, Video, MessageCircle, Shield, Download, LogIn, UserPlus, Image, ShoppingBag, Robot } from "lucide-react";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -67,10 +67,13 @@ const Index = () => {
   };
 
   const features = [
+    { icon: <MessageCircle className="w-6 h-6" />, title: "Instant Messaging", description: "Send lynraske meldinger med kryptering" },
+    { icon: <Image className="w-6 h-6" />, title: "Bilder & Videoer", description: "Del medier uten tap av personvern" },
+    { icon: <Video className="w-6 h-6" />, title: "Tale- og videosamtaler", description: "Fullt krypterte samtaler uten avlytting" },
+    { icon: <ShoppingBag className="w-6 h-6" />, title: "Innebygd nettbutikk", description: "Kjøp og selg med krypto eller vanlige betalinger" },
+    { icon: <Robot className="w-6 h-6" />, title: "OpenAI-integrasjon", description: "AI-assistent for spørsmål og brukerstøtte" },
     { icon: <Lock className="w-6 h-6" />, title: "Ende-til-Ende-Kryptering", description: "100% private meldinger med avansert kryptering" },
     { icon: <Shield className="w-6 h-6" />, title: "Peer-to-Peer", description: "Direkte og sikker kommunikasjon uten mellomservere" },
-    { icon: <MessageCircle className="w-6 h-6" />, title: "Instant Messaging", description: "Lynraske meldinger med full kryptering" },
-    { icon: <Video className="w-6 h-6" />, title: "Krypterte Samtaler", description: "Sikre tale- og videosamtaler uten avlytting" },
   ];
 
   const platforms = [
@@ -174,9 +177,9 @@ const Index = () => {
           <h2 className="text-3xl md:text-4xl font-bold text-center text-cybergold-300 mb-12">
             Hvorfor Velge SnakkaZ?
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
             {features.map((feature, index) => (
-              <Card key={index} className="bg-cyberdark-800/90 border-cybergold-400/30 p-6 hover:border-cybergold-400/60 transition-all duration-300">
+              <Card key={index} className="bg-cyberdark-800/90 border-cybergold-400/30 p-6 hover:border-cybergold-400/60 transition-all duration-300 hover:transform hover:scale-105">
                 <div className="flex flex-col items-center text-center">
                   <div className="w-12 h-12 rounded-full bg-cybergold-500/10 flex items-center justify-center mb-4 text-cybergold-400">
                     {feature.icon}
