@@ -24,11 +24,28 @@ const Login = () => {
       });
 
       if (error) {
-        toast({
-          title: "Påloggingsfeil",
-          description: error.message,
-          variant: "destructive",
-        });
+        console.error('Login error details:', error);
+        
+        // Mer spesifikke feilmeldinger basert på feilkoden
+        if (error.message.includes('Invalid login credentials')) {
+          toast({
+            title: "Påloggingsfeil",
+            description: "Feil e-post eller passord. Hvis du nettopp registrerte deg, sjekk at du har bekreftet e-posten din.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes('Email not confirmed')) {
+          toast({
+            title: "E-post ikke bekreftet",
+            description: "Vennligst bekreft e-posten din før du logger inn. Sjekk innboksen din for en bekreftelseslenke.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Påloggingsfeil",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
         return;
       }
 
@@ -36,9 +53,9 @@ const Login = () => {
         navigate('/chat');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Unexpected login error:', error);
       toast({
-        title: "Feil",
+        title: "Uventet feil",
         description: "Kunne ikke logge inn. Prøv igjen senere.",
         variant: "destructive",
       });
@@ -52,30 +69,54 @@ const Login = () => {
     setIsLoading(true);
 
     try {
+      // Validate password length
+      if (password.length < 6) {
+        toast({
+          title: "Ugyldig passord",
+          description: "Passordet må være minst 6 tegn langt.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/chat`
+        }
       });
 
       if (error) {
-        toast({
-          title: "Registreringsfeil",
-          description: error.message,
-          variant: "destructive",
-        });
+        console.error('Signup error details:', error);
+        
+        if (error.message.includes('User already registered')) {
+          toast({
+            title: "Registreringsfeil",
+            description: "En bruker med denne e-postadressen eksisterer allerede. Prøv å logge inn i stedet.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Registreringsfeil",
+            description: error.message,
+            variant: "destructive",
+          });
+        }
         return;
       }
 
       if (data.user) {
         toast({
           title: "Registrering vellykket",
-          description: "Sjekk e-posten din for bekreftelseslenke.",
+          description: "Vi har sendt deg en e-post med en bekreftelseslenke. Vennligst bekreft e-posten din før du logger inn.",
         });
       }
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('Unexpected signup error:', error);
       toast({
-        title: "Feil",
+        title: "Uventet feil",
         description: "Kunne ikke registrere bruker. Prøv igjen senere.",
         variant: "destructive",
       });
@@ -122,6 +163,7 @@ const Login = () => {
                 className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-200 placeholder:text-cyberdark-400"
                 placeholder="••••••••"
               />
+              <p className="text-sm text-cybergold-300/70">Minimum 6 tegn</p>
             </div>
 
             <div className="space-y-4">
