@@ -21,9 +21,33 @@ const Chat = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        // Test Supabase tilkobling først
+        try {
+          const response = await fetch('https://wqpoozpbceucynsojmbk.supabase.co/rest/v1/health', {
+            method: 'GET',
+          });
+          console.log("Supabase health check response:", response.status);
+          if (!response.ok) {
+            throw new Error('Kunne ikke koble til Supabase');
+          }
+        } catch (error) {
+          console.error("Supabase tilkoblingsfeil:", error);
+          toast({
+            title: "Tilkoblingsfeil",
+            description: "Kunne ikke koble til serveren. Sjekk internettforbindelsen din.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error("Auth error:", error);
+          toast({
+            title: "Autentiseringsfeil",
+            description: error.message,
+            variant: "destructive",
+          });
           navigate('/login');
           return;
         }
@@ -35,7 +59,10 @@ const Chat = () => {
         }
 
         console.log("Session found:", session);
-        console.log("Access token:", session.access_token); // Legg til denne for å sjekke tokenet
+        console.log("Access token:", session.access_token);
+        console.log("Supabase URL:", supabase.supabaseUrl);
+        console.log("Supabase connection status:", supabase);
+        
         setUserId(session.user.id);
         setAuthLoading(false);
         
@@ -49,12 +76,17 @@ const Chat = () => {
         }
       } catch (error) {
         console.error("Unexpected auth error:", error);
+        toast({
+          title: "Uventet feil",
+          description: "Det oppstod en feil ved innlogging. Prøv å laste siden på nytt.",
+          variant: "destructive",
+        });
         navigate('/login');
       }
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session); // Legg til denne for å spore auth-endringer
+      console.log("Auth state changed:", event, session);
       if (event === 'SIGNED_OUT') {
         navigate('/login');
       } else if (session) {
@@ -68,7 +100,7 @@ const Chat = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, initializeWebRTC, setupPresenceChannel]);
+  }, [navigate, initializeWebRTC, setupPresenceChannel, toast]);
 
   const { 
     messages, 
@@ -114,7 +146,9 @@ const Chat = () => {
     <div className="flex flex-col h-screen bg-cyberdark-900">
       <div className="p-4 border-b border-cybergold-500/30 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-cybergold-200">CyberChat 2077</h1>
-        <OnlineUsers onlineUsers={onlineUsers} peerId={userId} />
+        <div className="text-cybergold-200">
+          {Array.from(onlineUsers).length} online
+        </div>
       </div>
       
       <div className="flex-1 overflow-hidden">
