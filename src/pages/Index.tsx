@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -5,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { KeyRound, Power, Lock, Smartphone, Monitor, Video, MessageCircle, Shield, Download, LogIn, UserPlus, Image, ShoppingBag, Robot } from "lucide-react";
+import { KeyRound, Power, Lock, Smartphone, Monitor, Video, MessageCircle, Shield, Download, LogIn, UserPlus, Image, ShoppingBag, Bot } from "lucide-react";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -71,7 +72,7 @@ const Index = () => {
     { icon: <Image className="w-6 h-6" />, title: "Bilder & Videoer", description: "Del medier uten tap av personvern" },
     { icon: <Video className="w-6 h-6" />, title: "Tale- og videosamtaler", description: "Fullt krypterte samtaler uten avlytting" },
     { icon: <ShoppingBag className="w-6 h-6" />, title: "Innebygd nettbutikk", description: "Kjøp og selg med krypto eller vanlige betalinger" },
-    { icon: <Robot className="w-6 h-6" />, title: "OpenAI-integrasjon", description: "AI-assistent for spørsmål og brukerstøtte" },
+    { icon: <Bot className="w-6 h-6" />, title: "OpenAI-integrasjon", description: "AI-assistent for spørsmål og brukerstøtte" },
     { icon: <Lock className="w-6 h-6" />, title: "Ende-til-Ende-Kryptering", description: "100% private meldinger med avansert kryptering" },
     { icon: <Shield className="w-6 h-6" />, title: "Peer-to-Peer", description: "Direkte og sikker kommunikasjon uten mellomservere" },
   ];
