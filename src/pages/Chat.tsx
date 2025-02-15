@@ -21,27 +21,41 @@ const Chat = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (data?.session) {
-        setUserId(data.session.user.id);
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error("Auth error:", error);
+          navigate('/');
+          return;
+        }
+        
+        if (!session) {
+          console.log("No session found, redirecting to login");
+          navigate('/');
+          return;
+        }
+
+        console.log("Session found:", session);
+        setUserId(session.user.id);
         setAuthLoading(false);
         
         // Initialize WebRTC after we have the user ID
-        const rtcManager = initializeWebRTC(data.session.user.id);
+        const rtcManager = initializeWebRTC(session.user.id);
         if (rtcManager) {
-          const cleanup = setupPresenceChannel(data.session.user.id);
+          const cleanup = setupPresenceChannel(session.user.id);
           return () => {
             cleanup();
           };
         }
-      } else {
-        navigate('/login');
+      } catch (error) {
+        console.error("Unexpected auth error:", error);
+        navigate('/');
       }
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        navigate('/login');
+        navigate('/');
       } else if (session) {
         setUserId(session.user.id);
         setAuthLoading(false);
@@ -71,6 +85,7 @@ const Chat = () => {
 
   useEffect(() => {
     if (userId) {
+      console.log("Fetching messages for user:", userId);
       fetchMessages();
       const unsubscribe = setupRealtimeSubscription();
       return () => unsubscribe();
