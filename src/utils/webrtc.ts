@@ -4,6 +4,13 @@ import { generateKeyPair, establishSecureConnection } from './encryption';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
+// Polyfill for WebRTC i nettleseren
+const wrtc = {
+  RTCPeerConnection: window.RTCPeerConnection,
+  RTCSessionDescription: window.RTCSessionDescription,
+  RTCIceCandidate: window.RTCIceCandidate,
+};
+
 interface PeerConnection {
   peer: SimplePeer.Instance;
   connection: RTCPeerConnection;
@@ -64,7 +71,8 @@ export class WebRTCManager {
       // Opprett ny peer-forbindelse hvis vi ikke har en fra før
       const peer = new SimplePeer({
         initiator: false,
-        trickle: false
+        trickle: false,
+        wrtc // Legg til wrtc-objektet her
       });
 
       connection = {
@@ -132,7 +140,8 @@ export class WebRTCManager {
       // Opprett WebRTC peer
       const peer = new SimplePeer({
         initiator: true,
-        trickle: false
+        trickle: false,
+        wrtc // Legg til wrtc-objektet her
       });
 
       // Sett opp hendelseshåndterere
