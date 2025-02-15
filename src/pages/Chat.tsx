@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -88,6 +89,7 @@ const Chat = () => {
   };
 
   const fetchMessages = async () => {
+    console.log("Henter meldinger...");
     const { data, error } = await supabase
       .from('messages')
       .select(`
@@ -101,25 +103,28 @@ const Chat = () => {
       .order('created_at', { ascending: true });
 
     if (error) {
+      console.error("Feil ved henting av meldinger:", error);
       toast({
         title: "Feil",
-        description: "Kunne ikke laste meldinger",
+        description: "Kunne ikke laste meldinger: " + error.message,
         variant: "destructive",
       });
       return;
     }
 
+    console.log("Mottatte meldinger:", data);
     const decryptedMessages = await Promise.all(
       (data || []).map(async (message) => ({
         ...message,
         content: await decryptMessage(message)
       }))
     );
-
+    console.log("Dekrypterte meldinger:", decryptedMessages);
     setMessages(decryptedMessages);
   };
 
   const setupRealtimeSubscription = () => {
+    console.log("Setter opp sanntidsabonnement...");
     const channel = supabase
       .channel('public:messages')
       .on(
@@ -130,6 +135,7 @@ const Chat = () => {
           table: 'messages'
         },
         async (payload) => {
+          console.log("Ny melding mottatt:", payload);
           const { data, error } = await supabase
             .from('messages')
             .select(`
@@ -143,7 +149,13 @@ const Chat = () => {
             .eq('id', payload.new.id)
             .single();
 
-          if (!error && data) {
+          if (error) {
+            console.error("Feil ved henting av ny melding:", error);
+            return;
+          }
+
+          if (data) {
+            console.log("Dekrypterer ny melding:", data);
             const decryptedMessage = {
               ...data,
               content: await decryptMessage(data)
@@ -161,12 +173,17 @@ const Chat = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !userId) return;
+    if (!newMessage.trim() || !userId) {
+      console.log("Ingen melding å sende eller bruker ikke pålogget");
+      return;
+    }
 
     setIsLoading(true);
     try {
+      console.log("Krypterer melding...");
       const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
       
+      console.log("Sender melding til Supabase...");
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -184,6 +201,7 @@ const Chat = () => {
           variant: "destructive",
         });
       } else {
+        console.log("Melding sendt vellykket");
         setNewMessage("");
       }
     } catch (error) {
@@ -193,8 +211,9 @@ const Chat = () => {
         description: "Kunne ikke kryptere meldingen",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   if (showMagicLinkForm) {
