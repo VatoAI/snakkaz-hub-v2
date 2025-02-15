@@ -46,9 +46,9 @@ const MessageTimer = ({ message }: { message: DecryptedMessage }) => {
     : `${seconds}s`;
 
   return (
-    <div className="flex items-center gap-1 text-xs text-cyberdark-500 group-hover:text-cyberdark-400">
-      <Timer className="w-3 h-3" />
-      <span>{timeString}</span>
+    <div className="flex items-center gap-1 text-xs text-cybergold-300">
+      <Timer className="w-3 h-3 text-cyberblue-400" />
+      <span className="font-medium">{timeString}</span>
     </div>
   );
 };
@@ -71,7 +71,7 @@ export const MessageList = ({ messages }: MessageListProps) => {
                   {message.content}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs text-cyberdark-600 group-hover:text-cyberdark-500">
+                  <p className="text-xs text-cyberdark-400 group-hover:text-cyberdark-300">
                     {new Date(message.created_at).toLocaleString()}
                   </p>
                   <MessageTimer message={message} />
