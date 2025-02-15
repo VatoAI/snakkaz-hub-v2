@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +7,7 @@ import { MessageInput } from "@/components/MessageInput";
 import { DecryptedMessage, Message } from "@/types/message";
 import { encryptMessage, decryptMessage } from "@/utils/encryption";
 import { Button } from "@/components/ui/button";
+import { WebRTCManager } from "@/utils/webrtc";
 
 const Chat = () => {
   const [messages, setMessages] = useState<DecryptedMessage[]>([]);
@@ -16,6 +16,8 @@ const Chat = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [showMagicLinkForm, setShowMagicLinkForm] = useState(false);
+  const [webRTCManager, setWebRTCManager] = useState<WebRTCManager | null>(null);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -26,31 +28,84 @@ const Chat = () => {
         setShowMagicLinkForm(true);
       } else {
         setUserId(session.user.id);
+        const rtcManager = new WebRTCManager(session.user.id);
+        setWebRTCManager(rtcManager);
+        
+        rtcManager.onMessage((message, peerId) => {
+          const p2pMessage: DecryptedMessage = {
+            id: `p2p-${Date.now()}`,
+            content: message,
+            created_at: new Date().toISOString(),
+            sender: {
+              username: peerId,
+              full_name: null
+            }
+          };
+          setMessages(prev => [...prev, p2pMessage]);
+        });
+
         await fetchMessages();
         setupRealtimeSubscription();
+        setupPresenceChannel(session.user.id);
       }
     };
     
     checkAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
-        setUserId(session?.user.id || null);
-        setShowMagicLinkForm(false);
-        await fetchMessages();
-        setupRealtimeSubscription();
-      } else if (event === 'SIGNED_OUT') {
-        setUserId(null);
-        setShowMagicLinkForm(true);
-        setMessages([]);
-      }
-    });
-
     return () => {
-      subscription.unsubscribe();
+      if (webRTCManager) {
+        webRTCManager.disconnectAll();
+      }
     };
   }, []);
+
+  const setupPresenceChannel = (currentUserId: string) => {
+    const channel = supabase.channel('online-users', {
+      config: {
+        presence: {
+          key: currentUserId,
+        },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const online = new Set(Object.keys(state));
+        setOnlineUsers(online);
+      })
+      .on('presence', { event: 'join' }, ({ key }) => {
+        setOnlineUsers(prev => new Set(prev).add(key));
+        if (webRTCManager && key !== currentUserId) {
+          const publicKey = webRTCManager.getPublicKey();
+          if (publicKey) {
+            webRTCManager.connectToPeer(key, publicKey);
+          }
+        }
+      })
+      .on('presence', { event: 'leave' }, ({ key }) => {
+        setOnlineUsers(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(key);
+          return newSet;
+        });
+        if (webRTCManager) {
+          webRTCManager.disconnect(key);
+        }
+      })
+      .subscribe();
+
+    const status = {
+      online_at: new Date().toISOString(),
+      publicKey: webRTCManager?.getPublicKey()
+    };
+
+    channel.track(status);
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  };
 
   const handleMagicLinkLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -180,6 +235,14 @@ const Chat = () => {
 
     setIsLoading(true);
     try {
+      if (webRTCManager) {
+        onlineUsers.forEach(peerId => {
+          if (peerId !== userId) {
+            webRTCManager.sendMessage(peerId, newMessage.trim());
+          }
+        });
+      }
+
       console.log("Krypterer melding...");
       const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
       
@@ -205,10 +268,10 @@ const Chat = () => {
         setNewMessage("");
       }
     } catch (error) {
-      console.error('Encryption error:', error);
+      console.error('Error sending message:', error);
       toast({
-        title: "Krypteringsfeil",
-        description: "Kunne ikke kryptere meldingen",
+        title: "Feil",
+        description: "Kunne ikke sende melding",
         variant: "destructive",
       });
     } finally {
@@ -252,7 +315,12 @@ const Chat = () => {
       <div className="flex-1 container mx-auto max-w-4xl p-4 flex flex-col h-[calc(100vh-2rem)]">
         <div className="bg-white/80 backdrop-blur-sm rounded-lg shadow-lg p-4 flex-1 flex flex-col">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold text-theme-900">SnakkaZ Chat</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-theme-900">SnakkaZ Chat</h1>
+              <p className="text-sm text-gray-600">
+                {onlineUsers.size} online {onlineUsers.size === 1 ? 'bruker' : 'brukere'}
+              </p>
+            </div>
             <Button 
               onClick={handleSignOut}
               variant="outline"
