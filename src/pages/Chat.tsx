@@ -1,8 +1,5 @@
 
 import { useEffect, useState } from 'react';
-import { useUser } from '@supabase/auth-helpers-react';
-import { Auth } from '@supabase/auth-ui-react';
-import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { useNavigate } from 'react-router-dom';
 import { MessageList } from '@/components/MessageList';
 import { MessageInput } from '@/components/MessageInput';
@@ -10,9 +7,9 @@ import { useMessages } from '@/hooks/useMessages';
 import { useToast } from "@/components/ui/use-toast";
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { OnlineUsers } from '@/components/OnlineUsers';
+import { supabase } from "@/integrations/supabase/client";
 
 const Chat = () => {
-  const { supabaseClient } = useUser();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
@@ -24,7 +21,7 @@ const Chat = () => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabaseClient.auth.getSession();
+      const { data } = await supabase.auth.getSession();
       if (data?.session) {
         setUserId(data.session.user.id);
         setAuthLoading(false);
@@ -41,8 +38,22 @@ const Chat = () => {
         navigate('/login');
       }
     };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        navigate('/login');
+      } else if (session) {
+        setUserId(session.user.id);
+        setAuthLoading(false);
+      }
+    });
+
     checkAuth();
-  }, [supabaseClient, navigate, initializeWebRTC, setupPresenceChannel]);
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate, initializeWebRTC, setupPresenceChannel]);
 
   const { 
     messages, 
