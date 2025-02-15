@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { KeyRound, Power, Lock, Smartphone, Desktop, Video, MessageCircle, Shield, Download, LogIn, UserPlus } from "lucide-react";
+import { KeyRound, Power, Lock, Smartphone, Monitor, Video, MessageCircle, Shield, Download, LogIn, UserPlus } from "lucide-react";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -54,7 +54,7 @@ const Index = () => {
   ];
 
   const platforms = [
-    { icon: <Desktop className="w-6 h-6" />, title: "Desktop App", description: "Windows, Mac og Linux" },
+    { icon: <Monitor className="w-6 h-6" />, title: "Desktop App", description: "Windows, Mac og Linux" },
     { icon: <Smartphone className="w-6 h-6" />, title: "Mobil App", description: "iOS og Android" },
   ];
 
