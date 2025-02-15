@@ -1,11 +1,57 @@
 
 import { DecryptedMessage } from "@/types/message";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { User } from "lucide-react";
+import { User, Timer } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface MessageListProps {
   messages: DecryptedMessage[];
 }
+
+const MessageTimer = ({ message }: { message: DecryptedMessage }) => {
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!message.ephemeral_ttl) return;
+
+    const calculateTimeLeft = () => {
+      const createdAt = new Date(message.created_at).getTime();
+      const expiresAt = createdAt + (message.ephemeral_ttl * 1000);
+      const now = new Date().getTime();
+      const difference = expiresAt - now;
+      
+      return difference > 0 ? Math.ceil(difference / 1000) : 0;
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    
+    const timer = setInterval(() => {
+      const remaining = calculateTimeLeft();
+      setTimeLeft(remaining);
+      
+      if (remaining <= 0) {
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [message.created_at, message.ephemeral_ttl]);
+
+  if (!timeLeft || !message.ephemeral_ttl) return null;
+
+  const minutes = Math.floor(timeLeft / 60);
+  const seconds = timeLeft % 60;
+  const timeString = minutes > 0 
+    ? `${minutes}m ${seconds}s`
+    : `${seconds}s`;
+
+  return (
+    <div className="flex items-center gap-1 text-xs text-cyberdark-500 group-hover:text-cyberdark-400">
+      <Timer className="w-3 h-3" />
+      <span>{timeString}</span>
+    </div>
+  );
+};
 
 export const MessageList = ({ messages }: MessageListProps) => {
   return (
@@ -24,9 +70,12 @@ export const MessageList = ({ messages }: MessageListProps) => {
                 <p className="text-cyberblue-100 text-sm break-words">
                   {message.content}
                 </p>
-                <p className="text-xs text-cyberdark-600 mt-1 group-hover:text-cyberdark-500">
-                  {new Date(message.created_at).toLocaleString()}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-cyberdark-600 group-hover:text-cyberdark-500">
+                    {new Date(message.created_at).toLocaleString()}
+                  </p>
+                  <MessageTimer message={message} />
+                </div>
               </div>
             </div>
           </div>
