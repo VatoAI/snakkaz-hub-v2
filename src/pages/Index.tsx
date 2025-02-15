@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
@@ -26,7 +25,28 @@ const Index = () => {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
+          toast({
+            title: "Påloggingsfeil",
+            description: "Feil e-post eller passord. Hvis du ikke har en konto, vennligst registrer deg først.",
+            variant: "destructive",
+          });
+        } else if (error.message.includes('Email not confirmed')) {
+          toast({
+            title: "E-post ikke bekreftet",
+            description: "Vennligst bekreft e-posten din før du logger inn. Sjekk innboksen din for en bekreftelseslenke.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Feil",
+            description: error.message || "En feil oppstod under innlogging",
+            variant: "destructive",
+          });
+        }
+        return;
+      }
 
       if (data.user) {
         toast({
@@ -38,7 +58,7 @@ const Index = () => {
     } catch (error: any) {
       toast({
         title: "Feil",
-        description: error.message || "En feil oppstod under innlogging",
+        description: "En uventet feil oppstod. Prøv igjen senere.",
         variant: "destructive",
       });
     } finally {
@@ -60,7 +80,6 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-cyberdark-950 overflow-x-hidden">
-      {/* Hero Section */}
       <div className="relative min-h-screen flex items-center justify-center p-4">
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-r from-cybergold-500/20 to-transparent rounded-full filter blur-3xl animate-pulse-slow"></div>
@@ -136,13 +155,20 @@ const Index = () => {
                     "Logg inn"
                   )}
                 </Button>
+                <div className="text-center mt-4">
+                  <p className="text-cybergold-400/80 text-sm">
+                    Har du ikke en konto?{" "}
+                    <Link to="/register" className="text-cybergold-400 hover:text-cybergold-300">
+                      Registrer deg her
+                    </Link>
+                  </p>
+                </div>
               </form>
             </Card>
           )}
         </div>
       </div>
 
-      {/* Features Section */}
       <section className="py-20 bg-cyberdark-900/50">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-cybergold-300 mb-12">
@@ -164,7 +190,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Platforms Section */}
       <section className="py-20">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-center text-cybergold-300 mb-12">
@@ -194,7 +219,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Footer */}
       <footer className="py-8 border-t border-cybergold-400/20">
         <div className="container mx-auto px-4">
           <p className="text-center text-cybergold-400/60">
