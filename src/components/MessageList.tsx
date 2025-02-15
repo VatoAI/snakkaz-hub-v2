@@ -6,9 +6,10 @@ import { useState, useEffect } from "react";
 
 interface MessageListProps {
   messages: DecryptedMessage[];
+  onMessageExpired?: (messageId: string) => void;
 }
 
-const MessageTimer = ({ message }: { message: DecryptedMessage }) => {
+const MessageTimer = ({ message, onExpired }: { message: DecryptedMessage; onExpired?: () => void }) => {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   useEffect(() => {
@@ -23,24 +24,24 @@ const MessageTimer = ({ message }: { message: DecryptedMessage }) => {
       return difference > 0 ? Math.ceil(difference / 1000) : 0;
     };
 
-    // Set initial time
     setTimeLeft(calculateTimeLeft());
     
-    // Update every second
     const timer = setInterval(() => {
       const remaining = calculateTimeLeft();
       setTimeLeft(remaining);
       
       if (remaining <= 0) {
         clearInterval(timer);
+        if (onExpired) {
+          onExpired();
+        }
       }
     }, 1000);
 
-    // Cleanup on unmount
     return () => {
       clearInterval(timer);
     };
-  }, [message.created_at, message.ephemeral_ttl]);
+  }, [message.created_at, message.ephemeral_ttl, onExpired]);
 
   if (timeLeft === null || !message.ephemeral_ttl) return null;
   if (timeLeft <= 0) return null;
@@ -59,7 +60,20 @@ const MessageTimer = ({ message }: { message: DecryptedMessage }) => {
   );
 };
 
-export const MessageList = ({ messages }: MessageListProps) => {
+export const MessageList = ({ messages: initialMessages, onMessageExpired }: MessageListProps) => {
+  const [messages, setMessages] = useState(initialMessages);
+
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
+
+  const handleMessageExpired = (messageId: string) => {
+    setMessages(prev => prev.filter(msg => msg.id !== messageId));
+    if (onMessageExpired) {
+      onMessageExpired(messageId);
+    }
+  };
+
   return (
     <ScrollArea className="h-full px-4 py-4">
       <div className="space-y-4">
@@ -80,7 +94,10 @@ export const MessageList = ({ messages }: MessageListProps) => {
                   <p className="text-xs text-cyberdark-400 group-hover:text-cyberdark-300">
                     {new Date(message.created_at).toLocaleString()}
                   </p>
-                  <MessageTimer message={message} />
+                  <MessageTimer 
+                    message={message} 
+                    onExpired={() => handleMessageExpired(message.id)} 
+                  />
                 </div>
               </div>
             </div>

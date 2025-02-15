@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -163,6 +162,25 @@ export const useMessages = (userId: string | null) => {
     }
   };
 
+  const handleMessageExpired = async (messageId: string) => {
+    console.log("Message expired:", messageId);
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .delete()
+        .eq('id', messageId);
+
+      if (error) {
+        console.error("Error deleting expired message:", error);
+        return;
+      }
+
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+    } catch (error) {
+      console.error("Error handling message expiration:", error);
+    }
+  };
+
   return {
     messages,
     newMessage,
@@ -173,6 +191,7 @@ export const useMessages = (userId: string | null) => {
     fetchMessages,
     setupRealtimeSubscription,
     addP2PMessage,
-    handleSendMessage
+    handleSendMessage,
+    handleMessageExpired
   };
 };
