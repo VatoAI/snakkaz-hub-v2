@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,6 +37,8 @@ const Chat = () => {
             id: `p2p-${Date.now()}`,
             content: message,
             created_at: new Date().toISOString(),
+            encryption_key: '', // Tom siden P2P-meldinger ikke bruker kryptering
+            iv: '', // Tom siden P2P-meldinger ikke bruker kryptering
             sender: {
               username: peerId,
               full_name: null
