@@ -25,13 +25,13 @@ const Chat = () => {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error("Auth error:", error);
-          navigate('/');
+          navigate('/login');
           return;
         }
         
         if (!session) {
           console.log("No session found, redirecting to login");
-          navigate('/');
+          navigate('/login');
           return;
         }
 
@@ -49,13 +49,13 @@ const Chat = () => {
         }
       } catch (error) {
         console.error("Unexpected auth error:", error);
-        navigate('/');
+        navigate('/login');
       }
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
-        navigate('/');
+        navigate('/login');
       } else if (session) {
         setUserId(session.user.id);
         setAuthLoading(false);
