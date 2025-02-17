@@ -5,7 +5,7 @@ import { SignalingService } from './signaling';
 
 export class PeerManager {
   private connections: Map<string, PeerConnection> = new Map();
-  private signalingService: SignalingService;
+  public signalingService: SignalingService;  // Endret fra private til public
 
   constructor(
     private userId: string,
