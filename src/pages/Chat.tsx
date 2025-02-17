@@ -19,9 +19,13 @@ const Chat = () => {
   });
 
   useEffect(() => {
+    let isSubscribed = true;
+
     const checkAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
+        if (!isSubscribed) return;
+
         if (error) {
           console.error("Auth error:", error);
           toast({
@@ -40,36 +44,49 @@ const Chat = () => {
         }
 
         // Check connection by trying to access the profiles table
-        const { error: connectionError } = await supabase
-          .from('profiles')
-          .select('id')
-          .limit(1);
+        try {
+          const { error: connectionError } = await supabase
+            .from('profiles')
+            .select('id')
+            .limit(1);
 
-        if (connectionError) {
-          console.error("Connection error:", connectionError);
+          if (!isSubscribed) return;
+
+          if (connectionError) {
+            console.error("Connection error:", connectionError);
+            toast({
+              title: "Tilkoblingsfeil",
+              description: "Kunne ikke koble til serveren. Sjekk internettforbindelsen din.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          console.log("Session found:", session);
+          console.log("Access token:", session.access_token);
+          
+          setUserId(session.user.id);
+          setAuthLoading(false);
+          
+          // Initialize WebRTC after we have the user ID
+          const rtcManager = initializeWebRTC(session.user.id);
+          if (rtcManager) {
+            const cleanup = setupPresenceChannel(session.user.id);
+            return () => {
+              cleanup();
+            };
+          }
+        } catch (error) {
+          if (!isSubscribed) return;
+          console.error("Connection check error:", error);
           toast({
             title: "Tilkoblingsfeil",
-            description: "Kunne ikke koble til serveren. Sjekk internettforbindelsen din.",
+            description: "Kunne ikke verifisere tilkoblingen til serveren.",
             variant: "destructive",
           });
-          return;
-        }
-
-        console.log("Session found:", session);
-        console.log("Access token:", session.access_token);
-        
-        setUserId(session.user.id);
-        setAuthLoading(false);
-        
-        // Initialize WebRTC after we have the user ID
-        const rtcManager = initializeWebRTC(session.user.id);
-        if (rtcManager) {
-          const cleanup = setupPresenceChannel(session.user.id);
-          return () => {
-            cleanup();
-          };
         }
       } catch (error) {
+        if (!isSubscribed) return;
         console.error("Unexpected auth error:", error);
         toast({
           title: "Uventet feil",
@@ -81,6 +98,7 @@ const Chat = () => {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isSubscribed) return;
       console.log("Auth state changed:", event, session);
       if (event === 'SIGNED_OUT') {
         navigate('/login');
@@ -93,6 +111,7 @@ const Chat = () => {
     checkAuth();
 
     return () => {
+      isSubscribed = false;
       subscription.unsubscribe();
     };
   }, [navigate, initializeWebRTC, setupPresenceChannel, toast]);
@@ -112,12 +131,19 @@ const Chat = () => {
   } = useMessages(userId);
 
   useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
     if (userId) {
-      console.log("Fetching messages for user:", userId);
+      console.log("Setting up messages for user:", userId);
       fetchMessages();
-      const unsubscribe = setupRealtimeSubscription();
-      return () => unsubscribe();
+      unsubscribe = setupRealtimeSubscription();
     }
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [userId, fetchMessages, setupRealtimeSubscription]);
 
   const handleSubmit = async (e: React.FormEvent) => {

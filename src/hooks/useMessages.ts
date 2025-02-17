@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { DecryptedMessage } from "@/types/message";
@@ -12,7 +12,7 @@ export const useMessages = (userId: string | null) => {
   const [ttl, setTtl] = useState<number | null>(null);
   const { toast } = useToast();
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!userId) {
       console.log("Ingen bruker pålogget, hopper over meldingshenting");
       return;
@@ -82,9 +82,11 @@ export const useMessages = (userId: string | null) => {
         variant: "destructive",
       });
     }
-  };
+  }, [userId, toast]);
 
-  const setupRealtimeSubscription = () => {
+  const setupRealtimeSubscription = useCallback(() => {
+    if (!userId) return () => {};
+
     console.log("Setter opp sanntidsabonnement...");
     const channel = supabase
       .channel('public:messages')
@@ -149,9 +151,9 @@ export const useMessages = (userId: string | null) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  };
+  }, [userId]);
 
-  const addP2PMessage = (message: string, peerId: string) => {
+  const addP2PMessage = useCallback((message: string, peerId: string) => {
     const p2pMessage: DecryptedMessage = {
       id: `p2p-${Date.now()}`,
       content: message,
@@ -164,9 +166,9 @@ export const useMessages = (userId: string | null) => {
       }
     };
     setMessages(prev => [...prev, p2pMessage]);
-  };
+  }, []);
 
-  const handleSendMessage = async (webRTCManager: any, onlineUsers: Set<string>) => {
+  const handleSendMessage = useCallback(async (webRTCManager: any, onlineUsers: Set<string>) => {
     if (!newMessage.trim() || !userId) {
       console.log("Ingen melding å sende eller bruker ikke pålogget");
       return;
@@ -217,9 +219,9 @@ export const useMessages = (userId: string | null) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [newMessage, userId, ttl, toast]);
 
-  const handleMessageExpired = async (messageId: string) => {
+  const handleMessageExpired = useCallback(async (messageId: string) => {
     console.log("Message expired:", messageId);
     try {
       const { error } = await supabase
@@ -236,7 +238,7 @@ export const useMessages = (userId: string | null) => {
     } catch (error) {
       console.error("Error handling message expiration:", error);
     }
-  };
+  }, []);
 
   return {
     messages,
@@ -252,4 +254,3 @@ export const useMessages = (userId: string | null) => {
     handleMessageExpired
   };
 };
-
