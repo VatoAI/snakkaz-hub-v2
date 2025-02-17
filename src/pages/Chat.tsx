@@ -21,20 +21,10 @@ const Chat = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Test Supabase tilkobling først
-        try {
-          const response = await fetch('https://wqpoozpbceucynsojmbk.supabase.co/rest/v1/health', {
-            method: 'GET',
-            headers: {
-              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndxcG9venBiY2V1Y3luc29qbWJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzk1NjgzMDUsImV4cCI6MjA1NTE0NDMwNX0.vu1s86gQKEPXFleOZ1U2uOjW-kj4k4RAiKTbOuXPUD8'
-            }
-          });
-          console.log("Supabase health check response:", response.status);
-          if (!response.ok) {
-            throw new Error('Kunne ikke koble til Supabase');
-          }
-        } catch (error) {
-          console.error("Supabase tilkoblingsfeil:", error);
+        // Check Supabase connection using the supabase client directly
+        const { error: healthCheckError } = await supabase.from('health').select('status').maybeSingle();
+        if (healthCheckError) {
+          console.error("Supabase connection error:", healthCheckError);
           toast({
             title: "Tilkoblingsfeil",
             description: "Kunne ikke koble til serveren. Sjekk internettforbindelsen din.",
