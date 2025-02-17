@@ -7,13 +7,17 @@ import { useMessages } from '@/hooks/useMessages';
 import { useToast } from "@/components/ui/use-toast";
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { supabase } from "@/integrations/supabase/client";
+import { OnlineUsers } from '@/components/OnlineUsers';
+import { UserPresence, UserStatus } from '@/types/presence';
 
 const Chat = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const [userPresence, setUserPresence] = useState<Record<string, UserPresence>>({});
+  const [currentStatus, setCurrentStatus] = useState<UserStatus>('online');
+  
   const { webRTCManager, setupPresenceChannel, initializeWebRTC } = useWebRTC(userId, (message: string, peerId: string) => {
     addP2PMessage(message, peerId);
   });
@@ -43,7 +47,6 @@ const Chat = () => {
           return;
         }
 
-        // Check connection by trying to access the profiles table
         try {
           const { error: connectionError } = await supabase
             .from('profiles')
@@ -63,8 +66,6 @@ const Chat = () => {
           }
 
           console.log("Session found:", session);
-          console.log("Access token:", session.access_token);
-          
           setUserId(session.user.id);
           setAuthLoading(false);
           
@@ -130,6 +131,89 @@ const Chat = () => {
     handleMessageExpired
   } = useMessages(userId);
 
+  // Set up real-time presence
+  useEffect(() => {
+    if (!userId) return;
+
+    const setupPresence = async () => {
+      // Insert or update initial presence
+      const { error: upsertError } = await supabase
+        .from('user_presence')
+        .upsert({
+          user_id: userId,
+          status: currentStatus,
+          last_seen: new Date().toISOString()
+        });
+
+      if (upsertError) {
+        console.error("Error setting initial presence:", upsertError);
+      }
+
+      // Subscribe to presence changes
+      const channel = supabase
+        .channel('public:user_presence')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_presence'
+          },
+          async (payload) => {
+            const { data: presenceData, error } = await supabase
+              .from('user_presence')
+              .select('*');
+
+            if (error) {
+              console.error("Error fetching presence data:", error);
+              return;
+            }
+
+            if (presenceData) {
+              const presenceMap = presenceData.reduce((acc, presence) => ({
+                ...acc,
+                [presence.user_id]: presence
+              }), {});
+              setUserPresence(presenceMap);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    const cleanup = setupPresence();
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn?.());
+    };
+  }, [userId, currentStatus]);
+
+  // Handle status changes
+  const handleStatusChange = async (newStatus: UserStatus) => {
+    if (!userId) return;
+
+    setCurrentStatus(newStatus);
+    const { error } = await supabase
+      .from('user_presence')
+      .upsert({
+        user_id: userId,
+        status: newStatus,
+        last_seen: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error("Error updating status:", error);
+      toast({
+        title: "Feil",
+        description: "Kunne ikke oppdatere status",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
@@ -149,7 +233,7 @@ const Chat = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (webRTCManager && userId) {
-      await handleSendMessage(webRTCManager, onlineUsers);
+      await handleSendMessage(webRTCManager, new Set(Object.keys(userPresence)));
     } else {
       toast({
         title: "WebRTC ikke initialisert",
@@ -165,10 +249,15 @@ const Chat = () => {
 
   return (
     <div className="flex flex-col h-screen bg-cyberdark-900">
-      <div className="p-4 border-b border-cybergold-500/30 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-cybergold-200">CyberChat 2077</h1>
-        <div className="text-cybergold-200">
-          {Array.from(onlineUsers).length} online
+      <div className="p-4 border-b border-cybergold-500/30">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-cybergold-200">CyberChat 2077</h1>
+          <OnlineUsers
+            userPresence={userPresence}
+            currentUserId={userId}
+            onStatusChange={handleStatusChange}
+            currentStatus={currentStatus}
+          />
         </div>
       </div>
       

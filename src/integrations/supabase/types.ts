@@ -146,6 +146,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_presence: {
+        Row: {
+          id: string
+          last_seen: string
+          status: Database["public"]["Enums"]["user_status"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_seen?: string
+          status?: Database["public"]["Enums"]["user_status"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_seen?: string
+          status?: Database["public"]["Enums"]["user_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -154,7 +175,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_status: "online" | "busy" | "brb"
     }
     CompositeTypes: {
       [_ in never]: never
