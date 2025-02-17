@@ -36,6 +36,24 @@ export type Database = {
         }
         Relationships: []
       }
+      health: {
+        Row: {
+          id: string
+          last_checked: string
+          status: string
+        }
+        Insert: {
+          id?: string
+          last_checked?: string
+          status?: string
+        }
+        Update: {
+          id?: string
+          last_checked?: string
+          status?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           created_at: string
