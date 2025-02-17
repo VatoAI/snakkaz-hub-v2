@@ -21,18 +21,6 @@ const Chat = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        // Check Supabase connection using the supabase client directly
-        const { error: healthCheckError } = await supabase.from('health').select('status').maybeSingle();
-        if (healthCheckError) {
-          console.error("Supabase connection error:", healthCheckError);
-          toast({
-            title: "Tilkoblingsfeil",
-            description: "Kunne ikke koble til serveren. Sjekk internettforbindelsen din.",
-            variant: "destructive",
-          });
-          return;
-        }
-
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error("Auth error:", error);
@@ -51,9 +39,24 @@ const Chat = () => {
           return;
         }
 
+        // Check connection by trying to access the profiles table
+        const { error: connectionError } = await supabase
+          .from('profiles')
+          .select('id')
+          .limit(1);
+
+        if (connectionError) {
+          console.error("Connection error:", connectionError);
+          toast({
+            title: "Tilkoblingsfeil",
+            description: "Kunne ikke koble til serveren. Sjekk internettforbindelsen din.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         console.log("Session found:", session);
         console.log("Access token:", session.access_token);
-        console.log("Supabase connection status:", supabase);
         
         setUserId(session.user.id);
         setAuthLoading(false);
