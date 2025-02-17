@@ -41,7 +41,18 @@ export const useRegister = ({
         password,
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        if (authError.message.includes("User already registered")) {
+          toast({
+            title: "Registrering feilet",
+            description: "En bruker med denne e-postadressen finnes allerede. Prøv å logge inn i stedet.",
+            variant: "destructive",
+          });
+          navigate("/"); // Redirect to login page
+          return;
+        }
+        throw authError;
+      }
 
       if (authData.user) {
         const { data: session } = await supabase.auth.getSession();
