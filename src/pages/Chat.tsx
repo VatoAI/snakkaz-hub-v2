@@ -251,7 +251,7 @@ const Chat = () => {
     <div className="flex flex-col h-screen bg-cyberdark-900">
       <div className="p-4 border-b border-cybergold-500/30">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-cybergold-200">CyberChat 2077</h1>
+          <h1 className="text-2xl font-bold text-cybergold-200">SnakkaZ</h1>
           <OnlineUsers
             userPresence={userPresence}
             currentUserId={userId}
