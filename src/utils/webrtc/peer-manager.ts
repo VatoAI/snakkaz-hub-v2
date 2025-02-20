@@ -1,6 +1,8 @@
+
 import SimplePeer from 'simple-peer';
 import { PeerConnection } from './types';
 import { SignalingService } from './signaling';
+import 'web-streams-polyfill';
 
 const DEFAULT_CONFIG = {
   iceServers: [
@@ -60,21 +62,28 @@ export class PeerManager {
     let connection = this.connections.get(sender_id);
     if (!connection) {
       console.log('Creating new peer connection for incoming signal');
-      const peer = new SimplePeer({
+      const peerOptions = {
         initiator: false,
         trickle: true,
         config: DEFAULT_CONFIG,
-        objectMode: true
-      });
-
-      connection = {
-        peer,
-        connection: peer._pc,
-        dataChannel: null
+        objectMode: true,
+        streams: []  // Add empty streams array to prevent stream initialization
       };
 
-      this.connections.set(sender_id, connection);
-      this.setupPeerEventHandlers(peer, sender_id);
+      try {
+        const peer = new SimplePeer(peerOptions);
+        connection = {
+          peer,
+          connection: peer._pc,
+          dataChannel: null
+        };
+
+        this.connections.set(sender_id, connection);
+        this.setupPeerEventHandlers(peer, sender_id);
+      } catch (error) {
+        console.error('Error creating peer:', error);
+        throw error;
+      }
     }
 
     try {
@@ -82,28 +91,36 @@ export class PeerManager {
     } catch (error) {
       console.error('Error handling signal:', error);
       this.connections.delete(sender_id);
+      throw error;
     }
   }
 
   async createPeer(peerId: string) {
     console.log('Creating new peer connection');
-    const peer = new SimplePeer({
+    const peerOptions = {
       initiator: true,
       trickle: true,
       config: DEFAULT_CONFIG,
-      objectMode: true
-    });
-
-    this.setupPeerEventHandlers(peer, peerId);
-
-    const connection = {
-      peer,
-      connection: peer._pc,
-      dataChannel: null
+      objectMode: true,
+      streams: []  // Add empty streams array to prevent stream initialization
     };
 
-    this.connections.set(peerId, connection);
-    return peer;
+    try {
+      const peer = new SimplePeer(peerOptions);
+      this.setupPeerEventHandlers(peer, peerId);
+
+      const connection = {
+        peer,
+        connection: peer._pc,
+        dataChannel: null
+      };
+
+      this.connections.set(peerId, connection);
+      return peer;
+    } catch (error) {
+      console.error('Error creating peer:', error);
+      throw error;
+    }
   }
 
   getPeerConnection(peerId: string) {
