@@ -1,5 +1,4 @@
 
-import SimplePeer from 'simple-peer';
 import { PeerConnection } from './types';
 import { SignalingService } from './signaling';
 
@@ -20,39 +19,54 @@ export class PeerManager {
     this.signalingService = new SignalingService(userId);
   }
 
-  setupPeerEventHandlers(peer: SimplePeer.Instance, peerId: string) {
-    peer.on('signal', async (data) => {
-      await this.signalingService.sendSignal({
-        sender_id: this.userId,
-        receiver_id: peerId,
-        signal_data: data
-      });
-    });
+  private async setupDataChannel(connection: PeerConnection, peerId: string) {
+    if (connection.connection.connectionState === 'connected') {
+      const dataChannel = connection.connection.createDataChannel('messageChannel');
+      connection.dataChannel = dataChannel;
 
-    peer.on('connect', () => {
-      console.log('Connected to peer:', peerId);
-    });
-
-    peer.on('data', async (data) => {
-      if (this.onMessageCallback) {
-        try {
-          const message = data.toString();
-          this.onMessageCallback(message, peerId);
-        } catch (error) {
-          console.error('Error handling incoming message:', error);
+      dataChannel.onmessage = (event) => {
+        if (this.onMessageCallback) {
+          this.onMessageCallback(event.data, peerId);
         }
+      };
+
+      dataChannel.onopen = () => {
+        console.log('Data channel opened');
+      };
+
+      dataChannel.onclose = () => {
+        console.log('Data channel closed');
+      };
+    }
+  }
+
+  private setupConnectionEventHandlers(connection: PeerConnection, peerId: string) {
+    connection.connection.onicecandidate = async (event) => {
+      if (event.candidate) {
+        await this.signalingService.sendSignal({
+          sender_id: this.userId,
+          receiver_id: peerId,
+          signal_data: { candidate: event.candidate }
+        });
       }
-    });
+    };
 
-    peer.on('error', (err) => {
-      console.error('Peer error:', err);
-      this.connections.delete(peerId);
-    });
+    connection.connection.ondatachannel = (event) => {
+      connection.dataChannel = event.channel;
+      
+      event.channel.onmessage = (e) => {
+        if (this.onMessageCallback) {
+          this.onMessageCallback(e.data, peerId);
+        }
+      };
+    };
 
-    peer.on('close', () => {
-      console.log('Peer connection closed:', peerId);
-      this.connections.delete(peerId);
-    });
+    connection.connection.onconnectionstatechange = () => {
+      console.log('Connection state:', connection.connection.connectionState);
+      if (connection.connection.connectionState === 'connected') {
+        this.setupDataChannel(connection, peerId);
+      }
+    };
   }
 
   async handleIncomingSignal(signal: any) {
@@ -61,33 +75,33 @@ export class PeerManager {
     let connection = this.connections.get(sender_id);
     if (!connection) {
       console.log('Creating new peer connection for incoming signal');
-      const peerOptions = {
-        initiator: false,
-        trickle: true,
-        config: DEFAULT_CONFIG,
-        channelConfig: {
-          ordered: true
-        }
+      const peerConnection = new RTCPeerConnection(DEFAULT_CONFIG);
+      
+      connection = {
+        peer: null,
+        connection: peerConnection,
+        dataChannel: null
       };
 
-      try {
-        const peer = new SimplePeer(peerOptions);
-        connection = {
-          peer,
-          connection: peer._pc,
-          dataChannel: null
-        };
-
-        this.connections.set(sender_id, connection);
-        this.setupPeerEventHandlers(peer, sender_id);
-      } catch (error) {
-        console.error('Error creating peer:', error);
-        throw error;
-      }
+      this.connections.set(sender_id, connection);
+      this.setupConnectionEventHandlers(connection, sender_id);
     }
 
     try {
-      connection.peer.signal(signal_data);
+      if (signal_data.candidate) {
+        await connection.connection.addIceCandidate(new RTCIceCandidate(signal_data.candidate));
+      } else if (signal_data.sdp) {
+        await connection.connection.setRemoteDescription(new RTCSessionDescription(signal_data));
+        if (signal_data.type === 'offer') {
+          const answer = await connection.connection.createAnswer();
+          await connection.connection.setLocalDescription(answer);
+          await this.signalingService.sendSignal({
+            sender_id: this.userId,
+            receiver_id: sender_id,
+            signal_data: connection.connection.localDescription
+          });
+        }
+      }
     } catch (error) {
       console.error('Error handling signal:', error);
       this.connections.delete(sender_id);
@@ -97,27 +111,27 @@ export class PeerManager {
 
   async createPeer(peerId: string) {
     console.log('Creating new peer connection');
-    const peerOptions = {
-      initiator: true,
-      trickle: true,
-      config: DEFAULT_CONFIG,
-      channelConfig: {
-        ordered: true
-      }
+    const peerConnection = new RTCPeerConnection(DEFAULT_CONFIG);
+
+    const connection: PeerConnection = {
+      peer: null,
+      connection: peerConnection,
+      dataChannel: null
     };
 
+    this.setupConnectionEventHandlers(connection, peerId);
+    
     try {
-      const peer = new SimplePeer(peerOptions);
-      this.setupPeerEventHandlers(peer, peerId);
-
-      const connection = {
-        peer,
-        connection: peer._pc,
-        dataChannel: null
-      };
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      await this.signalingService.sendSignal({
+        sender_id: this.userId,
+        receiver_id: peerId,
+        signal_data: peerConnection.localDescription
+      });
 
       this.connections.set(peerId, connection);
-      return peer;
+      return connection;
     } catch (error) {
       console.error('Error creating peer:', error);
       throw error;
@@ -131,7 +145,7 @@ export class PeerManager {
   disconnect(peerId: string) {
     const connection = this.connections.get(peerId);
     if (connection) {
-      connection.peer.destroy();
+      connection.connection.close();
       this.connections.delete(peerId);
     }
   }

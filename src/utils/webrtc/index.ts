@@ -34,7 +34,7 @@ export class WebRTCManager {
     }
 
     try {
-      const peer = await this.peerManager.createPeer(peerId);
+      const connection = await this.peerManager.createPeer(peerId);
 
       await establishSecureConnection(
         this.localKeyPair.publicKey,
@@ -42,7 +42,7 @@ export class WebRTCManager {
         peerPublicKey
       );
 
-      return peer;
+      return connection;
     } catch (error) {
       console.error('Error connecting to peer:', error);
       throw error;
@@ -51,12 +51,12 @@ export class WebRTCManager {
 
   public async sendMessage(peerId: string, message: string) {
     const connection = this.peerManager.getPeerConnection(peerId);
-    if (!connection) {
+    if (!connection || !connection.dataChannel) {
       throw new Error('No connection found for peer');
     }
 
     try {
-      connection.peer.send(message);
+      connection.dataChannel.send(message);
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
