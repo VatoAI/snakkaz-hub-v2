@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -76,14 +76,17 @@ export const OnlineUsers = ({
                 currentStatus === status && "bg-cyberdark-700"
               )}
             >
-              {React.createElement(statusIcons[status as UserStatus], {
-                className: cn(
-                  "w-4 h-4",
-                  status === 'online' && "text-green-500",
-                  status === 'busy' && "text-yellow-500",
-                  status === 'brb' && "text-blue-500"
-                )
-              })}
+              {(() => {
+                const Icon = statusIcons[status as UserStatus];
+                return (
+                  <Icon className={cn(
+                    "w-4 h-4",
+                    status === 'online' && "text-green-500",
+                    status === 'busy' && "text-yellow-500",
+                    status === 'brb' && "text-blue-500"
+                  )} />
+                );
+              })()}
               {label}
             </DropdownMenuItem>
           ))}
@@ -94,14 +97,17 @@ export const OnlineUsers = ({
         {Object.entries(userPresence).map(([userId, presence]) => (
           userId !== currentUserId && (
             <div key={userId} className="flex items-center gap-2">
-              {React.createElement(statusIcons[presence.status], {
-                className: cn(
-                  "w-3 h-3",
-                  presence.status === 'online' && "text-green-500",
-                  presence.status === 'busy' && "text-yellow-500",
-                  presence.status === 'brb' && "text-blue-500"
-                )
-              })}
+              {(() => {
+                const Icon = statusIcons[presence.status];
+                return (
+                  <Icon className={cn(
+                    "w-3 h-3",
+                    presence.status === 'online' && "text-green-500",
+                    presence.status === 'busy' && "text-yellow-500",
+                    presence.status === 'brb' && "text-blue-500"
+                  )} />
+                );
+              })()}
               <span>
                 {presence.user_id}
               </span>
