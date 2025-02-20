@@ -4,13 +4,6 @@ import { PeerConnection } from './types';
 import { SignalingService } from './signaling';
 import 'web-streams-polyfill';
 
-// Define a minimal custom stream implementation
-const dummyStream = new ReadableStream({
-  start(controller) {
-    controller.close();
-  }
-});
-
 const DEFAULT_CONFIG = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' }
@@ -73,8 +66,11 @@ export class PeerManager {
         initiator: false,
         trickle: true,
         config: DEFAULT_CONFIG,
-        // Provide a basic stream implementation
-        stream: dummyStream as any
+        wrtc: {
+          RTCPeerConnection: window.RTCPeerConnection,
+          RTCSessionDescription: window.RTCSessionDescription,
+          RTCIceCandidate: window.RTCIceCandidate
+        }
       };
 
       try {
@@ -108,8 +104,11 @@ export class PeerManager {
       initiator: true,
       trickle: true,
       config: DEFAULT_CONFIG,
-      // Provide a basic stream implementation
-      stream: dummyStream as any
+      wrtc: {
+        RTCPeerConnection: window.RTCPeerConnection,
+        RTCSessionDescription: window.RTCSessionDescription,
+        RTCIceCandidate: window.RTCIceCandidate
+      }
     };
 
     try {
