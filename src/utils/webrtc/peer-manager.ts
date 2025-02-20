@@ -5,7 +5,7 @@ import { SignalingService } from './signaling';
 
 export class PeerManager {
   private connections: Map<string, PeerConnection> = new Map();
-  public signalingService: SignalingService;  // Endret fra private til public
+  public signalingService: SignalingService;
 
   constructor(
     private userId: string,
@@ -54,10 +54,17 @@ export class PeerManager {
     
     let connection = this.connections.get(sender_id);
     if (!connection) {
+      console.log('Creating new peer connection for incoming signal');
       const peer = new SimplePeer({
         initiator: false,
         trickle: false,
-        wrtc
+        config: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:global.stun.twilio.com:3478' }
+          ]
+        },
+        wrtc: wrtc.RTCPeerConnection ? wrtc : undefined
       });
 
       connection = {
@@ -70,14 +77,26 @@ export class PeerManager {
       this.setupPeerEventHandlers(peer, sender_id);
     }
 
-    connection.peer.signal(signal_data);
+    try {
+      connection.peer.signal(signal_data);
+    } catch (error) {
+      console.error('Error handling signal:', error);
+      this.connections.delete(sender_id);
+    }
   }
 
   async createPeer(peerId: string) {
+    console.log('Creating new peer connection');
     const peer = new SimplePeer({
       initiator: true,
       trickle: false,
-      wrtc
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:global.stun.twilio.com:3478' }
+        ]
+      },
+      wrtc: wrtc.RTCPeerConnection ? wrtc : undefined
     });
 
     this.setupPeerEventHandlers(peer, peerId);

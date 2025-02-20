@@ -10,9 +10,11 @@ export interface PeerConnection {
 
 export type SignalingInsert = Database['public']['Tables']['signaling']['Insert'];
 
-// WebRTC polyfill
+// WebRTC polyfill with null checks and defaults
 export const wrtc = {
-  RTCPeerConnection: window.RTCPeerConnection,
-  RTCSessionDescription: window.RTCSessionDescription,
-  RTCIceCandidate: window.RTCIceCandidate,
+  RTCPeerConnection: window?.RTCPeerConnection || null,
+  RTCSessionDescription: window?.RTCSessionDescription || null,
+  RTCIceCandidate: window?.RTCIceCandidate || null,
+  RTCRtpReceiver: window?.RTCRtpReceiver || null, // Add this
+  RTCRtpSender: window?.RTCRtpSender || null,     // Add this
 };
