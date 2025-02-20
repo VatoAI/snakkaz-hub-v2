@@ -10,9 +10,9 @@ export interface PeerConnection {
 
 export type SignalingInsert = Database['public']['Tables']['signaling']['Insert'];
 
-// Browser-compatible WebRTC implementation
-export const wrtc = typeof window !== 'undefined' ? {
-  RTCPeerConnection: window.RTCPeerConnection,
-  RTCSessionDescription: window.RTCSessionDescription,
-  RTCIceCandidate: window.RTCIceCandidate
-} : null;
+// Only define WebRTC types, don't try to polyfill
+export type WebRTCTypes = {
+  RTCPeerConnection: typeof RTCPeerConnection;
+  RTCSessionDescription: typeof RTCSessionDescription;
+  RTCIceCandidate: typeof RTCIceCandidate;
+};

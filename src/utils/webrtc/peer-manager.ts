@@ -1,7 +1,12 @@
-
 import SimplePeer from 'simple-peer';
-import { PeerConnection, wrtc } from './types';
+import { PeerConnection } from './types';
 import { SignalingService } from './signaling';
+
+const DEFAULT_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' }
+  ]
+};
 
 export class PeerManager {
   private connections: Map<string, PeerConnection> = new Map();
@@ -58,16 +63,8 @@ export class PeerManager {
       const peer = new SimplePeer({
         initiator: false,
         trickle: true,
-        config: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { 
-              urls: 'turn:global.turn.twilio.com:3478',
-              username: 'your_username',
-              credential: 'your_password'
-            }
-          ]
-        }
+        config: DEFAULT_CONFIG,
+        objectMode: true
       });
 
       connection = {
@@ -93,16 +90,8 @@ export class PeerManager {
     const peer = new SimplePeer({
       initiator: true,
       trickle: true,
-      config: {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { 
-            urls: 'turn:global.turn.twilio.com:3478',
-            username: 'your_username',
-            credential: 'your_password'
-          }
-        ]
-      }
+      config: DEFAULT_CONFIG,
+      objectMode: true
     });
 
     this.setupPeerEventHandlers(peer, peerId);
