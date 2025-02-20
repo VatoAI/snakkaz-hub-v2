@@ -2,7 +2,6 @@
 import SimplePeer from 'simple-peer';
 import { PeerConnection } from './types';
 import { SignalingService } from './signaling';
-import 'web-streams-polyfill';
 
 const DEFAULT_CONFIG = {
   iceServers: [
@@ -66,10 +65,8 @@ export class PeerManager {
         initiator: false,
         trickle: true,
         config: DEFAULT_CONFIG,
-        wrtc: {
-          RTCPeerConnection: window.RTCPeerConnection,
-          RTCSessionDescription: window.RTCSessionDescription,
-          RTCIceCandidate: window.RTCIceCandidate
+        channelConfig: {
+          ordered: true
         }
       };
 
@@ -104,10 +101,8 @@ export class PeerManager {
       initiator: true,
       trickle: true,
       config: DEFAULT_CONFIG,
-      wrtc: {
-        RTCPeerConnection: window.RTCPeerConnection,
-        RTCSessionDescription: window.RTCSessionDescription,
-        RTCIceCandidate: window.RTCIceCandidate
+      channelConfig: {
+        ordered: true
       }
     };
 
