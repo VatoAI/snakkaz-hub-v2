@@ -57,14 +57,17 @@ export class PeerManager {
       console.log('Creating new peer connection for incoming signal');
       const peer = new SimplePeer({
         initiator: false,
-        trickle: false,
+        trickle: true,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
+            { 
+              urls: 'turn:global.turn.twilio.com:3478',
+              username: 'your_username',
+              credential: 'your_password'
+            }
           ]
-        },
-        wrtc: wrtc.RTCPeerConnection ? wrtc : undefined
+        }
       });
 
       connection = {
@@ -89,14 +92,17 @@ export class PeerManager {
     console.log('Creating new peer connection');
     const peer = new SimplePeer({
       initiator: true,
-      trickle: false,
+      trickle: true,
       config: {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:global.stun.twilio.com:3478' }
+          { 
+            urls: 'turn:global.turn.twilio.com:3478',
+            username: 'your_username',
+            credential: 'your_password'
+          }
         ]
-      },
-      wrtc: wrtc.RTCPeerConnection ? wrtc : undefined
+      }
     });
 
     this.setupPeerEventHandlers(peer, peerId);
