@@ -43,10 +43,18 @@ export class PeerManager {
   private setupConnectionEventHandlers(connection: PeerConnection, peerId: string) {
     connection.connection.onicecandidate = async (event) => {
       if (event.candidate) {
+        // Convert ICE candidate to plain object
+        const candidateJson = {
+          candidate: event.candidate.candidate,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+          sdpMid: event.candidate.sdpMid,
+          usernameFragment: event.candidate.usernameFragment
+        };
+
         await this.signalingService.sendSignal({
           sender_id: this.userId,
           receiver_id: peerId,
-          signal_data: { candidate: event.candidate }
+          signal_data: { candidate: candidateJson }
         });
       }
     };
@@ -89,16 +97,32 @@ export class PeerManager {
 
     try {
       if (signal_data.candidate) {
-        await connection.connection.addIceCandidate(new RTCIceCandidate(signal_data.candidate));
+        // Create RTCIceCandidate from plain object
+        const iceCandidate = new RTCIceCandidate(signal_data.candidate);
+        await connection.connection.addIceCandidate(iceCandidate);
       } else if (signal_data.sdp) {
-        await connection.connection.setRemoteDescription(new RTCSessionDescription(signal_data));
+        // Create RTCSessionDescription from plain object
+        const sessionDescription = new RTCSessionDescription({
+          type: signal_data.type,
+          sdp: signal_data.sdp
+        });
+        
+        await connection.connection.setRemoteDescription(sessionDescription);
+        
         if (signal_data.type === 'offer') {
           const answer = await connection.connection.createAnswer();
           await connection.connection.setLocalDescription(answer);
+          
+          // Convert RTCSessionDescription to plain object
+          const answerJson = {
+            type: answer.type,
+            sdp: answer.sdp
+          };
+          
           await this.signalingService.sendSignal({
             sender_id: this.userId,
             receiver_id: sender_id,
-            signal_data: connection.connection.localDescription
+            signal_data: answerJson
           });
         }
       }
@@ -124,10 +148,17 @@ export class PeerManager {
     try {
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
+      
+      // Convert RTCSessionDescription to plain object
+      const offerJson = {
+        type: offer.type,
+        sdp: offer.sdp
+      };
+
       await this.signalingService.sendSignal({
         sender_id: this.userId,
         receiver_id: peerId,
-        signal_data: peerConnection.localDescription
+        signal_data: offerJson
       });
 
       this.connections.set(peerId, connection);
