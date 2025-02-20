@@ -244,20 +244,26 @@ const Chat = () => {
   };
 
   if (authLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen bg-cyberdark-900">
+        <div className="animate-pulse text-cybergold-200">Laster...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-cyberdark-900">
-      <div className="p-4 border-b border-cybergold-500/30">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-cybergold-200">SnakkaZ</h1>
-          <OnlineUsers
-            userPresence={userPresence}
-            currentUserId={userId}
-            onStatusChange={handleStatusChange}
-            currentStatus={currentStatus}
-          />
+    <div className="flex flex-col h-[100dvh] bg-cyberdark-900 max-w-full overflow-hidden">
+      <div className="p-2 sm:p-4 border-b border-cybergold-500/30">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-cybergold-200">SnakkaZ</h1>
+          <div className="w-full sm:w-auto">
+            <OnlineUsers
+              userPresence={userPresence}
+              currentUserId={userId}
+              onStatusChange={handleStatusChange}
+              currentStatus={currentStatus}
+            />
+          </div>
         </div>
       </div>
       
@@ -268,7 +274,7 @@ const Chat = () => {
         />
       </div>
 
-      <div className="p-4 border-t border-cybergold-500/30">
+      <div className="p-2 sm:p-4 border-t border-cybergold-500/30">
         <MessageInput
           newMessage={newMessage}
           setNewMessage={setNewMessage}

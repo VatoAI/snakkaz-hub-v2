@@ -28,15 +28,15 @@ export const MessageInput = ({
 }: MessageInputProps) => {
   const ttlOptions = [
     { label: 'Normal melding', value: null },
-    { label: '30 sekunder', value: 30 },
-    { label: '5 minutter', value: 300 },
-    { label: '30 minutter', value: 1800 },
+    { label: '30 sek', value: 30 },
+    { label: '5 min', value: 300 },
+    { label: '30 min', value: 1800 },
     { label: '1 time', value: 3600 }
   ];
 
   return (
-    <form onSubmit={onSubmit} className="flex gap-2">
-      <div className="flex-1 flex gap-2">
+    <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-2">
+      <div className="flex-1 flex gap-2 w-full">
         <Input
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
@@ -49,11 +49,12 @@ export const MessageInput = ({
             <Button 
               type="button"
               variant="outline" 
+              size="icon"
               className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700"
               disabled={isLoading}
             >
-              <Clock className="w-4 h-4 mr-2" />
-              {ttl ? `${ttl}s` : 'Fast'}
+              <Clock className="w-4 h-4" />
+              <span className="sr-only">Velg tidsgrense</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-cyberdark-800 border-cybergold-500/30">
@@ -63,7 +64,7 @@ export const MessageInput = ({
                 onClick={() => setTtl(option.value)}
                 className="text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700 cursor-pointer"
               >
-                {option.label}
+                {option.label} {ttl === option.value && '✓'}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -72,10 +73,11 @@ export const MessageInput = ({
       <Button 
         type="submit" 
         disabled={isLoading || !newMessage.trim()}
-        className="bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-900 shadow-neon-gold transition-all duration-300 flex items-center gap-2"
+        className="w-full sm:w-auto bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-900 shadow-neon-gold transition-all duration-300 flex items-center justify-center gap-2"
       >
         <Send className="w-4 h-4" />
-        <span>Send</span>
+        <span className="sm:hidden">Send melding</span>
+        <span className="hidden sm:inline">Send</span>
       </Button>
     </form>
   );

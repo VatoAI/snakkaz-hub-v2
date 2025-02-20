@@ -75,23 +75,23 @@ export const MessageList = ({ messages: initialMessages, onMessageExpired }: Mes
   };
 
   return (
-    <ScrollArea className="h-full px-4 py-4">
-      <div className="space-y-4">
+    <ScrollArea className="h-full px-2 sm:px-4 py-2 sm:py-4">
+      <div className="space-y-2 sm:space-y-4">
         {messages.map((message) => (
           <div key={message.id} className="animate-fadeIn">
-            <div className="group flex items-start gap-x-3 hover:bg-cyberdark-800/50 p-3 rounded-lg transition-all duration-300">
-              <div className="w-8 h-8 rounded-full bg-cyberdark-700 border border-cybergold-500/30 flex items-center justify-center flex-shrink-0">
-                <User className="w-4 h-4 text-cybergold-400" />
+            <div className="group flex items-start gap-x-2 sm:gap-x-3 hover:bg-cyberdark-800/50 p-2 sm:p-3 rounded-lg transition-all duration-300">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-cyberdark-700 border border-cybergold-500/30 flex items-center justify-center flex-shrink-0">
+                <User className="w-3 h-3 sm:w-4 sm:h-4 text-cybergold-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-cybergold-300 mb-1 group-hover:text-cybergold-200 transition-colors">
+                <p className="text-xs sm:text-sm font-medium text-cybergold-300 mb-1 group-hover:text-cybergold-200 transition-colors">
                   {message.sender.full_name || message.sender.username || 'Anonym'}
                 </p>
-                <p className="text-cyberblue-100 text-sm break-words">
+                <p className="text-cyberblue-100 text-xs sm:text-sm break-words">
                   {message.content}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <p className="text-xs text-cyberdark-400 group-hover:text-cyberdark-300">
+                  <p className="text-[10px] sm:text-xs text-cyberdark-400 group-hover:text-cyberdark-300">
                     {new Date(message.created_at).toLocaleString()}
                   </p>
                   <MessageTimer 
