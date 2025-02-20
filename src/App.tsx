@@ -6,6 +6,7 @@ import Chat from '@/pages/Chat';
 import Login from '@/pages/Login';
 import NotFound from '@/pages/NotFound';
 import Register from '@/pages/Register';
+import Profile from '@/pages/Profile';
 import "./App.css";
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
         <Route path="/chat" element={<Chat />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />
