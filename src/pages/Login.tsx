@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,7 +25,6 @@ const Login = () => {
       if (error) {
         console.error('Login error details:', error);
         
-        // Mer spesifikke feilmeldinger basert på feilkoden
         if (error.message.includes('Invalid login credentials')) {
           toast({
             title: "Påloggingsfeil",
@@ -50,7 +48,7 @@ const Login = () => {
       }
 
       if (data.user) {
-        navigate('/chat');
+        window.location.href = 'https://www.SnakkaZ.com/chat';
       }
     } catch (error) {
       console.error('Unexpected login error:', error);
@@ -69,7 +67,6 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // Validate password length
       if (password.length < 6) {
         toast({
           title: "Ugyldig passord",
@@ -84,7 +81,7 @@ const Login = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/chat`
+          emailRedirectTo: 'https://www.SnakkaZ.com/chat'
         }
       });
 
@@ -169,7 +166,7 @@ const Login = () => {
             <div className="space-y-4">
               <Button
                 type="submit"
-                className="w-full bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-900"
+                className="w-full bg-cybergold-500 hover:bg-cybergold-600 text-cybergold-900"
                 disabled={isLoading}
               >
                 {isLoading ? 'Logger inn...' : 'Logg inn'}
