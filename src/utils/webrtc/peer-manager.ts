@@ -66,7 +66,6 @@ export class PeerManager {
         initiator: false,
         trickle: true,
         config: DEFAULT_CONFIG,
-        objectMode: true,
         streams: []  // Add empty streams array to prevent stream initialization
       };
 
@@ -101,7 +100,6 @@ export class PeerManager {
       initiator: true,
       trickle: true,
       config: DEFAULT_CONFIG,
-      objectMode: true,
       streams: []  // Add empty streams array to prevent stream initialization
     };
 
