@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { Camera, Loader2 } from "lucide-react";
+import { Camera, Loader2, ArrowLeft, Home, MessageSquare } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Profile = () => {
   const [loading, setLoading] = useState(false);
@@ -13,6 +14,7 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     getProfile();
@@ -143,83 +145,112 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-cyberdark-950 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-cyberdark-800/90 border-2 border-cybergold-400/50">
-        <CardHeader>
-          <CardTitle className="text-cybergold-400">Min Profil</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col items-center space-y-4">
-            <div className="relative w-32 h-32 rounded-full overflow-hidden bg-cyberdark-700 border-2 border-cybergold-400/50">
-              {avatarUrl ? (
-                <img
-                  src={`${supabase.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl}`}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
+    <div className="min-h-screen bg-cyberdark-950">
+      <div className="fixed top-4 left-4 flex gap-2 z-10">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigate(-1)}
+          className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigate('/')}
+          className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+        >
+          <Home className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigate('/chat')}
+          className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+        >
+          <MessageSquare className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <div className="flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-cyberdark-800/90 border-2 border-cybergold-400/50">
+          <CardHeader>
+            <CardTitle className="text-cybergold-400">Min Profil</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col items-center space-y-4">
+              <div className="relative w-32 h-32 rounded-full overflow-hidden bg-cyberdark-700 border-2 border-cybergold-400/50">
+                {avatarUrl ? (
+                  <img
+                    src={`${supabase.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl}`}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Camera className="w-12 h-12 text-cybergold-400/50" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={uploadAvatar}
+                  disabled={uploading}
+                  className="hidden"
+                  id="avatar-upload"
                 />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Camera className="w-12 h-12 text-cybergold-400/50" />
-                </div>
-              )}
+                <Button
+                  onClick={() => document.getElementById('avatar-upload')?.click()}
+                  disabled={uploading}
+                  className="bg-cybergold-400 hover:bg-cybergold-500 text-black"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Laster opp...
+                    </>
+                  ) : (
+                    'Last opp nytt profilbilde'
+                  )}
+                </Button>
+              </div>
             </div>
-            <div>
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={uploadAvatar}
-                disabled={uploading}
-                className="hidden"
-                id="avatar-upload"
-              />
+
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="username" className="block text-sm font-medium text-cybergold-400 mb-1">
+                  Brukernavn
+                </label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="bg-cyberdark-700 border-cybergold-400/50 text-white"
+                />
+              </div>
+
               <Button
-                onClick={() => document.getElementById('avatar-upload')?.click()}
-                disabled={uploading}
-                className="bg-cybergold-400 hover:bg-cybergold-500 text-black"
+                onClick={updateProfile}
+                disabled={loading}
+                className="w-full bg-cybergold-400 hover:bg-cybergold-500 text-black"
               >
-                {uploading ? (
+                {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Laster opp...
+                    Lagrer...
                   </>
                 ) : (
-                  'Last opp nytt profilbilde'
+                  'Lagre endringer'
                 )}
               </Button>
             </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="username" className="block text-sm font-medium text-cybergold-400 mb-1">
-                Brukernavn
-              </label>
-              <Input
-                id="username"
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="bg-cyberdark-700 border-cybergold-400/50 text-white"
-              />
-            </div>
-
-            <Button
-              onClick={updateProfile}
-              disabled={loading}
-              className="w-full bg-cybergold-400 hover:bg-cybergold-500 text-black"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Lagrer...
-                </>
-              ) : (
-                'Lagre endringer'
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
