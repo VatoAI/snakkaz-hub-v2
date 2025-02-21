@@ -1,20 +1,17 @@
 
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { MessageList } from '@/components/MessageList';
 import { MessageInput } from '@/components/MessageInput';
 import { useMessages } from '@/hooks/useMessages';
-import { useToast } from "@/components/ui/use-toast";
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { supabase } from "@/integrations/supabase/client";
-import { OnlineUsers } from '@/components/OnlineUsers';
 import { UserPresence, UserStatus } from '@/types/presence';
-import { Home, MessageSquare, User } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { ChatHeader } from '@/components/chat/ChatHeader';
+import { useChatAuth } from '@/components/chat/ChatAuth';
+import { useToast } from "@/components/ui/use-toast";
 
 const Chat = () => {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [authLoading, setAuthLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [userPresence, setUserPresence] = useState<Record<string, UserPresence>>({});
@@ -24,100 +21,12 @@ const Chat = () => {
     addP2PMessage(message, peerId);
   });
 
-  useEffect(() => {
-    let isSubscribed = true;
-
-    const checkAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (!isSubscribed) return;
-
-        if (error) {
-          console.error("Auth error:", error);
-          toast({
-            title: "Autentiseringsfeil",
-            description: error.message,
-            variant: "destructive",
-          });
-          navigate('/login');
-          return;
-        }
-        
-        if (!session) {
-          console.log("No session found, redirecting to login");
-          navigate('/login');
-          return;
-        }
-
-        try {
-          const { error: connectionError } = await supabase
-            .from('profiles')
-            .select('id')
-            .limit(1);
-
-          if (!isSubscribed) return;
-
-          if (connectionError) {
-            console.error("Connection error:", connectionError);
-            toast({
-              title: "Tilkoblingsfeil",
-              description: "Kunne ikke koble til serveren. Sjekk internettforbindelsen din.",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          console.log("Session found:", session);
-          setUserId(session.user.id);
-          setAuthLoading(false);
-          
-          // Initialize WebRTC after we have the user ID
-          const rtcManager = initializeWebRTC(session.user.id);
-          if (rtcManager) {
-            const cleanup = setupPresenceChannel(session.user.id);
-            return () => {
-              cleanup();
-            };
-          }
-        } catch (error) {
-          if (!isSubscribed) return;
-          console.error("Connection check error:", error);
-          toast({
-            title: "Tilkoblingsfeil",
-            description: "Kunne ikke verifisere tilkoblingen til serveren.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        if (!isSubscribed) return;
-        console.error("Unexpected auth error:", error);
-        toast({
-          title: "Uventet feil",
-          description: "Det oppstod en feil ved innlogging. Prøv å laste siden på nytt.",
-          variant: "destructive",
-        });
-        navigate('/login');
-      }
-    };
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!isSubscribed) return;
-      console.log("Auth state changed:", event, session);
-      if (event === 'SIGNED_OUT') {
-        navigate('/login');
-      } else if (session) {
-        setUserId(session.user.id);
-        setAuthLoading(false);
-      }
-    });
-
-    checkAuth();
-
-    return () => {
-      isSubscribed = false;
-      subscription.unsubscribe();
-    };
-  }, [navigate, initializeWebRTC, setupPresenceChannel, toast]);
+  useChatAuth({
+    setUserId,
+    setAuthLoading,
+    initializeWebRTC,
+    setupPresenceChannel
+  });
 
   const { 
     messages, 
@@ -138,7 +47,6 @@ const Chat = () => {
     if (!userId) return;
 
     const setupPresence = async () => {
-      // Insert or update initial presence
       const { error: upsertError } = await supabase
         .from('user_presence')
         .upsert({
@@ -151,7 +59,6 @@ const Chat = () => {
         console.error("Error setting initial presence:", upsertError);
       }
 
-      // Subscribe to presence changes
       const channel = supabase
         .channel('public:user_presence')
         .on(
@@ -193,7 +100,6 @@ const Chat = () => {
     };
   }, [userId, currentStatus]);
 
-  // Handle status changes
   const handleStatusChange = async (newStatus: UserStatus) => {
     if (!userId) return;
 
@@ -217,19 +123,11 @@ const Chat = () => {
   };
 
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
     if (userId) {
       console.log("Setting up messages for user:", userId);
       fetchMessages();
-      unsubscribe = setupRealtimeSubscription();
+      return setupRealtimeSubscription();
     }
-
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
   }, [userId, fetchMessages, setupRealtimeSubscription]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -255,47 +153,12 @@ const Chat = () => {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-cyberdark-900 max-w-full overflow-hidden">
-      <div className="p-2 sm:p-4 border-b border-cybergold-500/30">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
-          <div className="flex items-center gap-2">
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => navigate('/')}
-                className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
-              >
-                <Home className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => navigate('/chat')}
-                className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
-              >
-                <MessageSquare className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => navigate('/profil')}
-                className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
-              >
-                <User className="h-4 w-4" />
-              </Button>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-cybergold-200">SnakkaZ</h1>
-          </div>
-          <div className="w-full sm:w-auto">
-            <OnlineUsers
-              userPresence={userPresence}
-              currentUserId={userId}
-              onStatusChange={handleStatusChange}
-              currentStatus={currentStatus}
-            />
-          </div>
-        </div>
-      </div>
+      <ChatHeader
+        userPresence={userPresence}
+        currentUserId={userId}
+        currentStatus={currentStatus}
+        onStatusChange={handleStatusChange}
+      />
       
       <div className="flex-1 overflow-hidden">
         <MessageList 
