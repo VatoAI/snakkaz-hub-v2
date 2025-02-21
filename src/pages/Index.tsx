@@ -1,20 +1,35 @@
 
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { KeyRound, Power, Lock, Smartphone, Monitor, Video, MessageCircle, Shield, Download, LogIn, UserPlus, Image, ShoppingBag, Bot } from "lucide-react";
+import { KeyRound, Power, Lock, Smartphone, Monitor, Video, MessageCircle, Shield, Download, LogIn, UserPlus, Image, ShoppingBag, Bot, Home, MessageSquare, User, LogOut } from "lucide-react";
 
 const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showLoginForm, setShowLoginForm] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setIsLoggedIn(!!session);
+    };
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsLoggedIn(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +39,9 @@ const Index = () => {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
+        options: {
+          persistSession: true // Dette gjør at brukeren forblir innlogget
+        }
       });
 
       if (error) {
@@ -67,6 +85,23 @@ const Index = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Logget ut",
+        description: "Du er nå logget ut av SnakkaZ",
+      });
+      navigate('/');
+    } catch (error) {
+      toast({
+        title: "Feil",
+        description: "Kunne ikke logge ut. Prøv igjen.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const features = [
     { icon: <MessageCircle className="w-6 h-6" />, title: "Instant Messaging", description: "Send lynraske meldinger med kryptering" },
     { icon: <Image className="w-6 h-6" />, title: "Bilder & Videoer", description: "Del medier uten tap av personvern" },
@@ -91,6 +126,45 @@ const Index = () => {
         </div>
 
         <div className="container mx-auto px-4 relative z-10">
+          {isLoggedIn && (
+            <div className="absolute top-4 right-4 flex gap-4">
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/')}
+                  className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+                >
+                  <Home className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/chat')}
+                  className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate('/profil')}
+                  className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+                >
+                  <User className="h-4 w-4" />
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleLogout}
+                className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           <div className="text-center mb-12">
             <div className="w-24 h-24 mx-auto rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cybergold-400 flex items-center justify-center mb-6 shadow-[0_0_25px_rgba(230,179,0,0.3)]">
               <KeyRound className="w-12 h-12 text-cybergold-300" />
@@ -122,7 +196,7 @@ const Index = () => {
             </div>
           </div>
 
-          {showLoginForm && (
+          {showLoginForm && !isLoggedIn && (
             <Card className="max-w-md mx-auto bg-cyberdark-800/90 backdrop-blur-xl border-2 border-cybergold-400/50 p-8 rounded-lg shadow-[0_0_25px_rgba(230,179,0,0.15)]">
               <form onSubmit={handleLogin} className="space-y-6">
                 <div className="space-y-2">
