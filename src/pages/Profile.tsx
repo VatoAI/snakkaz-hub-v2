@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [username, setUsername] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
@@ -47,24 +48,68 @@ const Profile = () => {
     }
   }
 
+  const validateUsername = async (username: string) => {
+    if (!username) {
+      setUsernameError("Brukernavn kan ikke være tomt");
+      return false;
+    }
+
+    if (username.length < 3) {
+      setUsernameError("Brukernavn må være minst 3 tegn");
+      return false;
+    }
+
+    if (username.length > 20) {
+      setUsernameError("Brukernavn kan ikke være lengre enn 20 tegn");
+      return false;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setUsernameError("Brukernavn kan kun inneholde bokstaver, tall og underscore");
+      return false;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setUsernameError("Du må være logget inn");
+      return false;
+    }
+
+    // Sjekk om brukernavnet allerede er i bruk
+    const { data: existingUser } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .neq('id', session.user.id)
+      .single();
+
+    if (existingUser) {
+      setUsernameError("Dette brukernavnet er allerede i bruk");
+      return false;
+    }
+
+    setUsernameError(null);
+    return true;
+  };
+
   async function updateProfile() {
     try {
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Ingen aktiv sesjon');
-
-      // Sjekk om brukernavnet allerede er i bruk
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', username)
-        .neq('id', session.user.id)
-        .single();
-
-      if (existingUser) {
+      if (!session) {
         toast({
           title: "Feil",
-          description: "Dette brukernavnet er allerede i bruk",
+          description: "Du må være logget inn for å oppdatere profilen",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const isValid = await validateUsername(username);
+      if (!isValid) {
+        toast({
+          title: "Feil",
+          description: usernameError || "Ugyldig brukernavn",
           variant: "destructive",
         });
         return;
@@ -84,7 +129,8 @@ const Profile = () => {
         title: "Suksess",
         description: "Profilen din har blitt oppdatert",
       });
-    } catch (error) {
+      setUsernameError(null);
+    } catch (error: any) {
       console.error('Error:', error);
       toast({
         title: "Feil",
@@ -229,8 +275,15 @@ const Profile = () => {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="bg-cyberdark-700 border-cybergold-400/50 text-white"
+                  className="bg-cyberdark-700 border-cybergold-400/50 text-white placeholder-cybergold-400/50"
+                  placeholder="Velg ditt brukernavn"
                 />
+                {usernameError && (
+                  <p className="mt-1 text-sm text-red-400">{usernameError}</p>
+                )}
+                <p className="mt-1 text-sm text-cybergold-400/70">
+                  Brukernavn kan inneholde bokstaver, tall og underscore (_)
+                </p>
               </div>
 
               <Button
