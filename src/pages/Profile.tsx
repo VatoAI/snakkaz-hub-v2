@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,7 +47,15 @@ const Profile = () => {
     }
   }
 
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUsername = e.target.value;
+    console.log('Nytt brukernavn:', newUsername); // Debug logging
+    setUsername(newUsername);
+  };
+
   const validateUsername = async (username: string) => {
+    console.log('Validerer brukernavn:', username); // Debug logging
+    
     if (!username) {
       setUsernameError("Brukernavn kan ikke være tomt");
       return false;
@@ -75,13 +82,14 @@ const Profile = () => {
       return false;
     }
 
-    // Sjekk om brukernavnet allerede er i bruk
-    const { data: existingUser } = await supabase
+    const { data: existingUser, error } = await supabase
       .from('profiles')
       .select('id')
       .eq('username', username)
       .neq('id', session.user.id)
-      .single();
+      .maybeSingle();
+
+    console.log('Eksisterende bruker sjekk:', { existingUser, error }); // Debug logging
 
     if (existingUser) {
       setUsernameError("Dette brukernavnet er allerede i bruk");
@@ -267,21 +275,24 @@ const Profile = () => {
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-cybergold-400 mb-1">
+                <label htmlFor="username" className="block text-base font-medium text-cybergold-400 mb-2">
                   Brukernavn
                 </label>
                 <Input
                   id="username"
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="bg-cyberdark-700 border-cybergold-400/50 text-white placeholder-cybergold-400/50"
+                  onChange={handleUsernameChange}
+                  className="bg-cyberdark-700 border-2 border-cybergold-400/50 text-cybergold-100 placeholder-cybergold-400/50 focus:border-cybergold-400 focus:ring-2 focus:ring-cybergold-400/30 h-12 text-lg px-4"
                   placeholder="Velg ditt brukernavn"
+                  autoComplete="username"
                 />
                 {usernameError && (
-                  <p className="mt-1 text-sm text-red-400">{usernameError}</p>
+                  <p className="mt-2 text-sm text-red-400 bg-red-950/20 p-2 rounded-md border border-red-500/20">
+                    {usernameError}
+                  </p>
                 )}
-                <p className="mt-1 text-sm text-cybergold-400/70">
+                <p className="mt-2 text-sm text-cybergold-400/70 bg-cyberdark-900/50 p-2 rounded-md">
                   Brukernavn kan inneholde bokstaver, tall og underscore (_)
                 </p>
               </div>
@@ -289,11 +300,11 @@ const Profile = () => {
               <Button
                 onClick={updateProfile}
                 disabled={loading}
-                className="w-full bg-cybergold-400 hover:bg-cybergold-500 text-black"
+                className="w-full bg-cybergold-400 hover:bg-cybergold-500 text-black h-12 text-lg font-medium transition-all duration-200 ease-in-out transform hover:scale-[1.02] active:scale-[0.98]"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     Lagrer...
                   </>
                 ) : (
