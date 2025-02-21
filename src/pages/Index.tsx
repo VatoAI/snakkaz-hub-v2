@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
@@ -38,10 +37,7 @@ const Index = () => {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
-        options: {
-          persistSession: true // Dette gjør at brukeren forblir innlogget
-        }
+        password
       });
 
       if (error) {
