@@ -21,6 +21,10 @@ export async function generateKeyPair() {
     keyPair.privateKey
   );
 
+  // Legg til key_ops for både public og private key
+  publicKey.key_ops = ["deriveKey", "deriveBits"];
+  privateKey.key_ops = ["deriveKey", "deriveBits"];
+
   return { publicKey, privateKey };
 }
 
@@ -29,6 +33,10 @@ export async function establishSecureConnection(
   localPrivateKey: JsonWebKey,
   remotePublicKey: JsonWebKey
 ) {
+  // Sikre at key_ops er satt
+  localPrivateKey.key_ops = ["deriveKey", "deriveBits"];
+  remotePublicKey.key_ops = ["deriveKey", "deriveBits"];
+
   const importedLocalPrivateKey = await window.crypto.subtle.importKey(
     "jwk",
     localPrivateKey,

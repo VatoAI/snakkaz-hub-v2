@@ -43,7 +43,6 @@ export class PeerManager {
   private setupConnectionEventHandlers(connection: PeerConnection, peerId: string) {
     connection.connection.onicecandidate = async (event) => {
       if (event.candidate) {
-        // Convert ICE candidate to plain object
         const candidateJson = {
           candidate: event.candidate.candidate,
           sdpMLineIndex: event.candidate.sdpMLineIndex,
@@ -97,33 +96,30 @@ export class PeerManager {
 
     try {
       if (signal_data.candidate) {
-        // Create RTCIceCandidate from plain object
         const iceCandidate = new RTCIceCandidate(signal_data.candidate);
         await connection.connection.addIceCandidate(iceCandidate);
       } else if (signal_data.sdp) {
-        // Create RTCSessionDescription from plain object
         const sessionDescription = new RTCSessionDescription({
           type: signal_data.type,
           sdp: signal_data.sdp
         });
-        
-        await connection.connection.setRemoteDescription(sessionDescription);
-        
-        if (signal_data.type === 'offer') {
+
+        // Sjekk tilstanden før vi setter remote description
+        if (connection.connection.signalingState === 'stable' && signal_data.type === 'offer') {
+          await connection.connection.setRemoteDescription(sessionDescription);
           const answer = await connection.connection.createAnswer();
           await connection.connection.setLocalDescription(answer);
-          
-          // Convert RTCSessionDescription to plain object
-          const answerJson = {
-            type: answer.type,
-            sdp: answer.sdp
-          };
           
           await this.signalingService.sendSignal({
             sender_id: this.userId,
             receiver_id: sender_id,
-            signal_data: answerJson
+            signal_data: {
+              type: answer.type,
+              sdp: answer.sdp
+            }
           });
+        } else if (signal_data.type === 'answer') {
+          await connection.connection.setRemoteDescription(sessionDescription);
         }
       }
     } catch (error) {
@@ -149,16 +145,13 @@ export class PeerManager {
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
       
-      // Convert RTCSessionDescription to plain object
-      const offerJson = {
-        type: offer.type,
-        sdp: offer.sdp
-      };
-
       await this.signalingService.sendSignal({
         sender_id: this.userId,
         receiver_id: peerId,
-        signal_data: offerJson
+        signal_data: {
+          type: offer.type,
+          sdp: offer.sdp
+        }
       });
 
       this.connections.set(peerId, connection);
