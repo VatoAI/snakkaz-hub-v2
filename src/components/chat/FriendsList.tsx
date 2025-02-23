@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { UserPlus, Check, X, User } from "lucide-react";
+import { UserPlus, Check, X, User, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 
@@ -16,10 +16,17 @@ interface Friend {
   } | null;
 }
 
+interface UserProfile {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+}
+
 export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<Friend[]>([]);
-  const [newFriendEmail, setNewFriendEmail] = useState("");
+  const [searchUsername, setSearchUsername] = useState("");
+  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -46,9 +53,8 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
       if (error) throw error;
 
       if (friendships) {
-        const processedFriends = friendships as Friend[];
-        setFriends(processedFriends.filter(f => f.status === 'accepted'));
-        setFriendRequests(processedFriends.filter(f => f.status === 'pending'));
+        setFriends(friendships.filter(f => f.status === 'accepted'));
+        setFriendRequests(friendships.filter(f => f.status === 'pending'));
       }
     } catch (error) {
       console.error('Error fetching friends:', error);
@@ -57,6 +63,30 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
         description: "Kunne ikke hente venner",
         variant: "destructive",
       });
+    }
+  };
+
+  const searchUsers = async (username: string) => {
+    if (username.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, full_name')
+        .neq('id', currentUserId)
+        .ilike('username', `%${username}%`)
+        .limit(5);
+
+      if (error) throw error;
+
+      if (data) {
+        setSearchResults(data);
+      }
+    } catch (error) {
+      console.error('Error searching users:', error);
     }
   };
 
@@ -82,28 +112,13 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
     };
   };
 
-  const sendFriendRequest = async (email: string) => {
+  const sendFriendRequest = async (friendId: string) => {
     try {
-      const { data: user, error: userError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (userError || !user) {
-        toast({
-          title: "Feil",
-          description: "Fant ikke bruker med denne e-postadressen",
-          variant: "destructive",
-        });
-        return;
-      }
-
       const { error } = await supabase
         .from('friendships')
         .insert({
           user_id: currentUserId,
-          friend_id: user.id,
+          friend_id: friendId,
           status: 'pending'
         });
 
@@ -113,7 +128,8 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
         title: "Suksess",
         description: "Venneforespørsel sendt",
       });
-      setNewFriendEmail("");
+      setSearchUsername("");
+      setSearchResults([]);
     } catch (error) {
       console.error('Error sending friend request:', error);
       toast({
@@ -159,21 +175,45 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <input
-          type="email"
-          value={newFriendEmail}
-          onChange={(e) => setNewFriendEmail(e.target.value)}
-          placeholder="Venn's e-post"
-          className="flex-1 px-3 py-2 bg-cyberdark-800 border border-cybergold-500/30 rounded-md text-cybergold-200 placeholder:text-cyberdark-400"
-        />
-        <Button
-          onClick={() => sendFriendRequest(newFriendEmail)}
-          className="bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-900"
-        >
-          <UserPlus className="w-4 h-4 mr-2" />
-          Legg til
-        </Button>
+      <div className="relative">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={searchUsername}
+              onChange={(e) => {
+                setSearchUsername(e.target.value);
+                searchUsers(e.target.value);
+              }}
+              placeholder="Søk etter brukernavn"
+              className="w-full px-3 py-2 bg-cyberdark-800 border border-cybergold-500/30 rounded-md text-cybergold-200 placeholder:text-cyberdark-400"
+            />
+            <Search className="absolute right-3 top-2.5 h-4 w-4 text-cyberdark-400" />
+          </div>
+        </div>
+        
+        {searchResults.length > 0 && (
+          <div className="absolute z-10 w-full mt-1 bg-cyberdark-800 border border-cybergold-500/30 rounded-md shadow-lg">
+            {searchResults.map((user) => (
+              <div
+                key={user.id}
+                className="flex items-center justify-between p-2 hover:bg-cyberdark-700"
+              >
+                <span className="text-cybergold-200">
+                  {user.username || user.full_name || 'Ukjent bruker'}
+                </span>
+                <Button
+                  onClick={() => sendFriendRequest(user.id)}
+                  size="sm"
+                  variant="outline"
+                  className="border-cybergold-500/30 text-cybergold-400 hover:bg-cybergold-500/10"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {friendRequests.length > 0 && (
