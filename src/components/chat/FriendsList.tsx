@@ -8,10 +8,12 @@ import { useToast } from "@/components/ui/use-toast";
 interface Friend {
   id: string;
   status: string;
-  user: {
+  friend_id: string;
+  user_id: string;
+  profile: {
     username: string | null;
     full_name: string | null;
-  };
+  } | null;
 }
 
 export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
@@ -22,7 +24,10 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
 
   useEffect(() => {
     fetchFriends();
-    setupFriendsSubscription();
+    const cleanup = setupFriendsSubscription();
+    return () => {
+      cleanup();
+    };
   }, [currentUserId]);
 
   const fetchFriends = async () => {
@@ -30,21 +35,21 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
       const { data: friendships, error } = await supabase
         .from('friendships')
         .select(`
-          id,
-          status,
-          friend:profiles!friendships_friend_id_fkey(username, full_name)
+          *,
+          profile:profiles!friendships_friend_id_fkey (
+            username,
+            full_name
+          )
         `)
         .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`);
 
       if (error) throw error;
 
-      const processedFriends = friendships.map(friendship => ({
-        ...friendship,
-        user: friendship.friend
-      }));
-
-      setFriends(processedFriends.filter(f => f.status === 'accepted'));
-      setFriendRequests(processedFriends.filter(f => f.status === 'pending'));
+      if (friendships) {
+        const processedFriends = friendships as Friend[];
+        setFriends(processedFriends.filter(f => f.status === 'accepted'));
+        setFriendRequests(processedFriends.filter(f => f.status === 'pending'));
+      }
     } catch (error) {
       console.error('Error fetching friends:', error);
       toast({
@@ -79,14 +84,13 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
 
   const sendFriendRequest = async (email: string) => {
     try {
-      // Først finn bruker-ID basert på e-post
-      const { data: users, error: userError } = await supabase
+      const { data: user, error: userError } = await supabase
         .from('profiles')
-        .select('id, username')
+        .select('id')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
-      if (userError || !users) {
+      if (userError || !user) {
         toast({
           title: "Feil",
           description: "Fant ikke bruker med denne e-postadressen",
@@ -99,7 +103,7 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
         .from('friendships')
         .insert({
           user_id: currentUserId,
-          friend_id: users.id,
+          friend_id: user.id,
           status: 'pending'
         });
 
@@ -181,7 +185,7 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
               className="flex items-center justify-between p-2 bg-cyberdark-800 border border-cybergold-500/30 rounded-md"
             >
               <span className="text-cybergold-200">
-                {request.user.full_name || request.user.username}
+                {request.profile?.full_name || request.profile?.username || 'Ukjent bruker'}
               </span>
               <div className="flex gap-2">
                 <Button
@@ -219,7 +223,7 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
               >
                 <User className="w-4 h-4 text-cybergold-400" />
                 <span className="text-cybergold-200">
-                  {friend.user.full_name || friend.user.username}
+                  {friend.profile?.full_name || friend.profile?.username || 'Ukjent bruker'}
                 </span>
               </div>
             ))}
