@@ -4,8 +4,6 @@ import { Input } from "@/components/ui/input";
 interface RegisterFormInputsProps {
   username: string;
   setUsername: (value: string) => void;
-  fullName: string;
-  setFullName: (value: string) => void;
   email: string;
   setEmail: (value: string) => void;
   password: string;
@@ -17,8 +15,6 @@ interface RegisterFormInputsProps {
 export const RegisterFormInputs = ({
   username,
   setUsername,
-  fullName,
-  setFullName,
   email,
   setEmail,
   password,
@@ -40,24 +36,6 @@ export const RegisterFormInputs = ({
             onChange={(e) => setUsername(e.target.value)}
             className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
             placeholder="Velg et brukernavn"
-            required
-          />
-          <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label htmlFor="fullName" className="block text-sm font-medium text-cybergold-300">
-          Fullt navn
-        </label>
-        <div className="relative group">
-          <Input
-            id="fullName"
-            type="text"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
-            placeholder="Ditt fulle navn"
             required
           />
           <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
