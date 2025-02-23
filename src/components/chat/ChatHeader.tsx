@@ -1,9 +1,18 @@
 
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, MessageSquare, User } from 'lucide-react';
+import { Home, MessageSquare, User, Users } from 'lucide-react';
 import { OnlineUsers } from '@/components/OnlineUsers';
 import { UserPresence, UserStatus } from '@/types/presence';
+import { FriendsList } from './FriendsList';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 interface ChatHeaderProps {
   userPresence: Record<string, UserPresence>;
@@ -19,6 +28,7 @@ export const ChatHeader = ({
   onStatusChange
 }: ChatHeaderProps) => {
   const navigate = useNavigate();
+  const [showFriends, setShowFriends] = useState(false);
 
   return (
     <div className="p-2 sm:p-4 border-b border-cybergold-500/30">
@@ -49,6 +59,23 @@ export const ChatHeader = ({
             >
               <User className="h-4 w-4" />
             </Button>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+                >
+                  <Users className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent className="w-[400px] bg-cyberdark-900 border-cybergold-500/30">
+                <SheetHeader>
+                  <SheetTitle className="text-cybergold-400">Venner</SheetTitle>
+                </SheetHeader>
+                {currentUserId && <FriendsList currentUserId={currentUserId} />}
+              </SheetContent>
+            </Sheet>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-cybergold-200">SnakkaZ</h1>
         </div>
