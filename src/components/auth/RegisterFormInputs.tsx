@@ -28,72 +28,64 @@ export const RegisterFormInputs = ({
         <label htmlFor="username" className="block text-sm font-medium text-cybergold-300">
           Brukernavn
         </label>
-        <div className="relative group">
-          <Input
-            id="username"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
-            placeholder="Velg et brukernavn"
-            required
-          />
-          <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
-        </div>
+        <Input
+          id="username"
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 hover:border-cybergold-400 focus:border-cybergold-400 focus:ring-2 focus:ring-cybergold-400/50 transition-colors"
+          placeholder="Velg et brukernavn"
+          required
+          autoComplete="username"
+        />
       </div>
 
       <div className="space-y-2">
         <label htmlFor="email" className="block text-sm font-medium text-cybergold-300">
           E-post
         </label>
-        <div className="relative group">
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
-            placeholder="din@epost.no"
-            required
-          />
-          <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
-        </div>
+        <Input
+          id="email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 hover:border-cybergold-400 focus:border-cybergold-400 focus:ring-2 focus:ring-cybergold-400/50 transition-colors"
+          placeholder="din@epost.no"
+          required
+          autoComplete="email"
+        />
       </div>
 
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm font-medium text-cybergold-300">
           Passord
         </label>
-        <div className="relative group">
-          <Input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
-            placeholder="••••••••"
-            required
-          />
-          <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
-        </div>
+        <Input
+          id="password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 hover:border-cybergold-400 focus:border-cybergold-400 focus:ring-2 focus:ring-cybergold-400/50 transition-colors"
+          placeholder="••••••••"
+          required
+          autoComplete="new-password"
+        />
       </div>
 
       <div className="space-y-2">
         <label htmlFor="confirmPassword" className="block text-sm font-medium text-cybergold-300">
           Bekreft passord
         </label>
-        <div className="relative group">
-          <Input
-            id="confirmPassword"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 focus:ring-cybergold-400/50 focus:border-cybergold-400 transition-all duration-300 group-hover:border-cybergold-400/70"
-            placeholder="••••••••"
-            required
-          />
-          <div className="absolute inset-0 border border-cybergold-400/20 rounded-md filter blur-sm transition-opacity opacity-0 group-hover:opacity-100"></div>
-        </div>
+        <Input
+          id="confirmPassword"
+          type="password"
+          value={confirmPassword}
+          onChange={(e) => setConfirmPassword(e.target.value)}
+          className="bg-cyberdark-900/90 border-cybergold-400/50 text-cybergold-200 placeholder:text-cybergold-400/30 hover:border-cybergold-400 focus:border-cybergold-400 focus:ring-2 focus:ring-cybergold-400/50 transition-colors"
+          placeholder="••••••••"
+          required
+          autoComplete="new-password"
+        />
       </div>
     </>
   );
