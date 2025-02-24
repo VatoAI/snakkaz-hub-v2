@@ -53,8 +53,17 @@ export const FriendsList = ({ currentUserId }: { currentUserId: string }) => {
       if (error) throw error;
 
       if (friendships) {
-        setFriends(friendships.filter(f => f.status === 'accepted'));
-        setFriendRequests(friendships.filter(f => f.status === 'pending'));
+        // Sikre at data matcher Friend-interfacet
+        const processedFriends = friendships.map(friendship => ({
+          id: friendship.id,
+          status: friendship.status,
+          friend_id: friendship.friend_id,
+          user_id: friendship.user_id,
+          profile: friendship.profile as Friend['profile']
+        }));
+        
+        setFriends(processedFriends.filter(f => f.status === 'accepted'));
+        setFriendRequests(processedFriends.filter(f => f.status === 'pending'));
       }
     } catch (error) {
       console.error('Error fetching friends:', error);
