@@ -104,7 +104,6 @@ export class PeerManager {
           sdp: signal_data.sdp
         });
 
-        // Sjekk tilstanden før vi setter remote description
         if (connection.connection.signalingState === 'stable' && signal_data.type === 'offer') {
           await connection.connection.setRemoteDescription(sessionDescription);
           const answer = await connection.connection.createAnswer();
