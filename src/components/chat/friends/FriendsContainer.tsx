@@ -31,8 +31,11 @@ export const FriendsContainer = ({ currentUserId }: FriendsContainerProps) => {
       const { data: friendships, error } = await supabase
         .from('friendships')
         .select(`
-          *,
-          profile:profiles!friendships_friend_id_fkey (
+          id,
+          status,
+          friend_id,
+          user_id,
+          profile:profiles (
             username,
             full_name
           )
@@ -45,7 +48,7 @@ export const FriendsContainer = ({ currentUserId }: FriendsContainerProps) => {
         const processedFriends = friendships.map(friendship => ({
           ...friendship,
           profile: friendship.profile || null
-        })) as Friend[];
+        }));
 
         setFriends(processedFriends.filter(f => f.status === 'accepted'));
         setFriendRequests(processedFriends.filter(f => f.status === 'pending'));
