@@ -2,7 +2,7 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { decryptMessage } from "@/utils/encryption";
-import { DecryptedMessage } from "@/types/message";
+import { DecryptedMessage, Message } from "@/types/message";
 
 export const useMessageFetch = (
   userId: string | null,
@@ -61,22 +61,26 @@ export const useMessageFetch = (
       }
 
       const decryptedMessages = await Promise.all(
-        data.map(async (message) => {
+        data.map(async (message: Message) => {
           try {
             const content = message.encryption_key && message.iv
-              ? await decryptMessage(message)
+              ? await decryptMessage({
+                  encrypted_content: message.encrypted_content,
+                  encryption_key: message.encryption_key,
+                  iv: message.iv
+                })
               : message.encrypted_content;
             
             return {
               ...message,
               content: content || "[Krypteringsfeil]"
-            };
+            } as DecryptedMessage;
           } catch (error) {
             console.error("Decryption error:", error);
             return {
               ...message,
               content: "[Krypteringsfeil]"
-            };
+            } as DecryptedMessage;
           }
         })
       );
