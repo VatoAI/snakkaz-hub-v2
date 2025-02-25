@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { decryptMessage } from "@/utils/encryption";
 import { DecryptedMessage, Message } from "@/types/message";
+import { PostgrestError } from "@supabase/supabase-js";
 
 export const useMessageFetch = (
   userId: string | null,
@@ -18,7 +19,7 @@ export const useMessageFetch = (
 
     console.log("Henter meldinger...");
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('messages')
         .select(`
           id,
@@ -32,17 +33,8 @@ export const useMessageFetch = (
           receiver_id,
           sender:profiles(username, full_name, avatar_url)
         `)
-        .order('created_at', { ascending: true });
-
-      if (receiverId) {
-        // Hent private meldinger mellom to brukere
-        query = query.or(`and(sender_id.eq.${userId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${userId})`);
-      } else {
-        // Hent offentlige meldinger (receiver_id er null)
-        query = query.is('receiver_id', null);
-      }
-
-      const { data, error } = await query;
+        .order('created_at', { ascending: true })
+        .returns<Message[]>();
 
       if (error) {
         console.error("Feil ved henting av meldinger:", error);
@@ -54,14 +46,22 @@ export const useMessageFetch = (
         return;
       }
 
-      if (!data) {
+      if (!data || data.length === 0) {
         console.log("Ingen meldinger funnet");
         setMessages([]);
         return;
       }
 
+      // Filter messages based on receiverId
+      const filteredMessages = receiverId
+        ? data.filter(msg => 
+            (msg.sender.id === userId && msg.receiver_id === receiverId) ||
+            (msg.sender.id === receiverId && msg.receiver_id === userId)
+          )
+        : data.filter(msg => !msg.receiver_id);
+
       const decryptedMessages = await Promise.all(
-        data.map(async (message: Message) => {
+        filteredMessages.map(async (message) => {
           try {
             const content = message.encryption_key && message.iv
               ? await decryptMessage({
