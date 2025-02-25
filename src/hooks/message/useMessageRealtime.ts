@@ -33,6 +33,9 @@ export const useMessageRealtime = (
                 iv,
                 ephemeral_ttl,
                 created_at,
+                media_url,
+                media_type,
+                receiver_id,
                 sender:profiles(id, username, full_name, avatar_url)
               `)
               .eq('id', payload.new.id)
