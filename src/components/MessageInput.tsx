@@ -2,14 +2,13 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Clock, Image, Video, X } from "lucide-react";
+import { Send, Clock, Image, Video, X, Camera } from "lucide-react";
 import { 
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
 
 interface MessageInputProps {
   newMessage: string;
@@ -32,6 +31,7 @@ export const MessageInput = ({
 }: MessageInputProps) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   
   const ttlOptions = [
     { label: 'Normal melding', value: null },
@@ -58,6 +58,9 @@ export const MessageInput = ({
     setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
     }
   };
 
@@ -94,45 +97,61 @@ export const MessageInput = ({
           accept="image/*,video/*"
           className="hidden"
         />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={() => fileInputRef.current?.click()}
-          className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700"
-          disabled={isLoading}
-        >
-          {selectedFile?.type.startsWith('video/') ? (
-            <Video className="w-4 h-4" />
-          ) : (
+        <input
+          type="file"
+          ref={cameraInputRef}
+          onChange={handleFileSelect}
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+        />
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700"
+            disabled={isLoading}
+          >
             <Image className="w-4 h-4" />
-          )}
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              type="button"
-              variant="outline" 
-              size="icon"
-              className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700"
-              disabled={isLoading}
-            >
-              <Clock className="w-4 h-4" />
-              <span className="sr-only">Velg tidsgrense</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-cyberdark-800 border-cybergold-500/30">
-            {ttlOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.value ?? 'permanent'}
-                onClick={() => setTtl(option.value)}
-                className="text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700 cursor-pointer"
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={() => cameraInputRef.current?.click()}
+            className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700"
+            disabled={isLoading}
+          >
+            <Camera className="w-4 h-4" />
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                type="button"
+                variant="outline" 
+                size="icon"
+                className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700"
+                disabled={isLoading}
               >
-                {option.label} {ttl === option.value && '✓'}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <Clock className="w-4 h-4" />
+                <span className="sr-only">Velg tidsgrense</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="bg-cyberdark-800 border-cybergold-500/30">
+              {ttlOptions.map((option) => (
+                <DropdownMenuItem
+                  key={option.value ?? 'permanent'}
+                  onClick={() => setTtl(option.value)}
+                  className="text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700 cursor-pointer"
+                >
+                  {option.label} {ttl === option.value && '✓'}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
       <Button 
         type="submit" 
