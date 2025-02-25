@@ -31,7 +31,7 @@ export const useMessageFetch = (
           media_url,
           media_type,
           receiver_id,
-          sender:profiles(username, full_name, avatar_url)
+          sender:profiles(id, username, full_name, avatar_url)
         `)
         .order('created_at', { ascending: true })
         .returns<Message[]>();

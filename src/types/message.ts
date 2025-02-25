@@ -10,6 +10,7 @@ export interface Message {
   media_type?: string | null;
   receiver_id?: string | null;
   sender: {
+    id: string;
     username: string | null;
     full_name: string | null;
     avatar_url?: string | null;
