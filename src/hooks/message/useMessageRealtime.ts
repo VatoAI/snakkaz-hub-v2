@@ -33,7 +33,7 @@ export const useMessageRealtime = (
                 iv,
                 ephemeral_ttl,
                 created_at,
-                sender:profiles(username, full_name)
+                sender:profiles(id, username, full_name, avatar_url)
               `)
               .eq('id', payload.new.id)
               .single();
@@ -50,7 +50,7 @@ export const useMessageRealtime = (
                   ? await decryptMessage(data)
                   : data.encrypted_content;
                 
-                const decryptedMessage = {
+                const decryptedMessage: DecryptedMessage = {
                   ...data,
                   content: content || "[Krypteringsfeil]"
                 };
@@ -58,7 +58,7 @@ export const useMessageRealtime = (
                 setMessages(prev => [...prev, decryptedMessage]);
               } catch (error) {
                 console.error("Decryption error for new message:", error);
-                const errorMessage = {
+                const errorMessage: DecryptedMessage = {
                   ...data,
                   content: "[Krypteringsfeil]"
                 };

@@ -13,8 +13,10 @@ export const useMessageP2P = (
       encryption_key: '',
       iv: '',
       sender: {
+        id: peerId, // Bruker peerId som sender id
         username: peerId,
-        full_name: null
+        full_name: null,
+        avatar_url: null
       }
     };
     setMessages(prev => [...prev, p2pMessage]);
