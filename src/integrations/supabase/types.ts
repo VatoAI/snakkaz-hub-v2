@@ -62,6 +62,9 @@ export type Database = {
           ephemeral_ttl: number | null
           id: string
           iv: string | null
+          media_type: string | null
+          media_url: string | null
+          receiver_id: string | null
           sender_id: string
           updated_at: string
         }
@@ -72,6 +75,9 @@ export type Database = {
           ephemeral_ttl?: number | null
           id?: string
           iv?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          receiver_id?: string | null
           sender_id: string
           updated_at?: string
         }
@@ -82,6 +88,9 @@ export type Database = {
           ephemeral_ttl?: number | null
           id?: string
           iv?: string | null
+          media_type?: string | null
+          media_url?: string | null
+          receiver_id?: string | null
           sender_id?: string
           updated_at?: string
         }
