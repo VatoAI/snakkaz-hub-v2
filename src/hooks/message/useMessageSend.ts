@@ -11,15 +11,34 @@ export const useMessageSend = (
   setIsLoading: (loading: boolean) => void,
   toast: any
 ) => {
-  const handleSendMessage = useCallback(async (webRTCManager: any, onlineUsers: Set<string>) => {
-    if (!newMessage.trim() || !userId) {
-      console.log("Ingen melding å sende eller bruker ikke pålogget");
+  const handleSendMessage = useCallback(async (webRTCManager: any, onlineUsers: Set<string>, mediaFile?: File, receiverId?: string) => {
+    if ((!newMessage.trim() && !mediaFile) || !userId) {
+      console.log("Ingen melding eller fil å sende, eller bruker ikke pålogget");
       return;
     }
 
     setIsLoading(true);
     try {
-      if (webRTCManager) {
+      let mediaUrl = null;
+      let mediaType = null;
+
+      if (mediaFile) {
+        const fileExt = mediaFile.name.split('.').pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('chat-media')
+          .upload(filePath, mediaFile);
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        mediaUrl = filePath;
+        mediaType = mediaFile.type;
+      }
+
+      if (webRTCManager && !receiverId) {
         onlineUsers.forEach(peerId => {
           if (peerId !== userId) {
             webRTCManager.sendMessage(peerId, newMessage.trim());
@@ -27,10 +46,8 @@ export const useMessageSend = (
         });
       }
 
-      console.log("Krypterer melding...");
       const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
       
-      console.log("Sender melding til Supabase...");
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -38,7 +55,10 @@ export const useMessageSend = (
           encryption_key: key,
           iv: iv,
           sender_id: userId,
-          ephemeral_ttl: ttl
+          ephemeral_ttl: ttl,
+          media_url: mediaUrl,
+          media_type: mediaType,
+          receiver_id: receiverId
         });
 
       if (error) {

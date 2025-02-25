@@ -7,7 +7,8 @@ import { DecryptedMessage } from "@/types/message";
 export const useMessageFetch = (
   userId: string | null,
   setMessages: (messages: DecryptedMessage[]) => void,
-  toast: any
+  toast: any,
+  receiverId?: string | null
 ) => {
   const fetchMessages = useCallback(async () => {
     if (!userId) {
@@ -17,7 +18,7 @@ export const useMessageFetch = (
 
     console.log("Henter meldinger...");
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('messages')
         .select(`
           id,
@@ -26,9 +27,22 @@ export const useMessageFetch = (
           iv,
           ephemeral_ttl,
           created_at,
-          sender:profiles(username, full_name)
+          media_url,
+          media_type,
+          receiver_id,
+          sender:profiles(username, full_name, avatar_url)
         `)
         .order('created_at', { ascending: true });
+
+      if (receiverId) {
+        // Hent private meldinger mellom to brukere
+        query = query.or(`and(sender_id.eq.${userId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${userId})`);
+      } else {
+        // Hent offentlige meldinger (receiver_id er null)
+        query = query.is('receiver_id', null);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Feil ved henting av meldinger:", error);
@@ -40,8 +54,6 @@ export const useMessageFetch = (
         return;
       }
 
-      console.log("Mottatte meldinger:", data);
-      
       if (!data) {
         console.log("Ingen meldinger funnet");
         setMessages([]);
@@ -69,7 +81,6 @@ export const useMessageFetch = (
         })
       );
       
-      console.log("Dekrypterte meldinger:", decryptedMessages);
       setMessages(decryptedMessages);
     } catch (error) {
       console.error("Unexpected error:", error);
@@ -79,7 +90,7 @@ export const useMessageFetch = (
         variant: "destructive",
       });
     }
-  }, [userId, setMessages, toast]);
+  }, [userId, setMessages, toast, receiverId]);
 
   return { fetchMessages };
 };
