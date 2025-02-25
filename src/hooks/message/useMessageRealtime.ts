@@ -2,7 +2,7 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { decryptMessage } from "@/utils/encryption";
-import { DecryptedMessage } from "@/types/message";
+import { DecryptedMessage, Message } from "@/types/message";
 
 export const useMessageRealtime = (
   userId: string | null,
@@ -39,7 +39,8 @@ export const useMessageRealtime = (
                 sender:profiles(id, username, full_name, avatar_url)
               `)
               .eq('id', payload.new.id)
-              .single();
+              .single()
+              .returns<Message>();
 
             if (error) {
               console.error("Feil ved henting av ny melding:", error);
@@ -50,20 +51,40 @@ export const useMessageRealtime = (
               console.log("Dekrypterer ny melding:", data);
               try {
                 const content = data.encryption_key && data.iv
-                  ? await decryptMessage(data)
+                  ? await decryptMessage({
+                      encrypted_content: data.encrypted_content,
+                      encryption_key: data.encryption_key,
+                      iv: data.iv
+                    })
                   : data.encrypted_content;
                 
                 const decryptedMessage: DecryptedMessage = {
-                  ...data,
-                  content: content || "[Krypteringsfeil]"
+                  id: data.id,
+                  content,
+                  encryption_key: data.encryption_key,
+                  iv: data.iv,
+                  created_at: data.created_at,
+                  ephemeral_ttl: data.ephemeral_ttl,
+                  media_url: data.media_url,
+                  media_type: data.media_type,
+                  receiver_id: data.receiver_id,
+                  sender: data.sender
                 };
                 
                 setMessages(prev => [...prev, decryptedMessage]);
               } catch (error) {
                 console.error("Decryption error for new message:", error);
                 const errorMessage: DecryptedMessage = {
-                  ...data,
-                  content: "[Krypteringsfeil]"
+                  id: data.id,
+                  content: "[Krypteringsfeil]",
+                  encryption_key: data.encryption_key,
+                  iv: data.iv,
+                  created_at: data.created_at,
+                  ephemeral_ttl: data.ephemeral_ttl,
+                  media_url: data.media_url,
+                  media_type: data.media_type,
+                  receiver_id: data.receiver_id,
+                  sender: data.sender
                 };
                 setMessages(prev => [...prev, errorMessage]);
               }
