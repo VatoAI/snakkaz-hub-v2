@@ -82,7 +82,18 @@ const Chat = () => {
           event: '*', 
           schema: 'public', 
           table: 'friendships',
-          or: [`user_id.eq.${userId}`, `friend_id.eq.${userId}`]
+          filter: `user_id=eq.${userId}` 
+        }, 
+        () => {
+          fetchFriends();
+        }
+      )
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'friendships',
+          filter: `friend_id=eq.${userId}` 
         }, 
         () => {
           fetchFriends();
@@ -125,16 +136,17 @@ const Chat = () => {
         }
       }
 
+      // Sett opp lytting på presence-endringer
       const channel = supabase
-        .channel('public:user_presence')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
+        .channel('presence-changes')
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
             table: 'user_presence'
-          },
-          async (payload) => {
+          }, 
+          async () => {
+            // Når vi oppdager endringer, hent alle presence-data på nytt
             const { data: presenceData, error } = await supabase
               .from('user_presence')
               .select('*');
@@ -154,6 +166,21 @@ const Chat = () => {
           }
         )
         .subscribe();
+
+      // Hent presence-data umiddelbart ved oppstart
+      const { data: initialPresenceData, error: initialError } = await supabase
+        .from('user_presence')
+        .select('*');
+        
+      if (initialError) {
+        console.error("Error fetching initial presence data:", initialError);
+      } else if (initialPresenceData) {
+        const presenceMap = initialPresenceData.reduce((acc, presence) => ({
+          ...acc,
+          [presence.user_id]: presence
+        }), {});
+        setUserPresence(presenceMap);
+      }
 
       return () => {
         supabase.removeChannel(channel);
