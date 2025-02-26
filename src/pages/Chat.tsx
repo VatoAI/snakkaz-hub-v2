@@ -19,6 +19,8 @@ const Chat = () => {
   const [userPresence, setUserPresence] = useState<Record<string, UserPresence>>({});
   const [currentStatus, setCurrentStatus] = useState<UserStatus>('online');
   const [directMessages, setDirectMessages] = useState<DecryptedMessage[]>([]);
+  const [friendsList, setFriendsList] = useState<string[]>([]);
+  const [hidden, setHidden] = useState(false);
   
   const { addP2PMessage } = useMessageP2P(setDirectMessages);
   
@@ -46,21 +48,81 @@ const Chat = () => {
     handleMessageExpired
   } = useMessages(userId);
 
+  // Hent venner når userId endres
+  useEffect(() => {
+    if (!userId) return;
+    
+    const fetchFriends = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('friendships')
+          .select('friend_id, user_id')
+          .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+          .eq('status', 'accepted');
+          
+        if (error) throw error;
+        
+        const friendIds = (data || []).map(f => 
+          f.user_id === userId ? f.friend_id : f.user_id
+        );
+        
+        setFriendsList(friendIds);
+      } catch (error) {
+        console.error('Error fetching friends:', error);
+      }
+    };
+    
+    fetchFriends();
+    
+    // Sett opp subscription for vennskap
+    const friendsChannel = supabase
+      .channel('friendships-changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'friendships',
+          or: [`user_id.eq.${userId}`, `friend_id.eq.${userId}`]
+        }, 
+        () => {
+          fetchFriends();
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(friendsChannel);
+    };
+  }, [userId]);
+
   // Set up real-time presence
   useEffect(() => {
     if (!userId) return;
 
     const setupPresence = async () => {
-      const { error: upsertError } = await supabase
-        .from('user_presence')
-        .upsert({
-          user_id: userId,
-          status: currentStatus,
-          last_seen: new Date().toISOString()
-        });
+      // Hvis brukeren er skjult, ikke oppdater presence
+      if (!hidden) {
+        const { error: upsertError } = await supabase
+          .from('user_presence')
+          .upsert({
+            user_id: userId,
+            status: currentStatus,
+            last_seen: new Date().toISOString()
+          });
 
-      if (upsertError) {
-        console.error("Error setting initial presence:", upsertError);
+        if (upsertError) {
+          console.error("Error setting initial presence:", upsertError);
+        }
+      } else {
+        // Slett brukerens presence hvis de vil være skjult
+        const { error: deleteError } = await supabase
+          .from('user_presence')
+          .delete()
+          .eq('user_id', userId);
+          
+        if (deleteError && deleteError.code !== 'PGRST116') { // Ignore not found error
+          console.error("Error deleting presence:", deleteError);
+        }
       }
 
       const channel = supabase
@@ -102,10 +164,10 @@ const Chat = () => {
     return () => {
       cleanup.then(cleanupFn => cleanupFn?.());
     };
-  }, [userId, currentStatus]);
+  }, [userId, currentStatus, hidden]);
 
   const handleStatusChange = async (newStatus: UserStatus) => {
-    if (!userId) return;
+    if (!userId || hidden) return;
 
     setCurrentStatus(newStatus);
     const { error } = await supabase
@@ -124,6 +186,62 @@ const Chat = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleToggleHidden = async () => {
+    setHidden(!hidden);
+    
+    // Oppdateringen av presence skjer i useEffect-hooken
+  };
+
+  const handleSendFriendRequest = async (friendId: string) => {
+    if (!userId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('friendships')
+        .insert({
+          user_id: userId,
+          friend_id: friendId,
+          status: 'pending'
+        });
+
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast({
+            title: "Forespørsel eksisterer",
+            description: "Du har allerede sendt eller mottatt en venneforespørsel fra denne brukeren",
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        toast({
+          title: "Forespørsel sendt",
+          description: "Venneforespørsel sendt!",
+        });
+      }
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      toast({
+        title: "Feil",
+        description: "Kunne ikke sende venneforespørsel",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleStartChat = (friendId: string) => {
+    // Simulere klikk på venneikon i sidepanelet
+    // Dette vil vanligvis åpne venner-dialogen
+    document.dispatchEvent(new CustomEvent('start-chat-with-friend', { 
+      detail: { friendId }
+    }));
+    
+    toast({
+      title: "Åpner chat",
+      description: "Åpner chat med bruker",
+    });
   };
 
   const handleDirectMessage = (message: DecryptedMessage) => {
@@ -169,6 +287,11 @@ const Chat = () => {
         webRTCManager={webRTCManager}
         directMessages={directMessages}
         onNewMessage={handleDirectMessage}
+        friends={friendsList}
+        onSendFriendRequest={handleSendFriendRequest}
+        onStartChat={handleStartChat}
+        hidden={hidden}
+        onToggleHidden={handleToggleHidden}
       />
       
       <div className="flex-1 overflow-hidden">

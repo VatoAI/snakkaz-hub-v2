@@ -20,9 +20,14 @@ interface ChatHeaderProps {
   currentUserId: string | null;
   currentStatus: UserStatus;
   onStatusChange: (status: UserStatus) => void;
-  webRTCManager?: any; // Added props
-  directMessages?: DecryptedMessage[]; // Added props
-  onNewMessage?: (message: DecryptedMessage) => void; // Added props
+  webRTCManager?: any;
+  directMessages?: DecryptedMessage[];
+  onNewMessage?: (message: DecryptedMessage) => void;
+  friends?: string[];
+  onSendFriendRequest?: (userId: string) => void;
+  onStartChat?: (userId: string) => void;
+  hidden?: boolean;
+  onToggleHidden?: () => void;
 }
 
 export const ChatHeader = ({
@@ -32,9 +37,32 @@ export const ChatHeader = ({
   onStatusChange,
   webRTCManager = null,
   directMessages = [],
-  onNewMessage = () => {} // Default function
+  onNewMessage = () => {},
+  friends = [],
+  onSendFriendRequest = () => {},
+  onStartChat = () => {},
+  hidden = false,
+  onToggleHidden = () => {}
 }: ChatHeaderProps) => {
   const navigate = useNavigate();
+  const [isFriendsOpen, setIsFriendsOpen] = useState(false);
+
+  // Lytter etter tilpassede hendelser for å åpne chat med venn
+  useState(() => {
+    const handleStartChatEvent = (e: Event) => {
+      const event = e as CustomEvent;
+      if (event.detail && event.detail.friendId) {
+        setIsFriendsOpen(true);
+        // Her ville vi ideelt sett sette valgt venn
+      }
+    };
+    
+    document.addEventListener('start-chat-with-friend', handleStartChatEvent);
+    
+    return () => {
+      document.removeEventListener('start-chat-with-friend', handleStartChatEvent);
+    };
+  });
 
   return (
     <div className="p-2 sm:p-4 border-b border-cybergold-500/30">
@@ -65,7 +93,7 @@ export const ChatHeader = ({
             >
               <User className="h-4 w-4" />
             </Button>
-            <Sheet>
+            <Sheet open={isFriendsOpen} onOpenChange={setIsFriendsOpen}>
               <SheetTrigger asChild>
                 <Button
                   variant="outline"
@@ -98,6 +126,11 @@ export const ChatHeader = ({
             currentUserId={currentUserId}
             onStatusChange={onStatusChange}
             currentStatus={currentStatus}
+            onSendFriendRequest={onSendFriendRequest}
+            onStartChat={onStartChat}
+            friends={friends}
+            hidden={hidden}
+            onToggleHidden={onToggleHidden}
           />
         </div>
       </div>
