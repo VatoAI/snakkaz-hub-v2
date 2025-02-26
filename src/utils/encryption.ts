@@ -138,3 +138,48 @@ export async function decryptMessage(message: { encrypted_content: string, encry
     throw new Error("Failed to decrypt message");
   }
 }
+
+// Tilleggsmetode for å kryptere direktemeldingsinnhold
+// Denne bruker en delt nøkkel i stedet for å generere en ny hver gang
+export async function encryptWithSharedKey(
+  message: string,
+  sharedKey: CryptoKey
+): Promise<{ encryptedContent: string; iv: string }> {
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const encodedMessage = new TextEncoder().encode(message);
+
+  const encryptedData = await window.crypto.subtle.encrypt(
+    {
+      name: "AES-GCM",
+      iv: iv,
+    },
+    sharedKey,
+    encodedMessage
+  );
+
+  return {
+    encryptedContent: btoa(String.fromCharCode(...new Uint8Array(encryptedData))),
+    iv: btoa(String.fromCharCode(...iv))
+  };
+}
+
+// Tilleggsmetode for å dekryptere med delt nøkkel
+export async function decryptWithSharedKey(
+  encryptedContent: string,
+  iv: string,
+  sharedKey: CryptoKey
+): Promise<string> {
+  const encryptedData = Uint8Array.from(atob(encryptedContent), c => c.charCodeAt(0));
+  const ivData = Uint8Array.from(atob(iv), c => c.charCodeAt(0));
+
+  const decryptedData = await window.crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: ivData,
+    },
+    sharedKey,
+    encryptedData
+  );
+
+  return new TextDecoder().decode(decryptedData);
+}

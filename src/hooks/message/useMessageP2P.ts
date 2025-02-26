@@ -17,7 +17,8 @@ export const useMessageP2P = (
         username: peerId,
         full_name: null,
         avatar_url: null
-      }
+      },
+      receiver_id: null // Dette er en direktemelding, men mottakerid settes ikke her
     };
     setMessages(prev => [...prev, p2pMessage]);
   }, [setMessages]);

@@ -9,6 +9,8 @@ import { UserPresence, UserStatus } from '@/types/presence';
 import { ChatHeader } from '@/components/chat/ChatHeader';
 import { useChatAuth } from '@/components/chat/ChatAuth';
 import { useToast } from "@/components/ui/use-toast";
+import { DecryptedMessage } from '@/types/message';
+import { useMessageP2P } from '@/hooks/message/useMessageP2P';
 
 const Chat = () => {
   const { toast } = useToast();
@@ -16,6 +18,9 @@ const Chat = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [userPresence, setUserPresence] = useState<Record<string, UserPresence>>({});
   const [currentStatus, setCurrentStatus] = useState<UserStatus>('online');
+  const [directMessages, setDirectMessages] = useState<DecryptedMessage[]>([]);
+  
+  const { addP2PMessage } = useMessageP2P(setDirectMessages);
   
   const { webRTCManager, setupPresenceChannel, initializeWebRTC } = useWebRTC(userId, (message: string, peerId: string) => {
     addP2PMessage(message, peerId);
@@ -37,7 +42,6 @@ const Chat = () => {
     setTtl, 
     fetchMessages, 
     setupRealtimeSubscription,
-    addP2PMessage, 
     handleSendMessage,
     handleMessageExpired
   } = useMessages(userId);
@@ -122,6 +126,10 @@ const Chat = () => {
     }
   };
 
+  const handleDirectMessage = (message: DecryptedMessage) => {
+    setDirectMessages(prev => [...prev, message]);
+  };
+
   useEffect(() => {
     if (userId) {
       console.log("Setting up messages for user:", userId);
@@ -158,6 +166,9 @@ const Chat = () => {
         currentUserId={userId}
         currentStatus={currentStatus}
         onStatusChange={handleStatusChange}
+        webRTCManager={webRTCManager}
+        directMessages={directMessages}
+        onNewMessage={handleDirectMessage}
       />
       
       <div className="flex-1 overflow-hidden">

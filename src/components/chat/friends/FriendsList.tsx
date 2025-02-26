@@ -23,6 +23,7 @@ export const FriendsList = ({
   onNewMessage
 }: FriendsListProps) => {
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
+  const [readMessages, setReadMessages] = useState<Set<string>>(new Set());
 
   if (friends.length === 0) {
     return (
@@ -31,6 +32,18 @@ export const FriendsList = ({
       </div>
     );
   }
+
+  const handleSelectFriend = (friend: Friend) => {
+    // Mark all messages from this friend as read
+    const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
+    const messagesFromFriend = directMessages.filter(msg => msg.sender.id === friendId);
+    
+    const newReadMessages = new Set(readMessages);
+    messagesFromFriend.forEach(msg => newReadMessages.add(msg.id));
+    
+    setReadMessages(newReadMessages);
+    setSelectedFriend(friend);
+  };
 
   if (selectedFriend) {
     return (
@@ -50,16 +63,17 @@ export const FriendsList = ({
       <h3 className="text-sm font-medium text-cybergold-300">Dine venner</h3>
       {friends.map((friend) => {
         const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
-        // Count unread messages without using 'read' property
-        const unreadCount = directMessages.filter(
-          msg => msg.sender.id === friendId
-        ).length;
+        
+        // Get messages from this friend that haven't been read
+        const unreadMessages = directMessages.filter(
+          msg => msg.sender.id === friendId && !readMessages.has(msg.id)
+        );
         
         return (
           <div
             key={friend.id}
             className="flex items-center justify-between p-2 bg-cyberdark-800 border border-cybergold-500/30 rounded-md hover:bg-cyberdark-700 transition-colors cursor-pointer"
-            onClick={() => setSelectedFriend(friend)}
+            onClick={() => handleSelectFriend(friend)}
           >
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-cybergold-500/20 flex items-center justify-center">
@@ -75,9 +89,9 @@ export const FriendsList = ({
               className="relative text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-600"
             >
               <MessageSquare className="w-4 h-4" />
-              {unreadCount > 0 && (
+              {unreadMessages.length > 0 && (
                 <span className="absolute -top-1 -right-1 bg-cybergold-500 text-cyberdark-900 text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {unreadCount}
+                  {unreadMessages.length}
                 </span>
               )}
             </Button>
