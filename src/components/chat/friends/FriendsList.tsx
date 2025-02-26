@@ -6,6 +6,8 @@ import { Friend } from "./types";
 import { DirectMessage } from "./DirectMessage";
 import { WebRTCManager } from "@/utils/webrtc";
 import { DecryptedMessage } from "@/types/message";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
 
 interface FriendsListProps {
   friends: Friend[];
@@ -13,6 +15,8 @@ interface FriendsListProps {
   webRTCManager: WebRTCManager | null;
   directMessages: DecryptedMessage[];
   onNewMessage: (message: DecryptedMessage) => void;
+  onStartChat?: (friendId: string) => void;
+  userProfiles?: Record<string, {username: string | null, avatar_url: string | null}>;
 }
 
 export const FriendsList = ({ 
@@ -20,15 +24,21 @@ export const FriendsList = ({
   currentUserId,
   webRTCManager,
   directMessages,
-  onNewMessage
+  onNewMessage,
+  onStartChat,
+  userProfiles = {}
 }: FriendsListProps) => {
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [readMessages, setReadMessages] = useState<Set<string>>(new Set());
 
   if (friends.length === 0) {
     return (
-      <div className="text-center text-cybergold-500 py-4">
-        Du har ingen venner ennå. Søk etter brukere og send venneforespørsler.
+      <div className="text-center text-cybergold-500 py-4 bg-cyberdark-800/40 rounded-md p-4">
+        <div className="mb-2 flex justify-center">
+          <User className="h-10 w-10 text-cybergold-400/50" />
+        </div>
+        <p>Du har ingen venner ennå.</p>
+        <p className="text-sm mt-1">Søk etter brukere og send venneforespørsler for å begynne å chatte.</p>
       </div>
     );
   }
@@ -42,10 +52,15 @@ export const FriendsList = ({
     messagesFromFriend.forEach(msg => newReadMessages.add(msg.id));
     
     setReadMessages(newReadMessages);
-    setSelectedFriend(friend);
+    
+    if (onStartChat) {
+      onStartChat(friendId);
+    } else {
+      setSelectedFriend(friend);
+    }
   };
 
-  if (selectedFriend) {
+  if (selectedFriend && !onStartChat) {
     return (
       <DirectMessage 
         friend={selectedFriend}
@@ -54,50 +69,74 @@ export const FriendsList = ({
         onBack={() => setSelectedFriend(null)}
         messages={directMessages}
         onNewMessage={onNewMessage}
+        userProfiles={userProfiles}
       />
     );
   }
 
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-medium text-cybergold-300">Dine venner</h3>
-      {friends.map((friend) => {
-        const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
-        
-        // Get messages from this friend that haven't been read
-        const unreadMessages = directMessages.filter(
-          msg => msg.sender.id === friendId && !readMessages.has(msg.id)
-        );
-        
-        return (
-          <div
-            key={friend.id}
-            className="flex items-center justify-between p-2 bg-cyberdark-800 border border-cybergold-500/30 rounded-md hover:bg-cyberdark-700 transition-colors cursor-pointer"
-            onClick={() => handleSelectFriend(friend)}
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-cybergold-500/20 flex items-center justify-center">
-                <User className="w-4 h-4 text-cybergold-300" />
-              </div>
-              <span className="text-cybergold-200">
-                {friend.profile?.username || friend.profile?.full_name || 'Ukjent bruker'}
-              </span>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-600"
+      <h3 className="text-sm font-medium text-cybergold-300 px-1">Dine venner</h3>
+      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
+        {friends.map((friend) => {
+          const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
+          
+          // Get messages from this friend that haven't been read
+          const unreadMessages = directMessages.filter(
+            msg => msg.sender.id === friendId && !readMessages.has(msg.id)
+          );
+          
+          // Get user profile info
+          const friendProfile = friend.profiles || userProfiles[friendId];
+          const username = friendProfile?.username || 'Ukjent bruker';
+          const avatarUrl = friendProfile?.avatar_url;
+          
+          return (
+            <div
+              key={friend.id}
+              className="flex items-center justify-between p-3 bg-cyberdark-800 border border-cybergold-500/30 rounded-md hover:bg-cyberdark-700 transition-colors cursor-pointer"
+              onClick={() => handleSelectFriend(friend)}
             >
-              <MessageSquare className="w-4 h-4" />
-              {unreadMessages.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-cybergold-500 text-cyberdark-900 text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                  {unreadMessages.length}
-                </span>
-              )}
-            </Button>
-          </div>
-        );
-      })}
+              <div className="flex items-center gap-3">
+                <Avatar className="w-10 h-10 border-2 border-cybergold-500/20">
+                  {avatarUrl ? (
+                    <AvatarImage 
+                      src={supabase.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl} 
+                      alt={username}
+                    />
+                  ) : (
+                    <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
+                      {username.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <div>
+                  <p className="text-cybergold-200 font-medium">
+                    {username}
+                  </p>
+                  {unreadMessages.length > 0 && (
+                    <p className="text-xs text-cybergold-400">
+                      {unreadMessages.length} nye {unreadMessages.length === 1 ? 'melding' : 'meldinger'}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-600"
+              >
+                <MessageSquare className="w-5 h-5" />
+                {unreadMessages.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-cybergold-500 text-cyberdark-900 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                    {unreadMessages.length}
+                  </span>
+                )}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

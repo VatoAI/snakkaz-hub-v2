@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Home, MessageSquare, User, Users } from 'lucide-react';
@@ -28,6 +28,7 @@ interface ChatHeaderProps {
   onStartChat?: (userId: string) => void;
   hidden?: boolean;
   onToggleHidden?: () => void;
+  userProfiles?: Record<string, {username: string | null, avatar_url: string | null}>;
 }
 
 export const ChatHeader = ({
@@ -42,13 +43,14 @@ export const ChatHeader = ({
   onSendFriendRequest = () => {},
   onStartChat = () => {},
   hidden = false,
-  onToggleHidden = () => {}
+  onToggleHidden = () => {},
+  userProfiles = {}
 }: ChatHeaderProps) => {
   const navigate = useNavigate();
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
 
   // Lytter etter tilpassede hendelser for å åpne chat med venn
-  useState(() => {
+  useEffect(() => {
     const handleStartChatEvent = (e: Event) => {
       const event = e as CustomEvent;
       if (event.detail && event.detail.friendId) {
@@ -62,7 +64,7 @@ export const ChatHeader = ({
     return () => {
       document.removeEventListener('start-chat-with-friend', handleStartChatEvent);
     };
-  });
+  }, []);
 
   return (
     <div className="p-2 sm:p-4 border-b border-cybergold-500/30">
@@ -113,6 +115,8 @@ export const ChatHeader = ({
                     webRTCManager={webRTCManager}
                     directMessages={directMessages}
                     onNewMessage={onNewMessage}
+                    onStartChat={onStartChat}
+                    userProfiles={userProfiles}
                   />
                 }
               </SheetContent>
@@ -131,6 +135,7 @@ export const ChatHeader = ({
             friends={friends}
             hidden={hidden}
             onToggleHidden={onToggleHidden}
+            userProfiles={userProfiles}
           />
         </div>
       </div>

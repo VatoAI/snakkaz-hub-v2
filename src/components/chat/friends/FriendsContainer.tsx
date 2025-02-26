@@ -14,13 +14,17 @@ interface FriendsContainerProps {
   webRTCManager: WebRTCManager | null;
   directMessages: DecryptedMessage[];
   onNewMessage: (message: DecryptedMessage) => void;
+  onStartChat?: (userId: string) => void;
+  userProfiles?: Record<string, {username: string | null, avatar_url: string | null}>;
 }
 
 export const FriendsContainer = ({ 
   currentUserId,
   webRTCManager,
   directMessages,
-  onNewMessage
+  onNewMessage,
+  onStartChat,
+  userProfiles = {}
 }: FriendsContainerProps) => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [friendRequests, setFriendRequests] = useState<Friend[]>([]);
@@ -49,7 +53,13 @@ export const FriendsContainer = ({
           id,
           status,
           friend_id,
-          user_id
+          user_id,
+          profiles!friendships_friend_id_fkey (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
         `)
         .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`);
 
@@ -67,34 +77,10 @@ export const FriendsContainer = ({
 
       console.log('Found friendships:', friendships);
 
-      // Henter profiler for alle involverte brukere
-      const friendIds = friendships.map(f => 
-        f.user_id === currentUserId ? f.friend_id : f.user_id
-      );
-
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, username, full_name')
-        .in('id', friendIds);
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError);
-        throw profilesError;
-      }
-
-      console.log('Found profiles:', profiles);
-
       // Kombinerer vennskap og profiler
       const processedFriends = friendships.map(friendship => {
-        const friendId = friendship.user_id === currentUserId 
-          ? friendship.friend_id 
-          : friendship.user_id;
-        
-        const profile = profiles?.find(p => p.id === friendId);
-        
         return {
-          ...friendship,
-          profile: profile || null
+          ...friendship
         };
       });
 
@@ -263,6 +249,12 @@ export const FriendsContainer = ({
     }
   };
 
+  const handleStartDirectChat = (friendId: string) => {
+    if (onStartChat) {
+      onStartChat(friendId);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <FriendSearch 
@@ -278,6 +270,7 @@ export const FriendsContainer = ({
           friendRequests={friendRequests}
           onAccept={handleAcceptFriendRequest}
           onReject={handleRejectFriendRequest}
+          userProfiles={userProfiles}
         />
       )}
       
@@ -287,6 +280,8 @@ export const FriendsContainer = ({
         webRTCManager={webRTCManager}
         directMessages={directMessages}
         onNewMessage={onNewMessage}
+        onStartChat={handleStartDirectChat}
+        userProfiles={userProfiles}
       />
     </div>
   );

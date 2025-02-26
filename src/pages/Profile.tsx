@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,6 +139,15 @@ const Profile = () => {
         description: "Profilen din har blitt oppdatert",
       });
       setUsernameError(null);
+      
+      // Send en global hendelse for å oppdatere brukernavn i hele applikasjonen
+      document.dispatchEvent(new CustomEvent('username-updated', {
+        detail: {
+          userId: session.user.id,
+          username: username
+        }
+      }));
+      
     } catch (error: any) {
       console.error('Error:', error);
       toast({
@@ -186,6 +196,15 @@ const Profile = () => {
         title: "Suksess",
         description: "Profilbildet ditt har blitt oppdatert",
       });
+      
+      // Send en global hendelse for å oppdatere profilbilde i hele applikasjonen
+      document.dispatchEvent(new CustomEvent('avatar-updated', {
+        detail: {
+          userId: session.user.id,
+          avatarUrl: filePath
+        }
+      }));
+      
     } catch (error) {
       console.error('Error:', error);
       toast({

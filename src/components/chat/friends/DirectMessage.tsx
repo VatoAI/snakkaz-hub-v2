@@ -9,6 +9,7 @@ import { WebRTCManager } from '@/utils/webrtc';
 import { DecryptedMessage } from '@/types/message';
 import { supabase } from '@/integrations/supabase/client';
 import { encryptMessage } from '@/utils/encryption';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface DirectMessageProps {
   friend: Friend;
@@ -17,6 +18,7 @@ interface DirectMessageProps {
   onBack: () => void;
   messages: DecryptedMessage[];
   onNewMessage: (message: DecryptedMessage) => void;
+  userProfiles?: Record<string, {username: string | null, avatar_url: string | null}>;
 }
 
 export const DirectMessage = ({
@@ -25,7 +27,8 @@ export const DirectMessage = ({
   webRTCManager,
   onBack,
   messages,
-  onNewMessage
+  onNewMessage,
+  userProfiles = {}
 }: DirectMessageProps) => {
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +37,11 @@ export const DirectMessage = ({
   const { toast } = useToast();
   
   const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
-  const friendUsername = friend.profile?.username || 'Ukjent venn';
+  
+  // Get friend profile info from either friend object or userProfiles
+  const friendProfile = friend.profiles || userProfiles[friendId];
+  const friendUsername = friendProfile?.username || 'Ukjent venn';
+  const friendAvatar = friendProfile?.avatar_url;
 
   // Filter messages to show only those between current user and this friend
   const directMessages = messages.filter(msg => 
@@ -124,6 +131,10 @@ export const DirectMessage = ({
           await webRTCManager.sendDirectMessage(friendId, message);
           isSentP2P = true;
           
+          // Get current user's profile info
+          const myUsername = userProfiles[currentUserId]?.username || 'Du';
+          const myAvatar = userProfiles[currentUserId]?.avatar_url;
+          
           // Add the message to the UI immediately
           const outgoingMessage: DecryptedMessage = {
             id: messageId,
@@ -133,9 +144,9 @@ export const DirectMessage = ({
             iv: '',
             sender: {
               id: currentUserId,
-              username: 'Du', // Could be replaced with actual username
+              username: myUsername,
               full_name: null,
-              avatar_url: null
+              avatar_url: myAvatar
             },
             receiver_id: friendId
           };
@@ -226,7 +237,19 @@ export const DirectMessage = ({
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div>
+            <div className="flex items-center gap-2">
+              <Avatar className="w-8 h-8 border border-cybergold-500/30">
+                {friendAvatar ? (
+                  <AvatarImage 
+                    src={supabase.storage.from('avatars').getPublicUrl(friendAvatar).data.publicUrl} 
+                    alt={friendUsername}
+                  />
+                ) : (
+                  <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
+                    {friendUsername.substring(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                )}
+              </Avatar>
               <h3 className="text-cybergold-300 font-medium">{friendUsername}</h3>
             </div>
           </div>
@@ -236,25 +259,59 @@ export const DirectMessage = ({
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {directMessages.length === 0 ? (
-          <p className="text-center text-cybergold-500 text-sm">
-            Ingen meldinger ennå. Send en melding for å starte samtalen.
-          </p>
-        ) : (
-          directMessages.map(msg => (
-            <div 
-              key={msg.id}
-              className={`max-w-[80%] p-3 rounded-md ${
-                msg.sender.id === currentUserId 
-                  ? 'ml-auto bg-cybergold-500/20 text-cybergold-100'
-                  : 'mr-auto bg-cyberdark-700 text-cyberblue-100'
-              }`}
-            >
-              <p>{msg.content}</p>
-              <span className="text-xs opacity-50 block mt-1">
-                {new Date(msg.created_at).toLocaleTimeString()}
-              </span>
+          <div className="flex flex-col items-center justify-center h-full text-center text-cybergold-500">
+            <div className="bg-cyberdark-800/40 p-6 rounded-xl mb-4">
+              <ShieldCheck className="h-10 w-10 text-cybergold-400/50 mx-auto mb-4" />
+              <p className="text-sm mb-2">
+                Ingen meldinger ennå. Send en melding for å starte samtalen.
+              </p>
+              <p className="text-xs opacity-70">
+                Meldinger sendes med ende-til-ende-kryptering når begge er pålogget.
+              </p>
             </div>
-          ))
+          </div>
+        ) : (
+          directMessages.map(msg => {
+            const isCurrentUser = msg.sender.id === currentUserId;
+            const senderAvatar = isCurrentUser 
+              ? userProfiles[currentUserId]?.avatar_url 
+              : friendAvatar;
+            const senderName = isCurrentUser 
+              ? userProfiles[currentUserId]?.username || 'Du' 
+              : friendUsername;
+              
+            return (
+              <div 
+                key={msg.id}
+                className={`flex gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
+              >
+                <Avatar className="w-8 h-8 mt-1">
+                  {senderAvatar ? (
+                    <AvatarImage 
+                      src={supabase.storage.from('avatars').getPublicUrl(senderAvatar).data.publicUrl} 
+                      alt={senderName}
+                    />
+                  ) : (
+                    <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
+                      {senderName.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <div 
+                  className={`max-w-[75%] p-3 rounded-md ${
+                    isCurrentUser 
+                      ? 'bg-cybergold-500/20 text-cybergold-100'
+                      : 'bg-cyberdark-700 text-cyberblue-100'
+                  }`}
+                >
+                  <p>{msg.content}</p>
+                  <span className="text-xs opacity-50 block mt-1">
+                    {new Date(msg.created_at).toLocaleTimeString()}
+                  </span>
+                </div>
+              </div>
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </div>

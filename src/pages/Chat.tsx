@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { MessageList } from '@/components/MessageList';
 import { MessageInput } from '@/components/MessageInput';
 import { useMessages } from '@/hooks/useMessages';
@@ -11,6 +11,9 @@ import { useChatAuth } from '@/components/chat/ChatAuth';
 import { useToast } from "@/components/ui/use-toast";
 import { DecryptedMessage } from '@/types/message';
 import { useMessageP2P } from '@/hooks/message/useMessageP2P';
+import { Friend } from '@/components/chat/friends/types';
+import { DirectMessage } from '@/components/chat/friends/DirectMessage';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Chat = () => {
   const { toast } = useToast();
@@ -21,6 +24,10 @@ const Chat = () => {
   const [directMessages, setDirectMessages] = useState<DecryptedMessage[]>([]);
   const [friendsList, setFriendsList] = useState<string[]>([]);
   const [hidden, setHidden] = useState(false);
+  const [activeChat, setActiveChat] = useState<string | null>(null);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
+  const [userProfiles, setUserProfiles] = useState<Record<string, {username: string | null, avatar_url: string | null}>>({});
   
   const { addP2PMessage } = useMessageP2P(setDirectMessages);
   
@@ -48,25 +55,134 @@ const Chat = () => {
     handleMessageExpired
   } = useMessages(userId);
 
+  // Last inn brukerprofiler
+  useEffect(() => {
+    const loadUserProfiles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url');
+          
+        if (error) throw error;
+        
+        const profileMap: Record<string, {username: string | null, avatar_url: string | null}> = {};
+        data?.forEach(profile => {
+          profileMap[profile.id] = {
+            username: profile.username,
+            avatar_url: profile.avatar_url
+          };
+        });
+        
+        setUserProfiles(profileMap);
+      } catch (error) {
+        console.error('Error loading user profiles:', error);
+      }
+    };
+    
+    loadUserProfiles();
+    
+    // Lytt etter brukernavn oppdateringer
+    const handleUsernameUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        const { userId, username } = customEvent.detail;
+        setUserProfiles(prev => ({
+          ...prev,
+          [userId]: {
+            ...prev[userId],
+            username
+          }
+        }));
+      }
+    };
+    
+    // Lytt etter avatar oppdateringer
+    const handleAvatarUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        const { userId, avatarUrl } = customEvent.detail;
+        setUserProfiles(prev => ({
+          ...prev,
+          [userId]: {
+            ...prev[userId],
+            avatar_url: avatarUrl
+          }
+        }));
+      }
+    };
+    
+    document.addEventListener('username-updated', handleUsernameUpdate);
+    document.addEventListener('avatar-updated', handleAvatarUpdate);
+    
+    // Sett opp subscription for profil-endringer
+    const profilesChannel = supabase
+      .channel('profiles-changes')
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'profiles'
+        }, 
+        async (payload) => {
+          if (payload.new) {
+            const newProfile = payload.new as any;
+            setUserProfiles(prev => ({
+              ...prev,
+              [newProfile.id]: {
+                username: newProfile.username,
+                avatar_url: newProfile.avatar_url
+              }
+            }));
+          }
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      document.removeEventListener('username-updated', handleUsernameUpdate);
+      document.removeEventListener('avatar-updated', handleAvatarUpdate);
+      supabase.removeChannel(profilesChannel);
+    };
+  }, []);
+
   // Hent venner når userId endres
   useEffect(() => {
     if (!userId) return;
     
     const fetchFriends = async () => {
       try {
-        const { data, error } = await supabase
+        const { data: friendships, error: friendshipsError } = await supabase
           .from('friendships')
-          .select('friend_id, user_id')
+          .select(`
+            id,
+            user_id,
+            friend_id,
+            status,
+            profiles!friendships_friend_id_fkey (
+              id,
+              username,
+              full_name,
+              avatar_url
+            )
+          `)
           .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
           .eq('status', 'accepted');
           
-        if (error) throw error;
+        if (friendshipsError) throw friendshipsError;
         
-        const friendIds = (data || []).map(f => 
+        const friendIds = (friendships || []).map(f => 
           f.user_id === userId ? f.friend_id : f.user_id
         );
         
         setFriendsList(friendIds);
+        setFriends(friendships || []);
+
+        // Hvis vi har en aktiv chat med en venn, oppdater den
+        if (activeChat && !friendIds.includes(activeChat)) {
+          setActiveChat(null);
+          setSelectedFriend(null);
+        }
+        
       } catch (error) {
         console.error('Error fetching friends:', error);
       }
@@ -104,7 +220,7 @@ const Chat = () => {
     return () => {
       supabase.removeChannel(friendsChannel);
     };
-  }, [userId]);
+  }, [userId, activeChat]);
 
   // Set up real-time presence
   useEffect(() => {
@@ -259,16 +375,22 @@ const Chat = () => {
   };
 
   const handleStartChat = (friendId: string) => {
-    // Simulere klikk på venneikon i sidepanelet
-    // Dette vil vanligvis åpne venner-dialogen
-    document.dispatchEvent(new CustomEvent('start-chat-with-friend', { 
-      detail: { friendId }
-    }));
+    // Finn vennen i vennelisten
+    const friend = friends.find(f => 
+      (f.user_id === userId && f.friend_id === friendId) || 
+      (f.friend_id === userId && f.user_id === friendId)
+    );
     
-    toast({
-      title: "Åpner chat",
-      description: "Åpner chat med bruker",
-    });
+    if (friend) {
+      setActiveChat(friendId);
+      setSelectedFriend(friend);
+    } else {
+      toast({
+        title: "Finner ikke venn",
+        description: "Kunne ikke finne vennskap med denne brukeren",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDirectMessage = (message: DecryptedMessage) => {
@@ -295,6 +417,11 @@ const Chat = () => {
       });
     }
   };
+  
+  const handleCloseDirectChat = () => {
+    setActiveChat(null);
+    setSelectedFriend(null);
+  };
 
   if (authLoading) {
     return (
@@ -319,24 +446,66 @@ const Chat = () => {
         onStartChat={handleStartChat}
         hidden={hidden}
         onToggleHidden={handleToggleHidden}
+        userProfiles={userProfiles}
       />
       
       <div className="flex-1 overflow-hidden">
-        <MessageList 
-          messages={messages} 
-          onMessageExpired={handleMessageExpired}
-        />
-      </div>
+        <Tabs defaultValue="global" className="w-full h-full">
+          <div className="border-b border-cybergold-500/30 px-4">
+            <TabsList className="bg-transparent border-b-0">
+              <TabsTrigger value="global" className="text-cybergold-300 data-[state=active]:text-cybergold-100 data-[state=active]:border-b-2 data-[state=active]:border-cybergold-400 rounded-none">
+                Global Chat
+              </TabsTrigger>
+              {selectedFriend && (
+                <TabsTrigger value="direct" className="text-cybergold-300 data-[state=active]:text-cybergold-100 data-[state=active]:border-b-2 data-[state=active]:border-cybergold-400 rounded-none">
+                  {selectedFriend.profiles?.username || 'Direktemelding'}
+                  <button 
+                    onClick={handleCloseDirectChat}
+                    className="ml-2 text-xs text-cybergold-400 hover:text-cybergold-300"
+                  >
+                    ✕
+                  </button>
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </div>
+          
+          <TabsContent value="global" className="h-full flex flex-col mt-0 pt-0">
+            <div className="flex-1 overflow-hidden">
+              <MessageList 
+                messages={messages} 
+                onMessageExpired={handleMessageExpired}
+              />
+            </div>
 
-      <div className="p-2 sm:p-4 border-t border-cybergold-500/30">
-        <MessageInput
-          newMessage={newMessage}
-          setNewMessage={setNewMessage}
-          onSubmit={handleSubmit}
-          isLoading={isLoading}
-          ttl={ttl}
-          setTtl={setTtl}
-        />
+            <div className="p-2 sm:p-4 border-t border-cybergold-500/30">
+              <MessageInput
+                newMessage={newMessage}
+                setNewMessage={setNewMessage}
+                onSubmit={handleSubmit}
+                isLoading={isLoading}
+                ttl={ttl}
+                setTtl={setTtl}
+              />
+            </div>
+          </TabsContent>
+          
+          {selectedFriend && (
+            <TabsContent value="direct" className="h-full mt-0 pt-0">
+              <div className="h-full">
+                <DirectMessage 
+                  friend={selectedFriend}
+                  currentUserId={userId || ''}
+                  webRTCManager={webRTCManager}
+                  onBack={handleCloseDirectChat}
+                  messages={directMessages}
+                  onNewMessage={handleDirectMessage}
+                  userProfiles={userProfiles}
+                />
+              </div>
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
     </div>
   );

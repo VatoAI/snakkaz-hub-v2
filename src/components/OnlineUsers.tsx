@@ -24,6 +24,7 @@ interface OnlineUsersProps {
   friends: string[]; // Liste over vennenes bruker-IDer
   hidden: boolean;
   onToggleHidden: () => void;
+  userProfiles?: Record<string, {username: string | null, avatar_url: string | null}>;
 }
 
 const statusIcons = {
@@ -53,7 +54,8 @@ export const OnlineUsers = ({
   onStartChat,
   friends,
   hidden,
-  onToggleHidden
+  onToggleHidden,
+  userProfiles = {}
 }: OnlineUsersProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [showAllUsers, setShowAllUsers] = useState(false);
@@ -100,10 +102,11 @@ export const OnlineUsers = ({
         const isOnline = userPresence[user.id] !== undefined;
         const status = isOnline ? userPresence[user.id].status : null;
         const isFriend = friends.includes(user.id);
+        const displayName = userProfiles[user.id]?.username || user.username || user.id.substring(0, 8);
         
         return {
           id: user.id,
-          username: user.username || user.id.substring(0, 8),
+          username: displayName,
           status,
           isOnline,
           isFriend
@@ -113,12 +116,14 @@ export const OnlineUsers = ({
       return Object.entries(userPresence)
         .filter(([userId]) => userId !== currentUserId)
         .map(([userId, presence]) => {
-          const user = allUsers.find(u => u.id === userId) || { id: userId, username: userId.substring(0, 8) };
           const isFriend = friends.includes(userId);
+          const displayName = userProfiles[userId]?.username || 
+                             allUsers.find(u => u.id === userId)?.username || 
+                             userId.substring(0, 8);
           
           return {
             id: userId,
-            username: user.username || userId.substring(0, 8),
+            username: displayName,
             status: presence.status,
             isOnline: true,
             isFriend
