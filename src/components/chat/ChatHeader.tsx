@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Home, MessageSquare, User, Users } from 'lucide-react';
 import { OnlineUsers } from '@/components/OnlineUsers';
 import { UserPresence, UserStatus } from '@/types/presence';
-import { FriendsList } from './FriendsList';
+import { FriendsContainer } from './friends/FriendsContainer';
+import { DecryptedMessage } from '@/types/message';
 import {
   Sheet,
   SheetContent,
@@ -19,16 +20,21 @@ interface ChatHeaderProps {
   currentUserId: string | null;
   currentStatus: UserStatus;
   onStatusChange: (status: UserStatus) => void;
+  webRTCManager?: any; // Added props
+  directMessages?: DecryptedMessage[]; // Added props
+  onNewMessage?: (message: DecryptedMessage) => void; // Added props
 }
 
 export const ChatHeader = ({
   userPresence,
   currentUserId,
   currentStatus,
-  onStatusChange
+  onStatusChange,
+  webRTCManager = null,
+  directMessages = [],
+  onNewMessage = () => {} // Default function
 }: ChatHeaderProps) => {
   const navigate = useNavigate();
-  const [showFriends, setShowFriends] = useState(false);
 
   return (
     <div className="p-2 sm:p-4 border-b border-cybergold-500/30">
@@ -73,7 +79,14 @@ export const ChatHeader = ({
                 <SheetHeader>
                   <SheetTitle className="text-cybergold-400">Venner</SheetTitle>
                 </SheetHeader>
-                {currentUserId && <FriendsList currentUserId={currentUserId} />}
+                {currentUserId && 
+                  <FriendsContainer 
+                    currentUserId={currentUserId} 
+                    webRTCManager={webRTCManager}
+                    directMessages={directMessages}
+                    onNewMessage={onNewMessage}
+                  />
+                }
               </SheetContent>
             </Sheet>
           </div>

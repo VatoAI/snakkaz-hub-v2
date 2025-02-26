@@ -5,16 +5,18 @@ import { UserProfile } from "./types";
 
 interface FriendSearchProps {
   searchUsername: string;
-  onSearchChange: (value: string) => void;
+  setSearchUsername: (value: string) => void;
+  onSearch: () => void;
   searchResults: UserProfile[];
-  onSendRequest: (userId: string) => void;
+  onSendFriendRequest: (userId: string) => void;
 }
 
 export const FriendSearch = ({
   searchUsername,
-  onSearchChange,
+  setSearchUsername,
+  onSearch,
   searchResults,
-  onSendRequest
+  onSendFriendRequest
 }: FriendSearchProps) => {
   return (
     <div className="relative">
@@ -23,12 +25,19 @@ export const FriendSearch = ({
           <input
             type="text"
             value={searchUsername}
-            onChange={(e) => onSearchChange(e.target.value)}
+            onChange={(e) => setSearchUsername(e.target.value)}
             placeholder="Søk etter brukernavn"
             className="w-full px-3 py-2 bg-cyberdark-800 border border-cybergold-500/30 rounded-md text-cybergold-200 placeholder:text-cyberdark-400"
           />
           <Search className="absolute right-3 top-2.5 h-4 w-4 text-cyberdark-400" />
         </div>
+        <Button 
+          onClick={onSearch}
+          variant="outline" 
+          className="border-cybergold-500/30 text-cybergold-400 hover:bg-cybergold-500/10"
+        >
+          Søk
+        </Button>
       </div>
       
       {searchResults.length > 0 && (
@@ -42,7 +51,7 @@ export const FriendSearch = ({
                 {user.username || user.full_name || 'Ukjent bruker'}
               </span>
               <Button
-                onClick={() => onSendRequest(user.id)}
+                onClick={() => onSendFriendRequest(user.id)}
                 size="sm"
                 variant="outline"
                 className="border-cybergold-500/30 text-cybergold-400 hover:bg-cybergold-500/10"

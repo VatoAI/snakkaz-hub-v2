@@ -1,13 +1,11 @@
 
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Send, ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { Friend } from './types';
 import { WebRTCManager } from '@/utils/webrtc';
-import { decryptMessage } from '@/utils/encryption';
 import { DecryptedMessage } from '@/types/message';
 
 interface DirectMessageProps {
@@ -15,8 +13,8 @@ interface DirectMessageProps {
   currentUserId: string;
   webRTCManager: WebRTCManager | null;
   onBack: () => void;
-  onNewMessage: (message: DecryptedMessage) => void;
   messages: DecryptedMessage[];
+  onNewMessage: (message: DecryptedMessage) => void;
 }
 
 export const DirectMessage = ({
@@ -24,11 +22,10 @@ export const DirectMessage = ({
   currentUserId,
   webRTCManager,
   onBack,
-  onNewMessage,
-  messages
+  messages,
+  onNewMessage
 }: DirectMessageProps) => {
   const [message, setMessage] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   
@@ -41,31 +38,6 @@ export const DirectMessage = ({
     (msg.sender.id === friendId && msg.receiver_id === currentUserId)
   );
 
-  useEffect(() => {
-    const checkConnection = async () => {
-      if (!webRTCManager) return;
-      
-      try {
-        // Get online status and public key for friend
-        const { data: presenceData } = await supabase
-          .from('user_presence')
-          .select('*')
-          .eq('user_id', friendId)
-          .single();
-          
-        if (presenceData) {
-          // Check if we're already connected
-          setIsConnected(true);
-        }
-      } catch (error) {
-        console.error('Error checking connection:', error);
-        setIsConnected(false);
-      }
-    };
-    
-    checkConnection();
-  }, [webRTCManager, friendId]);
-
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !webRTCManager || !currentUserId) return;
@@ -73,18 +45,19 @@ export const DirectMessage = ({
     setIsLoading(true);
     
     try {
-      // Try to send message via WebRTC if connected
-      if (isConnected) {
+      // Attempt to send via WebRTC
+      try {
         await webRTCManager.sendDirectMessage(friendId, message);
         toast({
           title: 'Sendt',
-          description: 'P2P-melding sendt direkte'
+          description: 'Melding sendt direkte'
         });
-      } else {
-        // Fallback to sending via server with E2EE
+      } catch (error) {
+        console.error('WebRTC send error:', error);
+        // Fall back to server
         toast({
-          title: 'Venn frakoblet',
-          description: 'Melding sendt kryptert via server',
+          title: 'Bruker direktemeldingstjenesten',
+          description: 'Melding sendt via server'
         });
       }
       
@@ -116,9 +89,6 @@ export const DirectMessage = ({
           </Button>
           <div>
             <h3 className="text-cybergold-300 font-medium">{friendUsername}</h3>
-            <p className="text-xs text-cybergold-500">
-              {isConnected ? 'Tilkoblet (P2P)' : 'Frakoblet'} 
-            </p>
           </div>
         </div>
       </div>

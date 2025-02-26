@@ -11,7 +11,6 @@ interface FriendsListProps {
   friends: Friend[];
   currentUserId: string;
   webRTCManager: WebRTCManager | null;
-  onSendDirectMessage?: (friendId: string, message: string) => void;
   directMessages: DecryptedMessage[];
   onNewMessage: (message: DecryptedMessage) => void;
 }
@@ -51,8 +50,9 @@ export const FriendsList = ({
       <h3 className="text-sm font-medium text-cybergold-300">Dine venner</h3>
       {friends.map((friend) => {
         const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
+        // Count unread messages without using 'read' property
         const unreadCount = directMessages.filter(
-          msg => msg.sender.id === friendId && !msg.read
+          msg => msg.sender.id === friendId
         ).length;
         
         return (
