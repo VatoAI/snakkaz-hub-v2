@@ -171,3 +171,123 @@ export const FriendsContainer = ({
       toast({
         title: "Søkefeil",
         description: "Kunne ikke søke etter brukere",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendFriendRequest = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('friendships')
+        .insert({
+          user_id: currentUserId,
+          friend_id: userId,
+          status: 'pending'
+        });
+
+      if (error) {
+        if (error.code === '23505') { // Unique violation
+          toast({
+            title: "Forespørsel eksisterer",
+            description: "Du har allerede sendt eller mottatt en venneforespørsel fra denne brukeren",
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        toast({
+          title: "Forespørsel sendt",
+          description: "Venneforespørsel sendt!",
+        });
+        setSearchResults([]);
+        setSearchUsername('');
+      }
+    } catch (error) {
+      console.error('Error sending friend request:', error);
+      toast({
+        title: "Feil",
+        description: "Kunne ikke sende venneforespørsel",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAcceptFriendRequest = async (friendshipId: string) => {
+    try {
+      const { error } = await supabase
+        .from('friendships')
+        .update({ status: 'accepted' })
+        .eq('id', friendshipId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Venneforespørsel godkjent",
+        description: "Dere er nå venner!",
+      });
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      toast({
+        title: "Feil",
+        description: "Kunne ikke godkjenne venneforespørsel",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectFriendRequest = async (friendshipId: string) => {
+    try {
+      const { error } = await supabase
+        .from('friendships')
+        .delete()
+        .eq('id', friendshipId);
+
+      if (error) {
+        throw error;
+      }
+
+      toast({
+        title: "Venneforespørsel avslått",
+        description: "Forespørselen ble avslått",
+      });
+    } catch (error) {
+      console.error('Error rejecting friend request:', error);
+      toast({
+        title: "Feil",
+        description: "Kunne ikke avslå venneforespørsel",
+        variant: "destructive",
+      });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <FriendSearch 
+        searchUsername={searchUsername}
+        setSearchUsername={setSearchUsername}
+        onSearch={handleSearch}
+        searchResults={searchResults}
+        onSendFriendRequest={handleSendFriendRequest}
+      />
+      
+      {friendRequests.length > 0 && (
+        <FriendRequests 
+          friendRequests={friendRequests}
+          onAccept={handleAcceptFriendRequest}
+          onReject={handleRejectFriendRequest}
+        />
+      )}
+      
+      <FriendsList 
+        friends={friends} 
+        currentUserId={currentUserId}
+        webRTCManager={webRTCManager}
+        directMessages={directMessages}
+        onNewMessage={onNewMessage}
+      />
+    </div>
+  );
+};
