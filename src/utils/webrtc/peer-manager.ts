@@ -31,11 +31,11 @@ export class PeerManager {
       };
 
       dataChannel.onopen = () => {
-        console.log('Data channel opened');
+        console.log('Data channel opened with peer:', peerId);
       };
 
       dataChannel.onclose = () => {
-        console.log('Data channel closed');
+        console.log('Data channel closed with peer:', peerId);
       };
     }
   }
@@ -66,12 +66,24 @@ export class PeerManager {
           this.onMessageCallback(e.data, peerId);
         }
       };
+
+      event.channel.onopen = () => {
+        console.log('Data channel received from peer:', peerId);
+      };
+
+      event.channel.onclose = () => {
+        console.log('Data channel from peer closed:', peerId);
+      };
     };
 
     connection.connection.onconnectionstatechange = () => {
-      console.log('Connection state:', connection.connection.connectionState);
+      console.log(`Connection state with ${peerId}:`, connection.connection.connectionState);
       if (connection.connection.connectionState === 'connected') {
         this.setupDataChannel(connection, peerId);
+      } else if (connection.connection.connectionState === 'failed' || 
+                connection.connection.connectionState === 'closed') {
+        console.log(`Connection with ${peerId} is ${connection.connection.connectionState}`);
+        this.connections.delete(peerId);
       }
     };
   }
@@ -81,7 +93,7 @@ export class PeerManager {
     
     let connection = this.connections.get(sender_id);
     if (!connection) {
-      console.log('Creating new peer connection for incoming signal');
+      console.log('Creating new peer connection for incoming signal from:', sender_id);
       const peerConnection = new RTCPeerConnection(DEFAULT_CONFIG);
       
       connection = {
@@ -129,7 +141,7 @@ export class PeerManager {
   }
 
   async createPeer(peerId: string) {
-    console.log('Creating new peer connection');
+    console.log('Creating new peer connection to:', peerId);
     const peerConnection = new RTCPeerConnection(DEFAULT_CONFIG);
 
     const connection: PeerConnection = {
@@ -165,16 +177,26 @@ export class PeerManager {
     return this.connections.get(peerId);
   }
 
+  isConnected(peerId: string): boolean {
+    const connection = this.connections.get(peerId);
+    return !!connection && 
+           !!connection.dataChannel && 
+           connection.dataChannel.readyState === 'open';
+  }
+
   disconnect(peerId: string) {
     const connection = this.connections.get(peerId);
     if (connection) {
+      if (connection.dataChannel) {
+        connection.dataChannel.close();
+      }
       connection.connection.close();
       this.connections.delete(peerId);
     }
   }
 
   disconnectAll() {
-    this.connections.forEach((_, peerId) => {
+    this.connections.forEach((connection, peerId) => {
       this.disconnect(peerId);
     });
   }
