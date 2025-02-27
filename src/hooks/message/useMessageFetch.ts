@@ -1,100 +1,126 @@
 
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { DecryptedMessage } from "@/types/message";
 import { decryptMessage } from "@/utils/encryption";
-import { DecryptedMessage, Message } from "@/types/message";
-import { PostgrestError } from "@supabase/supabase-js";
 
 export const useMessageFetch = (
-  userId: string | null,
-  setMessages: (messages: DecryptedMessage[]) => void,
+  userId: string | null, 
+  setMessages: (updater: React.SetStateAction<DecryptedMessage[]>) => void,
   toast: any,
-  receiverId?: string | null
+  receiverId?: string,
+  groupId?: string
 ) => {
   const fetchMessages = useCallback(async () => {
     if (!userId) {
-      console.log("Ingen bruker pålogget, hopper over meldingshenting");
+      console.log("User not authenticated");
       return;
     }
 
-    console.log("Henter meldinger...");
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('messages')
         .select(`
           id,
           encrypted_content,
           encryption_key,
           iv,
-          ephemeral_ttl,
           created_at,
+          ephemeral_ttl,
           media_url,
           media_type,
+          is_edited,
+          edited_at,
+          is_deleted,
+          deleted_at,
           receiver_id,
-          sender:profiles(id, username, full_name, avatar_url)
+          group_id,
+          sender:sender_id (
+            id,
+            username,
+            full_name,
+            avatar_url
+          )
         `)
-        .order('created_at', { ascending: true })
-        .returns<Message[]>();
+        .order('created_at', { ascending: true });
+
+      // Hvis receiverId er angitt, hent bare meldinger mellom bruker og mottaker
+      if (receiverId) {
+        query = query.or(`and(sender_id.eq.${userId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${userId})`);
+      } 
+      // Hvis groupId er angitt, hent bare meldinger for den gruppen
+      else if (groupId) {
+        query = query.eq('group_id', groupId);
+      } 
+      // Ellers, hent globale meldinger (null receiver og null group)
+      else {
+        query = query.is('receiver_id', null).is('group_id', null);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
-        console.error("Feil ved henting av meldinger:", error);
-        toast({
-          title: "Feil",
-          description: "Kunne ikke laste meldinger: " + error.message,
-          variant: "destructive",
-        });
-        return;
+        throw error;
       }
 
-      if (!data || data.length === 0) {
-        console.log("Ingen meldinger funnet");
-        setMessages([]);
-        return;
-      }
-
-      // Filter messages based on receiverId
-      const filteredMessages = receiverId
-        ? data.filter(msg => 
-            (msg.sender.id === userId && msg.receiver_id === receiverId) ||
-            (msg.sender.id === receiverId && msg.receiver_id === userId)
-          )
-        : data.filter(msg => !msg.receiver_id);
-
-      const decryptedMessages = await Promise.all(
-        filteredMessages.map(async (message) => {
+      // Decrypt messages
+      const decryptedMessages: DecryptedMessage[] = await Promise.all(
+        (data || []).map(async message => {
           try {
-            const content = message.encryption_key && message.iv
-              ? await decryptMessage({
-                  encrypted_content: message.encrypted_content,
-                  encryption_key: message.encryption_key,
-                  iv: message.iv
-                })
-              : message.encrypted_content;
-            
+            // Sjekk om meldingen har gått ut på dato
+            if (message.ephemeral_ttl) {
+              const createdAt = new Date(message.created_at).getTime();
+              const expiresAt = createdAt + (message.ephemeral_ttl * 1000);
+              if (Date.now() > expiresAt) {
+                // Skip expired messages
+                return null;
+              }
+            }
+
+            const content = await decryptMessage(
+              message.encrypted_content,
+              message.encryption_key,
+              message.iv
+            );
+
             return {
-              ...message,
-              content: content || "[Krypteringsfeil]"
-            } as DecryptedMessage;
-          } catch (error) {
-            console.error("Decryption error:", error);
-            return {
-              ...message,
-              content: "[Krypteringsfeil]"
-            } as DecryptedMessage;
+              id: message.id,
+              content,
+              sender: message.sender,
+              created_at: message.created_at,
+              encryption_key: message.encryption_key,
+              iv: message.iv,
+              ephemeral_ttl: message.ephemeral_ttl,
+              media_url: message.media_url,
+              media_type: message.media_type,
+              is_edited: message.is_edited,
+              edited_at: message.edited_at,
+              is_deleted: message.is_deleted,
+              deleted_at: message.deleted_at,
+              receiver_id: message.receiver_id,
+              group_id: message.group_id
+            };
+          } catch (decryptError) {
+            console.error("Error decrypting message:", decryptError);
+            return null;
           }
         })
       );
+
+      // Filter out null messages (expired or decrypt failed)
+      const validMessages = decryptedMessages.filter(msg => msg !== null) as DecryptedMessage[];
       
-      setMessages(decryptedMessages);
+      setMessages(validMessages);
+      
     } catch (error) {
-      console.error("Unexpected error:", error);
+      console.error("Error fetching messages:", error);
       toast({
-        title: "Uventet feil",
-        description: "Det oppstod en feil ved lasting av meldinger",
+        title: "Feil",
+        description: "Kunne ikke hente meldinger",
         variant: "destructive",
       });
     }
-  }, [userId, setMessages, toast, receiverId]);
+  }, [userId, setMessages, toast, receiverId, groupId]);
 
   return { fetchMessages };
 };

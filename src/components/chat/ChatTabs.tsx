@@ -22,6 +22,10 @@ interface ChatTabsProps {
   currentUserId: string;
   webRTCManager: WebRTCManager | null;
   userProfiles: Record<string, {username: string | null, avatar_url: string | null}>;
+  editingMessage: { id: string; content: string } | null;
+  onEditMessage: (message: { id: string; content: string }) => void;
+  onCancelEdit: () => void;
+  onDeleteMessage: (messageId: string) => void;
 }
 
 export const ChatTabs = ({
@@ -40,6 +44,10 @@ export const ChatTabs = ({
   currentUserId,
   webRTCManager,
   userProfiles,
+  editingMessage,
+  onEditMessage,
+  onCancelEdit,
+  onDeleteMessage
 }: ChatTabsProps) => {
   return (
     <Tabs defaultValue="global" className="w-full h-full">
@@ -72,6 +80,11 @@ export const ChatTabs = ({
           setTtl={setTtl}
           onMessageExpired={onMessageExpired}
           onSubmit={onSubmit}
+          currentUserId={currentUserId}
+          editingMessage={editingMessage}
+          onEditMessage={onEditMessage}
+          onCancelEdit={onCancelEdit}
+          onDeleteMessage={onDeleteMessage}
         />
       </TabsContent>
       

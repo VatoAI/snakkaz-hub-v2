@@ -23,8 +23,9 @@ export const useMessages = (userId: string | null, receiverId?: string, groupId?
     toast
   } = useMessageState();
 
-  const { fetchMessages } = useMessageFetch(userId, setMessages, toast, receiverId, groupId);
-  const { setupRealtimeSubscription } = useMessageRealtime(userId, setMessages, receiverId, groupId);
+  // Vi må sørge for at vi sender riktig antall parametere til hver hook
+  const { fetchMessages } = useMessageFetch(userId, setMessages, toast);
+  const { setupRealtimeSubscription } = useMessageRealtime(userId, setMessages);
   const { handleSendMessage, handleEditMessage, handleDeleteMessage } = useMessageSend(
     userId, newMessage, setNewMessage, ttl, setIsLoading, toast
   );

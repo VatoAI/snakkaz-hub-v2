@@ -1,7 +1,5 @@
 
 import { useEffect, useState, useRef } from 'react';
-import { MessageList } from '@/components/MessageList';
-import { MessageInput } from '@/components/MessageInput';
 import { useMessages } from '@/hooks/useMessages';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { supabase } from "@/integrations/supabase/client";
@@ -12,9 +10,9 @@ import { useToast } from "@/components/ui/use-toast";
 import { DecryptedMessage } from '@/types/message';
 import { useMessageP2P } from '@/hooks/message/useMessageP2P';
 import { Friend } from '@/components/chat/friends/types';
-import { DirectMessage } from '@/components/chat/friends/DirectMessage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatGlobal } from '@/components/chat/ChatGlobal';
+import { DirectMessage } from '@/components/chat/friends/DirectMessage';
 
 const Chat = () => {
   const { toast } = useToast();
