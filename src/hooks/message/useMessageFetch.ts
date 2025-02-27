@@ -61,8 +61,8 @@ export const useMessageFetch = (
       } 
       // Hvis groupId er angitt, hent bare meldinger for den gruppen
       else if (groupId) {
-        // groupId blir behandlet som en UUID-streng, men i databasen er det lagret som en streng
-        query = query.eq('group_id', groupId);
+        // Konverter groupId til true siden kolonnen er boolsk
+        query = query.eq('group_id', true);
       } 
       // Ellers, hent globale meldinger (null receiver og null group)
       else {

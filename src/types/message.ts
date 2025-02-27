@@ -13,7 +13,7 @@ export interface Message {
   edited_at?: string | null;
   is_deleted?: boolean;
   deleted_at?: string | null;
-  group_id?: string | null;
+  group_id?: boolean | null;
   sender: {
     id: string;
     username: string | null;

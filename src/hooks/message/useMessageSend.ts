@@ -69,10 +69,11 @@ export const useMessageSend = (
           media_url: mediaUrl,
           media_type: mediaType,
           receiver_id: receiverId,
-          group_id: groupId,
+          // Hvis groupId er satt, bruk true, ellers null
+          group_id: groupId ? true : null,
           is_edited: false,
           is_deleted: false
-        } as any); // Bruker 'as any' for å unngå typefeil inntil skjemaet er oppdatert
+        });
 
       if (error) {
         console.error('Send message error:', error);
@@ -128,7 +129,7 @@ export const useMessageSend = (
           iv: iv,
           is_edited: true,
           edited_at: new Date().toISOString()
-        } as any)
+        })
         .eq('id', messageId)
         .eq('sender_id', userId); // Sikre at kun avsender kan redigere
 
@@ -182,7 +183,7 @@ export const useMessageSend = (
         .update({
           is_deleted: true,
           deleted_at: new Date().toISOString()
-        } as any)
+        })
         .eq('id', messageId)
         .eq('sender_id', userId); // Sikre at kun avsender kan slette
 
