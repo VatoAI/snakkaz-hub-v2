@@ -61,6 +61,7 @@ export const useMessageFetch = (
       } 
       // Hvis groupId er angitt, hent bare meldinger for den gruppen
       else if (groupId) {
+        // groupId blir behandlet som en UUID-streng, men i databasen er det lagret som en streng
         query = query.eq('group_id', groupId);
       } 
       // Ellers, hent globale meldinger (null receiver og null group)
@@ -109,7 +110,7 @@ export const useMessageFetch = (
               is_deleted: message.is_deleted || false,
               deleted_at: message.deleted_at || null,
               receiver_id: message.receiver_id,
-              group_id: message.group_id || null
+              group_id: message.group_id
             };
           } catch (decryptError) {
             console.error("Error decrypting message:", decryptError);
