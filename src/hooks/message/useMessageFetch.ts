@@ -18,6 +18,17 @@ export const useMessageFetch = (
     }
 
     try {
+      // Først, kontroller at nødvendige kolonner eksisterer
+      try {
+        await supabase.rpc('check_and_add_columns', { 
+          table_name: 'messages', 
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] 
+        });
+      } catch (error) {
+        console.log('Error checking columns, continuing anyway:', error);
+      }
+
+      // Nå kan vi hente meldingene
       let query = supabase
         .from('messages')
         .select(`
@@ -29,12 +40,7 @@ export const useMessageFetch = (
           ephemeral_ttl,
           media_url,
           media_type,
-          is_edited,
-          edited_at,
-          is_deleted,
-          deleted_at,
           receiver_id,
-          group_id,
           sender:sender_id (
             id,
             username,
@@ -64,8 +70,8 @@ export const useMessageFetch = (
       }
 
       // Decrypt messages
-      const decryptedMessages: DecryptedMessage[] = await Promise.all(
-        (data || []).map(async message => {
+      const decryptedMessages: (DecryptedMessage | null)[] = await Promise.all(
+        (data || []).map(async (message: any) => {
           try {
             // Sjekk om meldingen har gått ut på dato
             if (message.ephemeral_ttl) {
@@ -93,12 +99,12 @@ export const useMessageFetch = (
               ephemeral_ttl: message.ephemeral_ttl,
               media_url: message.media_url,
               media_type: message.media_type,
-              is_edited: message.is_edited,
-              edited_at: message.edited_at,
-              is_deleted: message.is_deleted,
-              deleted_at: message.deleted_at,
+              is_edited: message.is_edited || false,
+              edited_at: message.edited_at || null,
+              is_deleted: message.is_deleted || false,
+              deleted_at: message.deleted_at || null,
               receiver_id: message.receiver_id,
-              group_id: message.group_id
+              group_id: message.group_id || null
             };
           } catch (decryptError) {
             console.error("Error decrypting message:", decryptError);

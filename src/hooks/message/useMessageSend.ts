@@ -19,6 +19,16 @@ export const useMessageSend = (
 
     setIsLoading(true);
     try {
+      // Først, kontroller at nødvendige kolonner eksisterer
+      try {
+        await supabase.rpc('check_and_add_columns', { 
+          table_name: 'messages', 
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] 
+        });
+      } catch (error) {
+        console.log('Error checking columns, continuing anyway:', error);
+      }
+
       let mediaUrl = null;
       let mediaType = null;
 
@@ -59,7 +69,9 @@ export const useMessageSend = (
           media_url: mediaUrl,
           media_type: mediaType,
           receiver_id: receiverId,
-          group_id: groupId
+          group_id: groupId,
+          is_edited: false,
+          is_deleted: false
         });
 
       if (error) {
@@ -96,18 +108,17 @@ export const useMessageSend = (
 
     setIsLoading(true);
     try {
-      const { encryptedContent, key, iv } = await encryptMessage(content.trim());
-      
-      // Først må vi sikre at de nødvendige kolonnene finnes i databasen
+      // Først, kontroller at nødvendige kolonner eksisterer
       try {
-        // Sjekk om "is_edited" og "edited_at" kolonnene eksisterer
         await supabase.rpc('check_and_add_columns', { 
           table_name: 'messages', 
-          column_names: ['is_edited', 'edited_at'] 
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] 
         });
       } catch (error) {
         console.log('Error checking columns, continuing anyway:', error);
       }
+
+      const { encryptedContent, key, iv } = await encryptMessage(content.trim());
       
       const { error } = await supabase
         .from('messages')
@@ -156,22 +167,24 @@ export const useMessageSend = (
 
     setIsLoading(true);
     try {
-      // Vi trenger å sjekke om vi har kolonner for sletting
+      // Først, kontroller at nødvendige kolonner eksisterer
       try {
-        // Sjekk om "is_deleted" og "deleted_at" kolonnene eksisterer
         await supabase.rpc('check_and_add_columns', { 
           table_name: 'messages', 
-          column_names: ['is_deleted', 'deleted_at'] 
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] 
         });
       } catch (error) {
         console.log('Error checking columns, continuing anyway:', error);
       }
       
-      // Siden vi kan ha problemer med databasekolonner, bruker vi en SQL RPC-funksjon
-      const { error } = await supabase.rpc('mark_message_as_deleted', {
-        message_id: messageId,
-        user_id: userId
-      });
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString()
+        })
+        .eq('id', messageId)
+        .eq('sender_id', userId); // Sikre at kun avsender kan slette
 
       if (error) {
         console.error('Delete message error:', error);

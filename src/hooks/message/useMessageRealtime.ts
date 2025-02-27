@@ -77,12 +77,12 @@ export const useMessageRealtime = (
               ephemeral_ttl: newMessage.ephemeral_ttl,
               media_url: newMessage.media_url,
               media_type: newMessage.media_type,
-              is_edited: newMessage.is_edited,
-              edited_at: newMessage.edited_at,
-              is_deleted: newMessage.is_deleted,
-              deleted_at: newMessage.deleted_at,
+              is_edited: newMessage.is_edited || false,
+              edited_at: newMessage.edited_at || null,
+              is_deleted: newMessage.is_deleted || false,
+              deleted_at: newMessage.deleted_at || null,
               receiver_id: newMessage.receiver_id,
-              group_id: newMessage.group_id
+              group_id: newMessage.group_id || null
             };
 
             setMessages(prevMessages => [...prevMessages, decryptedMessage]);
@@ -118,10 +118,10 @@ export const useMessageRealtime = (
                           ? { 
                               ...m, 
                               content, 
-                              is_edited: updatedMessage.is_edited,
-                              edited_at: updatedMessage.edited_at,
-                              is_deleted: updatedMessage.is_deleted,
-                              deleted_at: updatedMessage.deleted_at
+                              is_edited: updatedMessage.is_edited || false,
+                              edited_at: updatedMessage.edited_at || null,
+                              is_deleted: updatedMessage.is_deleted || false,
+                              deleted_at: updatedMessage.deleted_at || null
                             } 
                           : m
                       )
@@ -135,10 +135,10 @@ export const useMessageRealtime = (
                   // If only metadata was updated (e.g., is_deleted flag)
                   return { 
                     ...msg, 
-                    is_edited: updatedMessage.is_edited,
-                    edited_at: updatedMessage.edited_at,
-                    is_deleted: updatedMessage.is_deleted,
-                    deleted_at: updatedMessage.deleted_at
+                    is_edited: updatedMessage.is_edited || msg.is_edited,
+                    edited_at: updatedMessage.edited_at || msg.edited_at,
+                    is_deleted: updatedMessage.is_deleted || msg.is_deleted,
+                    deleted_at: updatedMessage.deleted_at || msg.deleted_at
                   };
                 }
               }
