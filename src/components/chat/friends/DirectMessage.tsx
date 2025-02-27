@@ -39,7 +39,7 @@ export const DirectMessage = ({
   const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
   
   // Get friend profile info from either friend object or userProfiles
-  const friendProfile = friend.profiles || userProfiles[friendId];
+  const friendProfile = friend.profile || userProfiles[friendId];
   const friendUsername = friendProfile?.username || 'Ukjent venn';
   const friendAvatar = friendProfile?.avatar_url;
 

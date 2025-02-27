@@ -87,7 +87,7 @@ export const FriendsList = ({
           );
           
           // Get user profile info
-          const friendProfile = friend.profiles || userProfiles[friendId];
+          const friendProfile = friend.profile || userProfiles[friendId];
           const username = friendProfile?.username || 'Ukjent bruker';
           const avatarUrl = friendProfile?.avatar_url;
           

@@ -53,13 +53,7 @@ export const FriendsContainer = ({
           id,
           status,
           friend_id,
-          user_id,
-          profiles!friendships_friend_id_fkey (
-            id,
-            username,
-            full_name,
-            avatar_url
-          )
+          user_id
         `)
         .or(`user_id.eq.${currentUserId},friend_id.eq.${currentUserId}`);
 
@@ -77,17 +71,27 @@ export const FriendsContainer = ({
 
       console.log('Found friendships:', friendships);
 
-      // Kombinerer vennskap og profiler
-      const processedFriends = friendships.map(friendship => {
-        return {
-          ...friendship
-        };
-      });
+      // Hent brukerprofilene for venner
+      const friendsWithProfiles: Friend[] = [];
+      for (const friendship of friendships) {
+        const profileId = friendship.user_id === currentUserId ? friendship.friend_id : friendship.user_id;
+        
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('id, username, full_name, avatar_url')
+          .eq('id', profileId)
+          .single();
+          
+        friendsWithProfiles.push({
+          ...friendship,
+          profile: profileData || undefined
+        });
+      }
 
-      console.log('Processed friends:', processedFriends);
+      console.log('Processed friends:', friendsWithProfiles);
 
-      setFriends(processedFriends.filter(f => f.status === 'accepted'));
-      setFriendRequests(processedFriends.filter(f => 
+      setFriends(friendsWithProfiles.filter(f => f.status === 'accepted'));
+      setFriendRequests(friendsWithProfiles.filter(f => 
         f.status === 'pending' && f.friend_id === currentUserId
       ));
 

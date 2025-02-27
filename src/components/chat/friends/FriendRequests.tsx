@@ -27,7 +27,7 @@ export const FriendRequests = ({
         {friendRequests.map((request) => {
           // Get user profile info from either friend object or userProfiles
           const userId = request.user_id;
-          const userProfile = request.profiles || userProfiles[userId];
+          const userProfile = request.profile || userProfiles[userId];
           const username = userProfile?.username || 'Ukjent bruker';
           const avatarUrl = userProfile?.avatar_url;
           
