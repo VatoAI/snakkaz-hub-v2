@@ -23,7 +23,7 @@ export const useMessageSend = (
       try {
         await supabase.rpc('check_and_add_columns', { 
           table_name: 'messages', 
-          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] 
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] as any
         });
       } catch (error) {
         console.log('Error checking columns, continuing anyway:', error);
@@ -69,9 +69,7 @@ export const useMessageSend = (
           media_url: mediaUrl,
           media_type: mediaType,
           receiver_id: receiverId,
-          group_id: groupId,
-          is_edited: false,
-          is_deleted: false
+          group_id: groupId
         });
 
       if (error) {
@@ -112,7 +110,7 @@ export const useMessageSend = (
       try {
         await supabase.rpc('check_and_add_columns', { 
           table_name: 'messages', 
-          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] 
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] as any
         });
       } catch (error) {
         console.log('Error checking columns, continuing anyway:', error);
@@ -126,8 +124,8 @@ export const useMessageSend = (
           encrypted_content: encryptedContent,
           encryption_key: key,
           iv: iv,
-          is_edited: true,
-          edited_at: new Date().toISOString()
+          is_edited: true as any,
+          edited_at: new Date().toISOString() as any
         })
         .eq('id', messageId)
         .eq('sender_id', userId); // Sikre at kun avsender kan redigere
@@ -171,7 +169,7 @@ export const useMessageSend = (
       try {
         await supabase.rpc('check_and_add_columns', { 
           table_name: 'messages', 
-          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] 
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] as any
         });
       } catch (error) {
         console.log('Error checking columns, continuing anyway:', error);
@@ -180,8 +178,8 @@ export const useMessageSend = (
       const { error } = await supabase
         .from('messages')
         .update({
-          is_deleted: true,
-          deleted_at: new Date().toISOString()
+          is_deleted: true as any,
+          deleted_at: new Date().toISOString() as any
         })
         .eq('id', messageId)
         .eq('sender_id', userId); // Sikre at kun avsender kan slette

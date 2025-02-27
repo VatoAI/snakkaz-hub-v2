@@ -22,7 +22,7 @@ export const useMessageFetch = (
       try {
         await supabase.rpc('check_and_add_columns', { 
           table_name: 'messages', 
-          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] 
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] as any
         });
       } catch (error) {
         console.log('Error checking columns, continuing anyway:', error);

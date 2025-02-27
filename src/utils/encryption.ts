@@ -164,94 +164,65 @@ export interface EncryptedMessage {
   iv: string;
 }
 
-// Dekrypter melding
+// Dekrypter melding - implementasjonen for både objekt og individuelle parametere
 export const decryptMessage = async (
-  encryptedContent: string,
-  encryptionKey: string,
-  iv: string
-): Promise<string> => {
-  try {
-    // Konverter base64 til ArrayBuffer
-    const encryptedBuffer = base64ToArrayBuffer(encryptedContent);
-    const ivBuffer = base64ToArrayBuffer(iv);
-    
-    // Importer krypteringsnøkkel
-    const key = await window.crypto.subtle.importKey(
-      "jwk",
-      JSON.parse(encryptionKey),
-      {
-        name: "AES-GCM",
-        length: 256,
-      },
-      false,
-      ["decrypt"]
-    );
-    
-    // Dekrypter meldingen
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
-      {
-        name: "AES-GCM",
-        iv: new Uint8Array(ivBuffer),
-      },
-      key,
-      encryptedBuffer
-    );
-    
-    return ab2str(decryptedBuffer);
-  } catch (error) {
-    console.error("Message decryption failed:", error);
-    throw new Error("Failed to decrypt message");
-  }
-};
-
-// Overloaded decryptMessage function that accepts a message object
-export async function decryptMessage(message: EncryptedMessage): Promise<string>;
-export async function decryptMessage(encryptedContent: string, encryptionKey: string, iv: string): Promise<string>;
-export async function decryptMessage(
   messageOrContent: EncryptedMessage | string,
   encryptionKey?: string,
   iv?: string
-): Promise<string> {
+): Promise<string> => {
   try {
+    // Håndtere tilfellet med objekt
     if (typeof messageOrContent === 'object') {
-      return decryptMessage(
+      return innerDecrypt(
         messageOrContent.encrypted_content,
         messageOrContent.encryption_key,
         messageOrContent.iv
       );
-    } else if (typeof messageOrContent === 'string' && encryptionKey && iv) {
-      // Konverter base64 til ArrayBuffer
-      const encryptedBuffer = base64ToArrayBuffer(messageOrContent);
-      const ivBuffer = base64ToArrayBuffer(iv);
-      
-      // Importer krypteringsnøkkel
-      const key = await window.crypto.subtle.importKey(
-        "jwk",
-        JSON.parse(encryptionKey),
-        {
-          name: "AES-GCM",
-          length: 256,
-        },
-        false,
-        ["decrypt"]
-      );
-      
-      // Dekrypter meldingen
-      const decryptedBuffer = await window.crypto.subtle.decrypt(
-        {
-          name: "AES-GCM",
-          iv: new Uint8Array(ivBuffer),
-        },
-        key,
-        encryptedBuffer
-      );
-      
-      return ab2str(decryptedBuffer);
-    } else {
+    }
+    // Håndtere tilfellet med individuelle parametere
+    else if (typeof messageOrContent === 'string' && encryptionKey && iv) {
+      return innerDecrypt(messageOrContent, encryptionKey, iv);
+    } 
+    else {
       throw new Error("Invalid arguments for decryptMessage");
     }
   } catch (error) {
     console.error("Message decryption failed:", error);
     throw new Error("Failed to decrypt message");
   }
-}
+};
+
+// Intern hjelpefunksjon for dekryptering
+const innerDecrypt = async (
+  encryptedContent: string,
+  encryptionKey: string,
+  iv: string
+): Promise<string> => {
+  // Konverter base64 til ArrayBuffer
+  const encryptedBuffer = base64ToArrayBuffer(encryptedContent);
+  const ivBuffer = base64ToArrayBuffer(iv);
+  
+  // Importer krypteringsnøkkel
+  const key = await window.crypto.subtle.importKey(
+    "jwk",
+    JSON.parse(encryptionKey),
+    {
+      name: "AES-GCM",
+      length: 256,
+    },
+    false,
+    ["decrypt"]
+  );
+  
+  // Dekrypter meldingen
+  const decryptedBuffer = await window.crypto.subtle.decrypt(
+    {
+      name: "AES-GCM",
+      iv: new Uint8Array(ivBuffer),
+    },
+    key,
+    encryptedBuffer
+  );
+  
+  return ab2str(decryptedBuffer);
+};
