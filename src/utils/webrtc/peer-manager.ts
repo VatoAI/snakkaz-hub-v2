@@ -116,26 +116,42 @@ export class PeerManager {
           sdp: signal_data.sdp
         });
 
-        if (connection.connection.signalingState === 'stable' && signal_data.type === 'offer') {
-          await connection.connection.setRemoteDescription(sessionDescription);
-          const answer = await connection.connection.createAnswer();
-          await connection.connection.setLocalDescription(answer);
-          
-          await this.signalingService.sendSignal({
-            sender_id: this.userId,
-            receiver_id: sender_id,
-            signal_data: {
-              type: answer.type,
-              sdp: answer.sdp
+        // Check signaling state before setting remote description
+        if (signal_data.type === 'offer') {
+          // For offer, we should be in stable state or have-remote-offer state
+          const validStates = ['stable', 'have-remote-offer'];
+          if (validStates.includes(connection.connection.signalingState)) {
+            await connection.connection.setRemoteDescription(sessionDescription);
+            
+            // Only create answer if we're in have-remote-offer state
+            if (connection.connection.signalingState === 'have-remote-offer') {
+              const answer = await connection.connection.createAnswer();
+              await connection.connection.setLocalDescription(answer);
+              
+              await this.signalingService.sendSignal({
+                sender_id: this.userId,
+                receiver_id: sender_id,
+                signal_data: {
+                  type: answer.type,
+                  sdp: answer.sdp
+                }
+              });
             }
-          });
+          } else {
+            console.log(`Cannot process offer in current signaling state: ${connection.connection.signalingState}`);
+          }
         } else if (signal_data.type === 'answer') {
-          await connection.connection.setRemoteDescription(sessionDescription);
+          // For answer, we should be in have-local-offer state
+          if (connection.connection.signalingState === 'have-local-offer') {
+            await connection.connection.setRemoteDescription(sessionDescription);
+          } else {
+            console.log(`Cannot process answer in current signaling state: ${connection.connection.signalingState}`);
+          }
         }
       }
     } catch (error) {
       console.error('Error handling signal:', error);
-      this.connections.delete(sender_id);
+      // Don't delete the connection on error, let the connection state change handler manage that
       throw error;
     }
   }
@@ -153,22 +169,30 @@ export class PeerManager {
     this.setupConnectionEventHandlers(connection, peerId);
     
     try {
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      
-      await this.signalingService.sendSignal({
-        sender_id: this.userId,
-        receiver_id: peerId,
-        signal_data: {
-          type: offer.type,
-          sdp: offer.sdp
-        }
-      });
-
+      // Store the connection first in case we need to access it during signaling
       this.connections.set(peerId, connection);
+      
+      // Check if the signaling state is stable before creating an offer
+      if (peerConnection.signalingState === 'stable') {
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        await this.signalingService.sendSignal({
+          sender_id: this.userId,
+          receiver_id: peerId,
+          signal_data: {
+            type: offer.type,
+            sdp: offer.sdp
+          }
+        });
+      } else {
+        console.log(`Cannot create offer in current signaling state: ${peerConnection.signalingState}`);
+      }
+
       return connection;
     } catch (error) {
       console.error('Error creating peer:', error);
+      this.connections.delete(peerId);
       throw error;
     }
   }

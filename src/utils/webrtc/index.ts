@@ -7,6 +7,8 @@ export class WebRTCManager {
   private localKeyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey } | null = null;
   private onMessageCallback: ((message: string, peerId: string) => void) | null = null;
   private secureConnections: Map<string, CryptoKey> = new Map();
+  private connectionAttempts: Map<string, number> = new Map();
+  private maxConnectionAttempts = 3;
 
   constructor(private userId: string) {
     this.peerManager = new PeerManager(userId);
@@ -35,15 +37,39 @@ export class WebRTCManager {
     }
 
     try {
-      const connection = await this.peerManager.createPeer(peerId);
+      // Check if we've exceeded max connection attempts
+      const attempts = this.connectionAttempts.get(peerId) || 0;
+      if (attempts >= this.maxConnectionAttempts) {
+        console.log(`Max connection attempts reached for peer ${peerId}`);
+        return null;
+      }
+      
+      // Increment connection attempts
+      this.connectionAttempts.set(peerId, attempts + 1);
 
-      const secureConnection = await establishSecureConnection(
-        this.localKeyPair.publicKey,
-        this.localKeyPair.privateKey,
-        peerPublicKey
-      );
+      // Check if already connected
+      if (this.peerManager.isConnected(peerId)) {
+        console.log(`Already connected to peer ${peerId}`);
+        return this.peerManager.getPeerConnection(peerId);
+      }
 
-      this.secureConnections.set(peerId, secureConnection);
+      // Get existing connection or create new one
+      let connection = this.peerManager.getPeerConnection(peerId);
+      if (!connection || 
+          connection.connection.connectionState === 'failed' || 
+          connection.connection.connectionState === 'closed') {
+        connection = await this.peerManager.createPeer(peerId);
+      }
+
+      // Establish secure connection if we don't already have one
+      if (!this.secureConnections.has(peerId)) {
+        const secureConnection = await establishSecureConnection(
+          this.localKeyPair.publicKey,
+          this.localKeyPair.privateKey,
+          peerPublicKey
+        );
+        this.secureConnections.set(peerId, secureConnection);
+      }
 
       return connection;
     } catch (error) {
@@ -99,11 +125,11 @@ export class WebRTCManager {
         
         if (parsedMessage.type === 'direct') {
           // Handle direct encrypted message
-          const decryptedMessage = await decryptMessage({
-            encrypted_content: parsedMessage.content,
-            encryption_key: parsedMessage.key,
-            iv: parsedMessage.iv
-          });
+          const decryptedMessage = await decryptMessage(
+            parsedMessage.content,
+            parsedMessage.key,
+            parsedMessage.iv
+          );
           callback(`[Privat] ${decryptedMessage}`, peerId);
         } else {
           // Handle regular message
@@ -114,6 +140,9 @@ export class WebRTCManager {
         callback(messageData, peerId); // Fallback to raw message
       }
     });
+    
+    // Re-initialize the signaling listener with the new peer manager
+    this.setupSignalingListener();
   }
 
   public async sendDirectMessage(peerId: string, message: string) {
@@ -127,11 +156,13 @@ export class WebRTCManager {
   public disconnect(peerId: string) {
     this.peerManager.disconnect(peerId);
     this.secureConnections.delete(peerId);
+    this.connectionAttempts.delete(peerId);
   }
 
   public disconnectAll() {
     this.peerManager.disconnectAll();
     this.secureConnections.clear();
+    this.connectionAttempts.clear();
   }
 }
 
