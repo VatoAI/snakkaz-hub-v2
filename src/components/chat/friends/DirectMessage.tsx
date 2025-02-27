@@ -33,6 +33,9 @@ export const DirectMessage = ({
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'failed'>('connecting');
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const [lastConnectionChange, setLastConnectionChange] = useState(Date.now());
+  const connectionStableTimeout = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
@@ -53,6 +56,44 @@ export const DirectMessage = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [directMessages]);
+
+  // Stabilize connection status updates
+  useEffect(() => {
+    // Clear any existing timer when connection status changes
+    if (connectionStableTimeout.current) {
+      clearTimeout(connectionStableTimeout.current);
+    }
+    
+    const now = Date.now();
+    // If status is changing too rapidly (within 3 seconds), increment counter
+    if (now - lastConnectionChange < 3000) {
+      setConnectionAttempts(prev => prev + 1);
+    }
+    
+    setLastConnectionChange(now);
+    
+    // If we've had more than 3 rapid changes, stabilize on a "failed" state
+    if (connectionAttempts > 3) {
+      setConnectionStatus('failed');
+      toast({
+        title: "Tilkoblingsproblemer",
+        description: "Kunne ikke etablere en stabil tilkobling. Meldinger vil sendes via server.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Set a timer to consider the connection stable after 5 seconds without changes
+    connectionStableTimeout.current = setTimeout(() => {
+      setConnectionAttempts(0);
+    }, 5000);
+    
+    return () => {
+      if (connectionStableTimeout.current) {
+        clearTimeout(connectionStableTimeout.current);
+      }
+    };
+  }, [connectionStatus, lastConnectionChange, connectionAttempts, toast]);
 
   // Attempt to establish P2P connection when component mounts
   useEffect(() => {
@@ -209,9 +250,16 @@ export const DirectMessage = ({
       );
     } else if (connectionStatus === 'connecting') {
       return (
-        <div className="flex items-center gap-1 text-xs text-yellow-400">
-          <div className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></div>
+        <div className="flex items-center gap-1 text-xs text-amber-400">
+          <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></div>
           <span>Kobler til...</span>
+        </div>
+      );
+    } else if (connectionStatus === 'failed') {
+      return (
+        <div className="flex items-center gap-1 text-xs text-red-400">
+          <div className="h-2 w-2 rounded-full bg-red-400"></div>
+          <span>Tilkobling feilet</span>
         </div>
       );
     } else {
