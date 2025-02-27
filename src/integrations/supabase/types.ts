@@ -57,10 +57,15 @@ export type Database = {
       messages: {
         Row: {
           created_at: string
+          deleted_at: string | null
+          edited_at: string | null
           encrypted_content: string
           encryption_key: string | null
           ephemeral_ttl: number | null
+          group_id: boolean | null
           id: string
+          is_deleted: boolean | null
+          is_edited: boolean | null
           iv: string | null
           media_type: string | null
           media_url: string | null
@@ -70,10 +75,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           encrypted_content: string
           encryption_key?: string | null
           ephemeral_ttl?: number | null
+          group_id?: boolean | null
           id?: string
+          is_deleted?: boolean | null
+          is_edited?: boolean | null
           iv?: string | null
           media_type?: string | null
           media_url?: string | null
@@ -83,10 +93,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           encrypted_content?: string
           encryption_key?: string | null
           ephemeral_ttl?: number | null
+          group_id?: boolean | null
           id?: string
+          is_deleted?: boolean | null
+          is_edited?: boolean | null
           iv?: string | null
           media_type?: string | null
           media_url?: string | null
@@ -181,7 +196,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_and_add_columns: {
+        Args: {
+          p_table_name: string
+          column_names: string[]
+        }
+        Returns: undefined
+      }
+      mark_message_as_deleted: {
+        Args: {
+          message_id: string
+          user_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       user_status: "online" | "busy" | "brb"

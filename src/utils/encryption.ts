@@ -164,25 +164,23 @@ export interface EncryptedMessage {
   iv: string;
 }
 
-// Dekrypter melding - implementasjonen for både objekt og individuelle parametere
+// Dekrypter melding
 export const decryptMessage = async (
-  messageOrContent: EncryptedMessage | string,
+  encryptedContent: string | EncryptedMessage,
   encryptionKey?: string,
-  iv?: string
+  ivValue?: string
 ): Promise<string> => {
   try {
-    // Håndtere tilfellet med objekt
-    if (typeof messageOrContent === 'object') {
-      return innerDecrypt(
-        messageOrContent.encrypted_content,
-        messageOrContent.encryption_key,
-        messageOrContent.iv
-      );
-    }
-    // Håndtere tilfellet med individuelle parametere
-    else if (typeof messageOrContent === 'string' && encryptionKey && iv) {
-      return innerDecrypt(messageOrContent, encryptionKey, iv);
+    // Case 1: Når vi får et EncryptedMessage-objekt
+    if (typeof encryptedContent !== 'string') {
+      const { encrypted_content, encryption_key, iv } = encryptedContent;
+      return await innerDecrypt(encrypted_content, encryption_key, iv);
     } 
+    // Case 2: Når vi får separate parametre
+    else if (encryptionKey && ivValue) {
+      return await innerDecrypt(encryptedContent, encryptionKey, ivValue);
+    } 
+    // Ugyldig argumentkombinasjon
     else {
       throw new Error("Invalid arguments for decryptMessage");
     }

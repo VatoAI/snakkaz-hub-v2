@@ -1,6 +1,6 @@
 
 -- Funksjon for å sjekke og legge til kolonner hvis de ikke finnes
-CREATE OR REPLACE FUNCTION check_and_add_columns(table_name text, column_names text[])
+CREATE OR REPLACE FUNCTION check_and_add_columns(p_table_name text, column_names text[])
 RETURNS void AS $$
 DECLARE
     col text;
@@ -10,14 +10,14 @@ BEGIN
         IF NOT EXISTS (
             SELECT 1 
             FROM information_schema.columns 
-            WHERE table_name = check_and_add_columns.table_name 
+            WHERE table_name = p_table_name 
             AND column_name = col
         ) THEN
             -- Legg til boolean eller timestamp kolonner basert på navn
             IF col LIKE '%\_at' THEN
-                EXECUTE format('ALTER TABLE %I ADD COLUMN %I timestamp with time zone', table_name, col);
+                EXECUTE format('ALTER TABLE %I ADD COLUMN %I timestamp with time zone', p_table_name, col);
             ELSE
-                EXECUTE format('ALTER TABLE %I ADD COLUMN %I boolean DEFAULT false', table_name, col);
+                EXECUTE format('ALTER TABLE %I ADD COLUMN %I boolean DEFAULT false', p_table_name, col);
             END IF;
         END IF;
     END LOOP;

@@ -21,7 +21,7 @@ export const useMessageFetch = (
       // Først, kontroller at nødvendige kolonner eksisterer
       try {
         await supabase.rpc('check_and_add_columns', { 
-          table_name: 'messages', 
+          p_table_name: 'messages', 
           column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] as any
         });
       } catch (error) {
@@ -41,6 +41,11 @@ export const useMessageFetch = (
           media_url,
           media_type,
           receiver_id,
+          is_edited,
+          edited_at,
+          is_deleted,
+          deleted_at,
+          group_id,
           sender:sender_id (
             id,
             username,
