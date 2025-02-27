@@ -9,6 +9,11 @@ export interface Message {
   media_url?: string | null;
   media_type?: string | null;
   receiver_id?: string | null;
+  is_edited?: boolean;
+  edited_at?: string | null;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
+  group_id?: string | null;
   sender: {
     id: string;
     username: string | null;

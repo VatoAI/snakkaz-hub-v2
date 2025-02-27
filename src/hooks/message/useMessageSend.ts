@@ -11,7 +11,7 @@ export const useMessageSend = (
   setIsLoading: (loading: boolean) => void,
   toast: any
 ) => {
-  const handleSendMessage = useCallback(async (webRTCManager: any, onlineUsers: Set<string>, mediaFile?: File, receiverId?: string) => {
+  const handleSendMessage = useCallback(async (webRTCManager: any, onlineUsers: Set<string>, mediaFile?: File, receiverId?: string, groupId?: string) => {
     if ((!newMessage.trim() && !mediaFile) || !userId) {
       console.log("Ingen melding eller fil å sende, eller bruker ikke pålogget");
       return;
@@ -38,7 +38,7 @@ export const useMessageSend = (
         mediaType = mediaFile.type;
       }
 
-      if (webRTCManager && !receiverId) {
+      if (webRTCManager && !receiverId && !groupId) {
         onlineUsers.forEach(peerId => {
           if (peerId !== userId) {
             webRTCManager.sendMessage(peerId, newMessage.trim());
@@ -58,7 +58,8 @@ export const useMessageSend = (
           ephemeral_ttl: ttl,
           media_url: mediaUrl,
           media_type: mediaType,
-          receiver_id: receiverId
+          receiver_id: receiverId,
+          group_id: groupId
         });
 
       if (error) {
@@ -84,5 +85,95 @@ export const useMessageSend = (
     }
   }, [newMessage, userId, ttl, setNewMessage, setIsLoading, toast]);
 
-  return { handleSendMessage };
+  const handleEditMessage = useCallback(async (
+    messageId: string,
+    content: string,
+  ) => {
+    if (!content.trim() || !userId) {
+      console.log("Ingen melding å redigere, eller bruker ikke pålogget");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { encryptedContent, key, iv } = await encryptMessage(content.trim());
+      
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          encrypted_content: encryptedContent,
+          encryption_key: key,
+          iv: iv,
+          is_edited: true,
+          edited_at: new Date().toISOString()
+        })
+        .eq('id', messageId)
+        .eq('sender_id', userId); // Sikre at kun avsender kan redigere
+
+      if (error) {
+        console.error('Edit message error:', error);
+        toast({
+          title: "Feil",
+          description: "Kunne ikke redigere melding: " + error.message,
+          variant: "destructive",
+        });
+      } else {
+        console.log("Melding redigert");
+        setNewMessage("");
+        toast({
+          title: "Redigert",
+          description: "Meldingen ble redigert",
+        });
+      }
+    } catch (error) {
+      console.error('Error editing message:', error);
+      toast({
+        title: "Feil",
+        description: "Kunne ikke redigere melding",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, setNewMessage, setIsLoading, toast]);
+
+  const handleDeleteMessage = useCallback(async (messageId: string) => {
+    if (!userId) {
+      console.log("Bruker ikke pålogget");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          // Vi beholder den krypterte innholdet for integritetens skyld, men markerer den som slettet
+        })
+        .eq('id', messageId)
+        .eq('sender_id', userId); // Sikre at kun avsender kan slette
+
+      if (error) {
+        console.error('Delete message error:', error);
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast({
+        title: "Feil",
+        description: "Kunne ikke slette melding",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, setIsLoading, toast]);
+
+  return { 
+    handleSendMessage,
+    handleEditMessage,
+    handleDeleteMessage
+  };
 };

@@ -2,7 +2,6 @@
 import { MessageList } from '@/components/MessageList';
 import { MessageInput } from '@/components/MessageInput';
 import { DecryptedMessage } from "@/types/message";
-import { WebRTCManager } from "@/utils/webrtc";
 
 interface ChatGlobalProps {
   messages: DecryptedMessage[];
@@ -13,6 +12,11 @@ interface ChatGlobalProps {
   setTtl: (ttl: number | null) => void;
   onMessageExpired: (messageId: string) => void;
   onSubmit: (e: React.FormEvent) => Promise<void>;
+  currentUserId: string | null;
+  editingMessage: { id: string; content: string } | null;
+  onEditMessage: (message: { id: string; content: string }) => void;
+  onCancelEdit: () => void;
+  onDeleteMessage: (messageId: string) => void;
 }
 
 export const ChatGlobal = ({
@@ -23,7 +27,12 @@ export const ChatGlobal = ({
   ttl,
   setTtl,
   onMessageExpired,
-  onSubmit
+  onSubmit,
+  currentUserId,
+  editingMessage,
+  onEditMessage,
+  onCancelEdit,
+  onDeleteMessage
 }: ChatGlobalProps) => {
   return (
     <div className="h-full flex flex-col">
@@ -31,6 +40,9 @@ export const ChatGlobal = ({
         <MessageList 
           messages={messages} 
           onMessageExpired={onMessageExpired}
+          currentUserId={currentUserId}
+          onEditMessage={onEditMessage}
+          onDeleteMessage={onDeleteMessage}
         />
       </div>
 
@@ -42,6 +54,8 @@ export const ChatGlobal = ({
           isLoading={isLoading}
           ttl={ttl}
           setTtl={setTtl}
+          editingMessage={editingMessage}
+          onCancelEdit={onCancelEdit}
         />
       </div>
     </div>

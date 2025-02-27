@@ -14,6 +14,7 @@ import { useMessageP2P } from '@/hooks/message/useMessageP2P';
 import { Friend } from '@/components/chat/friends/types';
 import { DirectMessage } from '@/components/chat/friends/DirectMessage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ChatGlobal } from '@/components/chat/ChatGlobal';
 
 const Chat = () => {
   const { toast } = useToast();
@@ -28,6 +29,7 @@ const Chat = () => {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [userProfiles, setUserProfiles] = useState<Record<string, {username: string | null, avatar_url: string | null}>>({});
+  const [activeTab, setActiveTab] = useState<string>("global");
   
   const { addP2PMessage } = useMessageP2P(setDirectMessages);
   
@@ -52,7 +54,11 @@ const Chat = () => {
     fetchMessages, 
     setupRealtimeSubscription,
     handleSendMessage,
-    handleMessageExpired
+    handleMessageExpired,
+    editingMessage,
+    handleStartEditMessage,
+    handleCancelEditMessage,
+    handleDeleteMessage
   } = useMessages(userId);
 
   // Last inn brukerprofiler
@@ -396,6 +402,7 @@ const Chat = () => {
     if (friend) {
       setActiveChat(friendId);
       setSelectedFriend(friend);
+      setActiveTab("direct");
     } else {
       toast({
         title: "Finner ikke venn",
@@ -420,7 +427,16 @@ const Chat = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (webRTCManager && userId) {
-      await handleSendMessage(webRTCManager, new Set(Object.keys(userPresence)));
+      let mediaFile: File | undefined;
+      if (e.target) {
+        const form = e.target as HTMLFormElement;
+        const fileInput = form.querySelector('input[type="file"]') as HTMLInputElement;
+        if (fileInput && fileInput.files && fileInput.files.length > 0) {
+          mediaFile = fileInput.files[0];
+        }
+      }
+
+      await handleSendMessage(webRTCManager, new Set(Object.keys(userPresence)), mediaFile);
     } else {
       toast({
         title: "WebRTC ikke initialisert",
@@ -433,6 +449,7 @@ const Chat = () => {
   const handleCloseDirectChat = () => {
     setActiveChat(null);
     setSelectedFriend(null);
+    setActiveTab("global");
   };
 
   if (authLoading) {
@@ -462,7 +479,7 @@ const Chat = () => {
       />
       
       <div className="flex-1 overflow-hidden">
-        <Tabs defaultValue="global" className="w-full h-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full">
           <div className="border-b border-cybergold-500/30 px-4">
             <TabsList className="bg-transparent border-b-0">
               <TabsTrigger value="global" className="text-cybergold-300 data-[state=active]:text-cybergold-100 data-[state=active]:border-b-2 data-[state=active]:border-cybergold-400 rounded-none">
@@ -483,23 +500,21 @@ const Chat = () => {
           </div>
           
           <TabsContent value="global" className="h-full flex flex-col mt-0 pt-0">
-            <div className="flex-1 overflow-hidden">
-              <MessageList 
-                messages={messages} 
-                onMessageExpired={handleMessageExpired}
-              />
-            </div>
-
-            <div className="p-2 sm:p-4 border-t border-cybergold-500/30">
-              <MessageInput
-                newMessage={newMessage}
-                setNewMessage={setNewMessage}
-                onSubmit={handleSubmit}
-                isLoading={isLoading}
-                ttl={ttl}
-                setTtl={setTtl}
-              />
-            </div>
+            <ChatGlobal 
+              messages={messages}
+              newMessage={newMessage}
+              setNewMessage={setNewMessage}
+              isLoading={isLoading}
+              ttl={ttl}
+              setTtl={setTtl}
+              onMessageExpired={handleMessageExpired}
+              onSubmit={handleSubmit}
+              currentUserId={userId}
+              editingMessage={editingMessage}
+              onEditMessage={handleStartEditMessage}
+              onCancelEdit={handleCancelEditMessage}
+              onDeleteMessage={handleDeleteMessage}
+            />
           </TabsContent>
           
           {selectedFriend && (
