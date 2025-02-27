@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from 'react';
 import { MessageList } from '@/components/MessageList';
 import { MessageInput } from '@/components/MessageInput';
@@ -156,13 +157,7 @@ const Chat = () => {
             id,
             user_id,
             friend_id,
-            status,
-            profiles!friendships_friend_id_fkey (
-              id,
-              username,
-              full_name,
-              avatar_url
-            )
+            status
           `)
           .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
           .eq('status', 'accepted');
@@ -174,7 +169,25 @@ const Chat = () => {
         );
         
         setFriendsList(friendIds);
-        setFriends(friendships || []);
+        
+        // Hent brukerprofilene for venner
+        const friendsWithProfiles: Friend[] = [];
+        for (const friendship of friendships || []) {
+          const profileId = friendship.user_id === userId ? friendship.friend_id : friendship.user_id;
+          
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('id, username, full_name, avatar_url')
+            .eq('id', profileId)
+            .single();
+            
+          friendsWithProfiles.push({
+            ...friendship,
+            profile: profileData || undefined
+          });
+        }
+        
+        setFriends(friendsWithProfiles);
 
         // Hvis vi har en aktiv chat med en venn, oppdater den
         if (activeChat && !friendIds.includes(activeChat)) {
@@ -457,7 +470,7 @@ const Chat = () => {
               </TabsTrigger>
               {selectedFriend && (
                 <TabsTrigger value="direct" className="text-cybergold-300 data-[state=active]:text-cybergold-100 data-[state=active]:border-b-2 data-[state=active]:border-cybergold-400 rounded-none">
-                  {selectedFriend.profiles?.username || 'Direktemelding'}
+                  {selectedFriend.profile?.username || 'Direktemelding'}
                   <button 
                     onClick={handleCloseDirectChat}
                     className="ml-2 text-xs text-cybergold-400 hover:text-cybergold-300"
