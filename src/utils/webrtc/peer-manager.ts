@@ -4,7 +4,9 @@ import { SignalingService } from './signaling';
 
 const DEFAULT_CONFIG = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' }
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' }, // Add fallback STUN servers
+    { urls: 'stun:stun2.l.google.com:19302' }
   ]
 };
 
@@ -21,26 +23,44 @@ export class PeerManager {
 
   private async setupDataChannel(connection: PeerConnection, peerId: string) {
     if (connection.connection.connectionState === 'connected') {
-      const dataChannel = connection.connection.createDataChannel('messageChannel');
-      connection.dataChannel = dataChannel;
-
-      dataChannel.onmessage = (event) => {
-        if (this.onMessageCallback) {
-          this.onMessageCallback(event.data, peerId);
+      try {
+        // Check if a data channel already exists
+        if (connection.dataChannel && connection.dataChannel.readyState === 'open') {
+          console.log(`Data channel already exists for peer ${peerId}`);
+          return;
         }
-      };
+        
+        const dataChannel = connection.connection.createDataChannel('messageChannel', {
+          ordered: true, // Ensure ordered delivery for chat messages
+          maxRetransmits: 3 // Allow retransmissions for reliability
+        });
+        connection.dataChannel = dataChannel;
 
-      dataChannel.onopen = () => {
-        console.log('Data channel opened with peer:', peerId);
-      };
+        dataChannel.onmessage = (event) => {
+          if (this.onMessageCallback) {
+            this.onMessageCallback(event.data, peerId);
+          }
+        };
 
-      dataChannel.onclose = () => {
-        console.log('Data channel closed with peer:', peerId);
-      };
+        dataChannel.onopen = () => {
+          console.log('Data channel opened with peer:', peerId);
+        };
+
+        dataChannel.onclose = () => {
+          console.log('Data channel closed with peer:', peerId);
+        };
+        
+        dataChannel.onerror = (error) => {
+          console.error(`Data channel error with peer ${peerId}:`, error);
+        };
+      } catch (error) {
+        console.error(`Error setting up data channel for peer ${peerId}:`, error);
+      }
     }
   }
 
   private setupConnectionEventHandlers(connection: PeerConnection, peerId: string) {
+    // Handler for ICE candidates
     connection.connection.onicecandidate = async (event) => {
       if (event.candidate) {
         const candidateJson = {
@@ -50,14 +70,29 @@ export class PeerManager {
           usernameFragment: event.candidate.usernameFragment
         };
 
-        await this.signalingService.sendSignal({
-          sender_id: this.userId,
-          receiver_id: peerId,
-          signal_data: { candidate: candidateJson }
-        });
+        try {
+          await this.signalingService.sendSignal({
+            sender_id: this.userId,
+            receiver_id: peerId,
+            signal_data: { candidate: candidateJson }
+          });
+        } catch (error) {
+          console.error(`Error sending ICE candidate to peer ${peerId}:`, error);
+        }
+      }
+    };
+    
+    // Handler for ICE connection state changes
+    connection.connection.oniceconnectionstatechange = () => {
+      console.log(`ICE connection state with ${peerId}: ${connection.connection.iceConnectionState}`);
+      
+      if (connection.connection.iceConnectionState === 'failed') {
+        console.log(`ICE connection failed with peer ${peerId}, attempting to restart ICE`);
+        connection.connection.restartIce();
       }
     };
 
+    // Handler for datachannel creation by the peer
     connection.connection.ondatachannel = (event) => {
       connection.dataChannel = event.channel;
       
@@ -74,8 +109,13 @@ export class PeerManager {
       event.channel.onclose = () => {
         console.log('Data channel from peer closed:', peerId);
       };
+      
+      event.channel.onerror = (error) => {
+        console.error(`Data channel error from peer ${peerId}:`, error);
+      };
     };
 
+    // Handler for connection state changes
     connection.connection.onconnectionstatechange = () => {
       console.log(`Connection state with ${peerId}:`, connection.connection.connectionState);
       if (connection.connection.connectionState === 'connected') {
@@ -83,8 +123,12 @@ export class PeerManager {
       } else if (connection.connection.connectionState === 'failed' || 
                 connection.connection.connectionState === 'closed') {
         console.log(`Connection with ${peerId} is ${connection.connection.connectionState}`);
-        this.connections.delete(peerId);
       }
+    };
+    
+    // Handler for signaling state changes
+    connection.connection.onsignalingstatechange = () => {
+      console.log(`Signaling state with ${peerId}:`, connection.connection.signalingState);
     };
   }
 
@@ -125,17 +169,21 @@ export class PeerManager {
             
             // Only create answer if we're in have-remote-offer state
             if (connection.connection.signalingState === 'have-remote-offer') {
-              const answer = await connection.connection.createAnswer();
-              await connection.connection.setLocalDescription(answer);
-              
-              await this.signalingService.sendSignal({
-                sender_id: this.userId,
-                receiver_id: sender_id,
-                signal_data: {
-                  type: answer.type,
-                  sdp: answer.sdp
-                }
-              });
+              try {
+                const answer = await connection.connection.createAnswer();
+                await connection.connection.setLocalDescription(answer);
+                
+                await this.signalingService.sendSignal({
+                  sender_id: this.userId,
+                  receiver_id: sender_id,
+                  signal_data: {
+                    type: answer.type,
+                    sdp: answer.sdp
+                  }
+                });
+              } catch (error) {
+                console.error(`Error creating answer for peer ${sender_id}:`, error);
+              }
             }
           } else {
             console.log(`Cannot process offer in current signaling state: ${connection.connection.signalingState}`);
@@ -152,7 +200,6 @@ export class PeerManager {
     } catch (error) {
       console.error('Error handling signal:', error);
       // Don't delete the connection on error, let the connection state change handler manage that
-      throw error;
     }
   }
 
@@ -174,7 +221,11 @@ export class PeerManager {
       
       // Check if the signaling state is stable before creating an offer
       if (peerConnection.signalingState === 'stable') {
-        const offer = await peerConnection.createOffer();
+        const offer = await peerConnection.createOffer({
+          offerToReceiveAudio: false,
+          offerToReceiveVideo: false,
+          iceRestart: true // Enable ICE restart for better connection recovery
+        });
         await peerConnection.setLocalDescription(offer);
         
         await this.signalingService.sendSignal({
@@ -205,16 +256,27 @@ export class PeerManager {
     const connection = this.connections.get(peerId);
     return !!connection && 
            !!connection.dataChannel && 
-           connection.dataChannel.readyState === 'open';
+           connection.dataChannel.readyState === 'open' &&
+           connection.connection.connectionState === 'connected';
   }
 
   disconnect(peerId: string) {
     const connection = this.connections.get(peerId);
     if (connection) {
       if (connection.dataChannel) {
-        connection.dataChannel.close();
+        try {
+          connection.dataChannel.close();
+        } catch (e) {
+          console.error(`Error closing data channel for peer ${peerId}:`, e);
+        }
       }
-      connection.connection.close();
+      
+      try {
+        connection.connection.close();
+      } catch (e) {
+        console.error(`Error closing connection for peer ${peerId}:`, e);
+      }
+      
       this.connections.delete(peerId);
     }
   }

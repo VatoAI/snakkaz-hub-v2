@@ -1,15 +1,15 @@
 
-import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Send, ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { useToast } from '@/components/ui/use-toast';
-import { Friend } from './types';
-import { WebRTCManager } from '@/utils/webrtc';
-import { DecryptedMessage } from '@/types/message';
-import { supabase } from '@/integrations/supabase/client';
-import { encryptMessage } from '@/utils/encryption';
+import { useState, useEffect, useRef } from "react";
+import { Friend } from "./types";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Send, RefreshCcw } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { DecryptedMessage } from "@/types/message";
+import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useToast } from "@/components/ui/use-toast";
+import { WebRTCManager } from "@/utils/webrtc";
 
 interface DirectMessageProps {
   friend: Friend;
@@ -21,8 +21,8 @@ interface DirectMessageProps {
   userProfiles?: Record<string, {username: string | null, avatar_url: string | null}>;
 }
 
-export const DirectMessage = ({
-  friend,
+export const DirectMessage = ({ 
+  friend, 
   currentUserId,
   webRTCManager,
   onBack,
@@ -30,411 +30,359 @@ export const DirectMessage = ({
   onNewMessage,
   userProfiles = {}
 }: DirectMessageProps) => {
-  const [message, setMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'failed'>('connecting');
+  const [connectionState, setConnectionState] = useState<string>("connecting");
+  const [dataChannelState, setDataChannelState] = useState<string>("connecting");
+  const [usingServerFallback, setUsingServerFallback] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
-  const [lastConnectionChange, setLastConnectionChange] = useState(Date.now());
-  const [debugInfo, setDebugInfo] = useState<{connectionState: string, dataChannelState: string} | null>(null);
-  const connectionStableTimeout = useRef<NodeJS.Timeout | null>(null);
-  const connectionCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  
   const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
   
-  // Get friend profile info from either friend object or userProfiles
-  const friendProfile = friend.profile || userProfiles[friendId];
-  const friendUsername = friendProfile?.username || 'Ukjent venn';
-  const friendAvatar = friendProfile?.avatar_url;
+  const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+  const connectionTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Filter messages to show only those between current user and this friend
-  const directMessages = messages.filter(msg => 
-    (msg.sender.id === currentUserId && msg.receiver_id === friendId) ||
-    (msg.sender.id === friendId && msg.receiver_id === currentUserId)
+  // Filter messages for this conversation
+  const chatMessages = messages.filter(msg => 
+    (msg.sender.id === friendId && !msg.receiver_id) || // Messages from friend
+    (msg.sender.id === currentUserId && msg.receiver_id === friendId) || // Messages to friend
+    (msg.sender.id === friendId && msg.receiver_id === currentUserId) // Direct messages from friend
   );
 
-  // Auto-scroll to the bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [directMessages]);
+  // Get friend's profile information
+  const friendProfile = friend.profile || userProfiles[friendId];
+  const username = friendProfile?.username || 'Ukjent bruker';
+  const avatarUrl = friendProfile?.avatar_url;
 
-  // Stabilize connection status updates
-  useEffect(() => {
-    // Clear any existing timer when connection status changes
-    if (connectionStableTimeout.current) {
-      clearTimeout(connectionStableTimeout.current);
-    }
-    
-    const now = Date.now();
-    // If status is changing too rapidly (within 3 seconds), increment counter
-    if (now - lastConnectionChange < 3000) {
-      setConnectionAttempts(prev => prev + 1);
-    }
-    
-    setLastConnectionChange(now);
-    
-    // If we've had more than 3 rapid changes, stabilize on a "failed" state
-    if (connectionAttempts > 3) {
-      setConnectionStatus('failed');
-      toast({
-        title: "Tilkoblingsproblemer",
-        description: "Kunne ikke etablere en stabil tilkobling. Meldinger vil sendes via server.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Set a timer to consider the connection stable after 5 seconds without changes
-    connectionStableTimeout.current = setTimeout(() => {
-      setConnectionAttempts(0);
-    }, 5000);
-    
-    return () => {
-      if (connectionStableTimeout.current) {
-        clearTimeout(connectionStableTimeout.current);
-      }
-    };
-  }, [connectionStatus, lastConnectionChange, connectionAttempts, toast]);
-
-  // Check connection status periodically
+  // Set up connection state checking
   useEffect(() => {
     if (!webRTCManager || !friendId) return;
-    
-    const checkConnectionStatus = () => {
-      if (webRTCManager) {
-        const connectionState = webRTCManager.getConnectionState(friendId);
-        const dataChannelState = webRTCManager.getDataChannelState(friendId);
-        
-        setDebugInfo({ connectionState, dataChannelState });
-        
-        if (dataChannelState === 'open' && connectionState === 'connected') {
-          setConnectionStatus('connected');
-        } else if (connectionState === 'failed' || connectionState === 'closed') {
-          setConnectionStatus('failed');
-        } else if (connectionState === 'connecting' || connectionState === 'new') {
-          setConnectionStatus('connecting');
-        } else {
-          setConnectionStatus('disconnected');
-        }
-      }
-    };
-    
-    // Initial check
-    checkConnectionStatus();
+
+    // Check connection status initially
+    updateConnectionStatus();
     
     // Set up interval to check connection status
-    connectionCheckInterval.current = setInterval(checkConnectionStatus, 2000);
-    
-    return () => {
-      if (connectionCheckInterval.current) {
-        clearInterval(connectionCheckInterval.current);
+    statusCheckInterval.current = setInterval(() => {
+      updateConnectionStatus();
+    }, 2000);
+
+    // Set up a timeout to check if connection is successfully established
+    connectionTimeout.current = setTimeout(() => {
+      const connState = webRTCManager.getConnectionState(friendId);
+      const dataState = webRTCManager.getDataChannelState(friendId);
+      
+      if (connState !== 'connected' || dataState !== 'open') {
+        console.log('Falling back to server for message delivery');
+        setUsingServerFallback(true);
+        toast({
+          title: "Direkte tilkobling mislyktes",
+          description: "Meldinger sendes via server med ende-til-ende-kryptering.",
+        });
       }
-    };
-  }, [webRTCManager, friendId]);
-
-  // Attempt to establish P2P connection when component mounts
-  useEffect(() => {
-    if (!webRTCManager || !friendId) return;
-
-    const connectToFriend = async () => {
-      try {
-        setConnectionStatus('connecting');
-        
-        // Check if we can get the friend's WebRTC public key from presence channel
-        const { data, error } = await supabase
-          .from('user_presence')
-          .select('last_seen')
-          .eq('user_id', friendId)
-          .single();
-
-        if (error) {
-          console.error('Error checking friend presence:', error);
-          setConnectionStatus('disconnected');
-          return;
-        }
-
-        // If friend was seen in the last 5 minutes, try to establish connection
-        const fiveMinutesAgo = new Date();
-        fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
-        
-        if (new Date(data.last_seen) > fiveMinutesAgo) {
-          try {
-            const publicKey = webRTCManager.getPublicKey();
-            if (publicKey) {
-              await webRTCManager.connectToPeer(friendId, publicKey);
-            }
-          } catch (error) {
-            console.error('Failed to establish P2P connection:', error);
-            setConnectionStatus('failed');
-          }
-        } else {
-          setConnectionStatus('disconnected');
-        }
-      } catch (error) {
-        console.error('Error in connectToFriend:', error);
-        setConnectionStatus('failed');
-      }
-    };
-
-    connectToFriend();
+    }, 10000); // Wait 10 seconds before falling back
 
     return () => {
-      if (webRTCManager) {
-        webRTCManager.disconnect(friendId);
+      if (statusCheckInterval.current) {
+        clearInterval(statusCheckInterval.current);
+      }
+      if (connectionTimeout.current) {
+        clearTimeout(connectionTimeout.current);
       }
     };
   }, [webRTCManager, friendId, toast]);
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  // Function to update connection status
+  const updateConnectionStatus = () => {
+    if (!webRTCManager || !friendId) return;
+    
+    const connState = webRTCManager.getConnectionState(friendId);
+    const dataState = webRTCManager.getDataChannelState(friendId);
+    
+    setConnectionState(connState);
+    setDataChannelState(dataState);
+    
+    // If connection is established, clear the fallback timeout
+    if (connState === 'connected' && dataState === 'open') {
+      setUsingServerFallback(false);
+      if (connectionTimeout.current) {
+        clearTimeout(connectionTimeout.current);
+        connectionTimeout.current = null;
+      }
+    }
+  };
+
+  // Handle sending a message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !currentUserId) return;
+    if (!newMessage.trim() || !friendId || !currentUserId) return;
     
     setIsLoading(true);
-    
     try {
-      // Create a new message object
-      const timestamp = new Date().toISOString();
-      const messageId = `dm-${Date.now()}`;
+      let messageDelivered = false;
       
-      let isSentP2P = false;
+      // Create a message object for the UI
+      const localMessage: DecryptedMessage = {
+        id: `local-${Date.now()}`,
+        content: newMessage,
+        sender: {
+          id: currentUserId,
+          username: null,
+          full_name: null
+        },
+        receiver_id: friendId,
+        created_at: new Date().toISOString(),
+        encryption_key: '',
+        iv: '',
+        is_encrypted: true
+      };
       
-      // First try to send via WebRTC if connected
-      if (webRTCManager && connectionStatus === 'connected') {
+      // Try to send via WebRTC first if not using server fallback
+      if (webRTCManager && !usingServerFallback) {
         try {
-          await webRTCManager.sendDirectMessage(friendId, message);
-          isSentP2P = true;
+          // Check connection status before sending
+          const connState = webRTCManager.getConnectionState(friendId);
+          const dataState = webRTCManager.getDataChannelState(friendId);
           
-          console.log('Message sent via WebRTC');
-          
-          // Get current user's profile info
-          const myUsername = userProfiles[currentUserId]?.username || 'Du';
-          const myAvatar = userProfiles[currentUserId]?.avatar_url;
-          
-          // Add the message to the UI immediately
-          const outgoingMessage: DecryptedMessage = {
-            id: messageId,
-            content: message,
-            created_at: timestamp,
-            encryption_key: '',
-            iv: '',
-            sender: {
-              id: currentUserId,
-              username: myUsername,
-              full_name: null,
-              avatar_url: myAvatar
-            },
-            receiver_id: friendId
-          };
-          
-          onNewMessage(outgoingMessage);
-          
+          if (connState === 'connected' && dataState === 'open') {
+            await webRTCManager.sendDirectMessage(friendId, newMessage);
+            messageDelivered = true;
+          } else {
+            console.log(`Connection not ready (${connState}/${dataState}), trying to reconnect`);
+            // Try to reconnect once before falling back to server
+            await webRTCManager.attemptReconnect(friendId);
+            
+            // Wait briefly for connection to establish
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Check if connection is now ready
+            const newConnState = webRTCManager.getConnectionState(friendId);
+            const newDataState = webRTCManager.getDataChannelState(friendId);
+            
+            if (newConnState === 'connected' && newDataState === 'open') {
+              await webRTCManager.sendDirectMessage(friendId, newMessage);
+              messageDelivered = true;
+            } else {
+              console.log(`Reconnect failed (${newConnState}/${newDataState}), falling back to server`);
+              setUsingServerFallback(true);
+            }
+          }
         } catch (error) {
-          console.error('WebRTC send error:', error);
-          isSentP2P = false;
+          console.error('Error sending P2P message:', error);
+          setUsingServerFallback(true);
         }
       }
       
-      // If P2P fails or not available, fall back to server
-      if (!isSentP2P) {
-        console.log('Falling back to server for message delivery');
-        const { encryptedContent, key, iv } = await encryptMessage(message);
+      // If P2P failed or we're using server fallback, send via the server
+      if (!messageDelivered) {
+        const { error } = await supabase.rpc('send_encrypted_direct_message', {
+          recipient_id: friendId,
+          message_content: newMessage
+        });
         
-        const { error } = await supabase
-          .from('messages')
-          .insert({
-            encrypted_content: encryptedContent,
-            encryption_key: key,
-            iv: iv,
-            sender_id: currentUserId,
-            receiver_id: friendId,
-            ephemeral_ttl: 300 // Messages expire after 5 minutes
-          });
-          
         if (error) {
           throw error;
         }
         
-        toast({
-          title: 'Melding sendt',
-          description: 'Bruker serveren som backup (meldingen utløper om 5 minutter)',
-        });
+        messageDelivered = true;
+        console.log('Message sent via server');
       }
       
-      // Clear the input field
-      setMessage('');
+      // Add the message to the UI
+      if (messageDelivered) {
+        onNewMessage(localMessage);
+        setNewMessage("");
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
-        title: 'Feil',
-        description: 'Kunne ikke sende melding',
-        variant: 'destructive'
+        title: "Feil",
+        description: "Kunne ikke sende melding. Prøv igjen senere.",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Render connection status indicator
-  const renderConnectionStatus = () => {
-    if (connectionStatus === 'connected') {
-      return (
-        <div className="flex items-center gap-1 text-xs text-green-400">
-          <ShieldCheck className="h-3 w-3" />
-          <span>E2EE Aktiv</span>
-        </div>
-      );
-    } else if (connectionStatus === 'connecting') {
-      return (
-        <div className="flex items-center gap-1 text-xs text-amber-400">
-          <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse"></div>
-          <span>Kobler til...</span>
-        </div>
-      );
-    } else if (connectionStatus === 'failed') {
-      return (
-        <div className="flex items-center gap-1 text-xs text-red-400">
-          <div className="h-2 w-2 rounded-full bg-red-400"></div>
-          <span>Tilkobling feilet</span>
-        </div>
-      );
-    } else {
-      return (
-        <div className="flex items-center gap-1 text-xs text-gray-400">
-          <div className="h-2 w-2 rounded-full bg-gray-400"></div>
-          <span>Fallback-modus</span>
-        </div>
-      );
+  // Attempt to reconnect to the peer
+  const handleReconnect = async () => {
+    if (!webRTCManager || !friendId) return;
+    
+    setConnectionAttempts(prev => prev + 1);
+    setUsingServerFallback(false);
+    
+    toast({
+      title: "Kobler til...",
+      description: "Forsøker å etablere direkte tilkobling.",
+    });
+    
+    try {
+      await webRTCManager.attemptReconnect(friendId);
+      
+      // Reset the connection timeout
+      if (connectionTimeout.current) {
+        clearTimeout(connectionTimeout.current);
+      }
+      
+      connectionTimeout.current = setTimeout(() => {
+        const connState = webRTCManager.getConnectionState(friendId);
+        const dataState = webRTCManager.getDataChannelState(friendId);
+        
+        if (connState !== 'connected' || dataState !== 'open') {
+          setUsingServerFallback(true);
+          toast({
+            title: "Direkte tilkobling mislyktes",
+            description: "Meldinger sendes via server med ende-til-ende-kryptering.",
+          });
+        }
+      }, 5000);
+    } catch (error) {
+      console.error('Error reconnecting:', error);
+      setUsingServerFallback(true);
     }
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="border-b border-cybergold-500/30 p-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={onBack}
-              className="text-cybergold-400"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center gap-2">
-              <Avatar className="w-8 h-8 border border-cybergold-500/30">
-                {friendAvatar ? (
-                  <AvatarImage 
-                    src={supabase.storage.from('avatars').getPublicUrl(friendAvatar).data.publicUrl} 
-                    alt={friendUsername}
-                  />
-                ) : (
-                  <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
-                    {friendUsername.substring(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                )}
-              </Avatar>
-              <h3 className="text-cybergold-300 font-medium">{friendUsername}</h3>
-            </div>
+    <div className="flex flex-col h-full bg-cyberdark-950">
+      {/* Header */}
+      <div className="flex items-center gap-2 border-b border-cybergold-500/30 p-3 bg-cyberdark-900">
+        <Button 
+          onClick={onBack}
+          size="icon" 
+          variant="ghost" 
+          className="text-cybergold-300 hover:text-cybergold-200 hover:bg-cyberdark-800"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        
+        <Avatar className="h-8 w-8 mr-2">
+          {avatarUrl ? (
+            <AvatarImage 
+              src={supabase.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl}
+              alt={username} 
+            />
+          ) : (
+            <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
+              {username.substring(0, 2).toUpperCase()}
+            </AvatarFallback>
+          )}
+        </Avatar>
+        
+        <div className="flex-1">
+          <h2 className="text-cybergold-200 font-medium">{username}</h2>
+          <div className="flex items-center text-xs">
+            <span 
+              className={`w-2 h-2 rounded-full mr-1 ${
+                connectionState === 'connected' && dataChannelState === 'open'
+                  ? 'bg-green-500'
+                  : connectionState === 'connecting' || dataChannelState === 'connecting'
+                  ? 'bg-amber-500'
+                  : 'bg-red-500'
+              }`}
+            ></span>
+            <span className="text-cyberdark-400">
+              {connectionState === 'connected' && dataChannelState === 'open'
+                ? 'Tilkoblet direkte'
+                : usingServerFallback
+                ? 'Bruker server'
+                : `Connection: ${connectionState}, DataChannel: ${dataChannelState}`}
+            </span>
+            
+            {(connectionState !== 'connected' || dataChannelState !== 'open') && (
+              <Button 
+                size="icon" 
+                variant="ghost" 
+                className="h-6 w-6 ml-1 text-cybergold-400 hover:text-cybergold-300"
+                onClick={handleReconnect}
+                disabled={connectionAttempts > 3}
+                title="Forsøk å koble til igjen"
+              >
+                <RefreshCcw className="h-3 w-3" />
+              </Button>
+            )}
           </div>
-          {renderConnectionStatus()}
         </div>
       </div>
-
+      
+      {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {directMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center text-cybergold-500">
-            <div className="bg-cyberdark-800/40 p-6 rounded-xl mb-4">
-              <ShieldCheck className="h-10 w-10 text-cybergold-400/50 mx-auto mb-4" />
-              <p className="text-sm mb-2">
-                Ingen meldinger ennå. Send en melding for å starte samtalen.
-              </p>
-              <p className="text-xs opacity-70">
-                Meldinger sendes med ende-til-ende-kryptering når begge er pålogget.
-              </p>
+        {chatMessages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center text-cyberdark-400">
+            <div className="mb-2 p-3 bg-cyberdark-800/30 rounded-full">
+              <svg className="h-8 w-8 text-cybergold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
             </div>
+            <p>Ingen meldinger ennå. Send en melding for å starte samtalen.</p>
+            {usingServerFallback && (
+              <p className="mt-2 text-sm text-amber-400">Bruker ende-til-ende-kryptering via server.</p>
+            )}
           </div>
         ) : (
-          directMessages.map(msg => {
-            const isCurrentUser = msg.sender.id === currentUserId;
-            const senderAvatar = isCurrentUser 
-              ? userProfiles[currentUserId]?.avatar_url 
-              : friendAvatar;
-            const senderName = isCurrentUser 
-              ? userProfiles[currentUserId]?.username || 'Du' 
-              : friendUsername;
-              
-            return (
+          chatMessages.map((message) => (
+            <div 
+              key={message.id}
+              className={`flex ${message.sender.id === currentUserId ? 'justify-end' : 'justify-start'}`}
+            >
               <div 
-                key={msg.id}
-                className={`flex gap-2 ${isCurrentUser ? 'flex-row-reverse' : 'flex-row'}`}
+                className={`max-w-[80%] p-3 rounded-lg ${
+                  message.sender.id === currentUserId 
+                    ? 'bg-cyberblue-900 text-cyberblue-100' 
+                    : 'bg-cyberdark-800 text-cybergold-200'
+                }`}
               >
-                <Avatar className="w-8 h-8 mt-1">
-                  {senderAvatar ? (
-                    <AvatarImage 
-                      src={supabase.storage.from('avatars').getPublicUrl(senderAvatar).data.publicUrl} 
-                      alt={senderName}
-                    />
-                  ) : (
-                    <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
-                      {senderName.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                <p>{message.content}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <p className="text-xs opacity-70">
+                    {new Date(message.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </p>
+                  {message.is_encrypted && (
+                    <span className="text-xs opacity-70">🔒</span>
                   )}
-                </Avatar>
-                <div 
-                  className={`max-w-[75%] p-3 rounded-md ${
-                    isCurrentUser 
-                      ? 'bg-cybergold-500/20 text-cybergold-100'
-                      : 'bg-cyberdark-700 text-cyberblue-100'
-                  }`}
-                >
-                  <p>{msg.content}</p>
-                  <span className="text-xs opacity-50 block mt-1">
-                    {new Date(msg.created_at).toLocaleTimeString()}
-                  </span>
                 </div>
               </div>
-            );
-          })
+            </div>
+          ))
         )}
         <div ref={messagesEndRef} />
       </div>
-
-      {connectionStatus === 'failed' && (
-        <div className="px-4 py-2 bg-red-900/20 border-t border-red-800 text-xs flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 text-red-400" />
-          <span className="text-red-300">
-            Direkte tilkobling mislyktes. Meldinger sendes via server med 5 minutters utløpstid.
-          </span>
-        </div>
-      )}
-
-      <div className="p-2 border-t border-cybergold-500/30">
+      
+      {/* Input area */}
+      <div className="p-3 border-t border-cybergold-500/30 bg-cyberdark-900">
+        {usingServerFallback && (
+          <Alert className="mb-2 bg-amber-900/20 border-amber-700 text-amber-300 py-2">
+            <AlertDescription className="text-xs">
+              Direkte tilkobling mislyktes. Meldinger sendes via server med ende-til-ende-kryptering.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <form onSubmit={handleSendMessage} className="flex gap-2">
           <Input
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Skriv en kryptert melding..."
             className="flex-1 bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100"
-            disabled={isLoading}
           />
           <Button 
-            type="submit"
-            disabled={!message.trim() || isLoading}
-            className="bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-900"
+            type="submit" 
+            disabled={isLoading || !newMessage.trim()}
+            className="bg-cybergold-500 hover:bg-cybergold-600 text-black"
           >
-            <Send className="h-4 w-4" />
+            {isLoading ? (
+              <span className="animate-spin">⏳</span>
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
           </Button>
         </form>
       </div>
-      
-      {/* Debug info - skjult i produksjon, kan vises for debugging */}
-      {debugInfo && process.env.NODE_ENV === 'development' && (
-        <div className="p-2 border-t border-gray-800 text-xs text-gray-500">
-          <p>Connection: {debugInfo.connectionState}</p>
-          <p>DataChannel: {debugInfo.dataChannelState}</p>
-        </div>
-      )}
     </div>
   );
 };

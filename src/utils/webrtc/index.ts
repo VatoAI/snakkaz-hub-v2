@@ -8,8 +8,9 @@ export class WebRTCManager {
   private onMessageCallback: ((message: string, peerId: string) => void) | null = null;
   private secureConnections: Map<string, CryptoKey> = new Map();
   private connectionAttempts: Map<string, number> = new Map();
-  private maxConnectionAttempts = 3;
+  private maxConnectionAttempts = 5; // Increased from 3 to 5
   private retryTimeout: number = 10000; // 10 seconds between retry attempts
+  private connectionTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(private userId: string) {
     this.peerManager = new PeerManager(userId);
@@ -58,9 +59,24 @@ export class WebRTCManager {
       let connection = this.peerManager.getPeerConnection(peerId);
       if (!connection || 
           connection.connection.connectionState === 'failed' || 
-          connection.connection.connectionState === 'closed') {
+          connection.connection.connectionState === 'closed' || 
+          connection.connection.connectionState === 'disconnected') {
         console.log(`Creating new connection to peer ${peerId}`);
         connection = await this.peerManager.createPeer(peerId);
+        
+        // Set a timeout to check connection status and attempt reconnect if needed
+        const connectionTimeout = setTimeout(() => {
+          const currentConnection = this.peerManager.getPeerConnection(peerId);
+          if (currentConnection && 
+              (currentConnection.connection.connectionState === 'failed' || 
+               currentConnection.connection.connectionState === 'closed' || 
+               currentConnection.connection.connectionState === 'disconnected')) {
+            console.log(`Connection to peer ${peerId} failed, attempting reconnect`);
+            this.connectToPeer(peerId, peerPublicKey);
+          }
+        }, 5000); // Check after 5 seconds
+        
+        this.connectionTimeouts.set(peerId, connectionTimeout);
       }
 
       // Establish secure connection if we don't already have one
@@ -169,6 +185,33 @@ export class WebRTCManager {
 
   public async sendDirectMessage(peerId: string, message: string) {
     try {
+      // Check connection state before sending
+      const connection = this.peerManager.getPeerConnection(peerId);
+      if (!connection || 
+          !connection.dataChannel || 
+          connection.dataChannel.readyState !== 'open' ||
+          connection.connection.connectionState !== 'connected') {
+        console.log(`Connection to peer ${peerId} is not ready, attempting to reconnect`);
+        
+        // Try to reconnect if we have the peer's public key
+        if (this.localKeyPair?.publicKey) {
+          await this.connectToPeer(peerId, this.localKeyPair.publicKey);
+          
+          // Wait for connection to establish
+          let attempts = 0;
+          while (attempts < 5) {
+            const updatedConnection = this.peerManager.getPeerConnection(peerId);
+            if (updatedConnection && 
+                updatedConnection.dataChannel && 
+                updatedConnection.dataChannel.readyState === 'open') {
+              break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            attempts++;
+          }
+        }
+      }
+      
       return await this.sendMessage(peerId, message, true);
     } catch (error) {
       console.error(`Failed to send direct message to ${peerId}:`, error);
@@ -182,6 +225,14 @@ export class WebRTCManager {
 
   public disconnect(peerId: string) {
     console.log(`Disconnecting from peer ${peerId}`);
+    
+    // Clear any pending connection timeout
+    const timeout = this.connectionTimeouts.get(peerId);
+    if (timeout) {
+      clearTimeout(timeout);
+      this.connectionTimeouts.delete(peerId);
+    }
+    
     this.peerManager.disconnect(peerId);
     this.secureConnections.delete(peerId);
     this.connectionAttempts.delete(peerId);
@@ -189,6 +240,11 @@ export class WebRTCManager {
 
   public disconnectAll() {
     console.log('Disconnecting from all peers');
+    
+    // Clear all timeouts
+    this.connectionTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.connectionTimeouts.clear();
+    
     this.peerManager.disconnectAll();
     this.secureConnections.clear();
     this.connectionAttempts.clear();
@@ -206,6 +262,24 @@ export class WebRTCManager {
     if (!connection || !connection.dataChannel) return 'closed';
     
     return connection.dataChannel.readyState || 'unknown';
+  }
+  
+  // Method to try reconnecting with a peer
+  public async attemptReconnect(peerId: string) {
+    console.log(`Attempting to reconnect with peer ${peerId}`);
+    
+    // Reset connection attempts for this peer
+    this.connectionAttempts.set(peerId, 0);
+    
+    // Clean up existing connection
+    this.peerManager.disconnect(peerId);
+    
+    // Attempt new connection if we have the public key
+    if (this.localKeyPair?.publicKey) {
+      return await this.connectToPeer(peerId, this.localKeyPair.publicKey);
+    }
+    
+    return null;
   }
 }
 
