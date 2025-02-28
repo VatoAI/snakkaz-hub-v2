@@ -24,4 +24,5 @@ export interface Message {
 
 export interface DecryptedMessage extends Omit<Message, 'encrypted_content'> {
   content: string;
+  is_encrypted?: boolean; // Add this property to fix the type error
 }
