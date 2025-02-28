@@ -1,3 +1,4 @@
+
 export interface DecryptedMessage {
   id: string;
   content: string;
@@ -12,4 +13,12 @@ export interface DecryptedMessage {
   encryption_key: string;
   iv: string;
   is_encrypted?: boolean;
+  ephemeral_ttl?: number;
+  media_url?: string;
+  media_type?: string;
+  is_edited?: boolean;
+  edited_at?: string | null;
+  is_deleted?: boolean;
+  deleted_at?: string | null;
+  group_id?: boolean | null;
 }
