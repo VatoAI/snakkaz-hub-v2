@@ -42,31 +42,25 @@ export const DirectMessage = ({
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Filter messages for this conversation
   const chatMessages = messages.filter(msg => 
-    (msg.sender.id === friendId && !msg.receiver_id) || // Messages from friend
-    (msg.sender.id === currentUserId && msg.receiver_id === friendId) || // Messages to friend
-    (msg.sender.id === friendId && msg.receiver_id === currentUserId) // Direct messages from friend
+    (msg.sender.id === friendId && !msg.receiver_id) || 
+    (msg.sender.id === currentUserId && msg.receiver_id === friendId) || 
+    (msg.sender.id === friendId && msg.receiver_id === currentUserId)
   );
 
-  // Get friend's profile information
   const friendProfile = friend.profile || userProfiles[friendId];
   const username = friendProfile?.username || 'Ukjent bruker';
   const avatarUrl = friendProfile?.avatar_url;
 
-  // Set up connection state checking
   useEffect(() => {
     if (!webRTCManager || !friendId) return;
 
-    // Check connection status initially
     updateConnectionStatus();
     
-    // Set up interval to check connection status
     statusCheckInterval.current = setInterval(() => {
       updateConnectionStatus();
     }, 2000);
 
-    // Set up a timeout to check if connection is successfully established
     connectionTimeout.current = setTimeout(() => {
       const connState = webRTCManager.getConnectionState(friendId);
       const dataState = webRTCManager.getDataChannelState(friendId);
@@ -79,7 +73,7 @@ export const DirectMessage = ({
           description: "Meldinger sendes via server med ende-til-ende-kryptering.",
         });
       }
-    }, 10000); // Wait 10 seconds before falling back
+    }, 10000);
 
     return () => {
       if (statusCheckInterval.current) {
@@ -91,12 +85,10 @@ export const DirectMessage = ({
     };
   }, [webRTCManager, friendId, toast]);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Function to update connection status
   const updateConnectionStatus = () => {
     if (!webRTCManager || !friendId) return;
     
@@ -106,7 +98,6 @@ export const DirectMessage = ({
     setConnectionState(connState);
     setDataChannelState(dataState);
     
-    // If connection is established, clear the fallback timeout
     if (connState === 'connected' && dataState === 'open') {
       setUsingServerFallback(false);
       if (connectionTimeout.current) {
@@ -116,7 +107,6 @@ export const DirectMessage = ({
     }
   };
 
-  // Handle sending a message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !friendId || !currentUserId) return;
@@ -125,7 +115,6 @@ export const DirectMessage = ({
     try {
       let messageDelivered = false;
       
-      // Create a message object for the UI
       const localMessage: DecryptedMessage = {
         id: `local-${Date.now()}`,
         content: newMessage,
@@ -141,10 +130,8 @@ export const DirectMessage = ({
         is_encrypted: true
       };
       
-      // Try to send via WebRTC first if not using server fallback
       if (webRTCManager && !usingServerFallback) {
         try {
-          // Check connection status before sending
           const connState = webRTCManager.getConnectionState(friendId);
           const dataState = webRTCManager.getDataChannelState(friendId);
           
@@ -153,13 +140,8 @@ export const DirectMessage = ({
             messageDelivered = true;
           } else {
             console.log(`Connection not ready (${connState}/${dataState}), trying to reconnect`);
-            // Try to reconnect once before falling back to server
             await webRTCManager.attemptReconnect(friendId);
-            
-            // Wait briefly for connection to establish
             await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Check if connection is now ready
             const newConnState = webRTCManager.getConnectionState(friendId);
             const newDataState = webRTCManager.getDataChannelState(friendId);
             
@@ -177,15 +159,13 @@ export const DirectMessage = ({
         }
       }
       
-      // If P2P failed or we're using server fallback, send via the server
       if (!messageDelivered) {
-        // Use a custom query instead of rpc which may not exist
         const { error } = await supabase
-          .from('encrypted_messages')
+          .from('messages')
           .insert({
             sender_id: currentUserId,
             receiver_id: friendId,
-            content: newMessage,
+            encrypted_content: newMessage,
             is_encrypted: true
           });
         
@@ -197,7 +177,6 @@ export const DirectMessage = ({
         console.log('Message sent via server');
       }
       
-      // Add the message to the UI
       if (messageDelivered) {
         onNewMessage(localMessage);
         setNewMessage("");
@@ -214,7 +193,6 @@ export const DirectMessage = ({
     }
   };
 
-  // Attempt to reconnect to the peer
   const handleReconnect = async () => {
     if (!webRTCManager || !friendId) return;
     
@@ -229,7 +207,6 @@ export const DirectMessage = ({
     try {
       await webRTCManager.attemptReconnect(friendId);
       
-      // Reset the connection timeout
       if (connectionTimeout.current) {
         clearTimeout(connectionTimeout.current);
       }
@@ -254,7 +231,6 @@ export const DirectMessage = ({
 
   return (
     <div className="flex flex-col h-full bg-cyberdark-950">
-      {/* Header */}
       <div className="flex items-center gap-2 border-b border-cybergold-500/30 p-3 bg-cyberdark-900">
         <Button 
           onClick={onBack}
@@ -314,7 +290,6 @@ export const DirectMessage = ({
         </div>
       </div>
       
-      {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {chatMessages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center text-cyberdark-400">
@@ -357,7 +332,6 @@ export const DirectMessage = ({
         <div ref={messagesEndRef} />
       </div>
       
-      {/* Input area */}
       <div className="p-3 border-t border-cybergold-500/30 bg-cyberdark-900">
         {usingServerFallback && (
           <Alert className="mb-2 bg-amber-900/20 border-amber-700 text-amber-300 py-2">
