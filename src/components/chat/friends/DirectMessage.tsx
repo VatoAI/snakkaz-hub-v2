@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Send, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { Send, ArrowLeft, ShieldCheck, AlertCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { Friend } from './types';
@@ -35,7 +35,9 @@ export const DirectMessage = ({
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'failed'>('connecting');
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [lastConnectionChange, setLastConnectionChange] = useState(Date.now());
+  const [debugInfo, setDebugInfo] = useState<{connectionState: string, dataChannelState: string} | null>(null);
   const connectionStableTimeout = useRef<NodeJS.Timeout | null>(null);
+  const connectionCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   
@@ -95,6 +97,42 @@ export const DirectMessage = ({
     };
   }, [connectionStatus, lastConnectionChange, connectionAttempts, toast]);
 
+  // Check connection status periodically
+  useEffect(() => {
+    if (!webRTCManager || !friendId) return;
+    
+    const checkConnectionStatus = () => {
+      if (webRTCManager) {
+        const connectionState = webRTCManager.getConnectionState(friendId);
+        const dataChannelState = webRTCManager.getDataChannelState(friendId);
+        
+        setDebugInfo({ connectionState, dataChannelState });
+        
+        if (dataChannelState === 'open' && connectionState === 'connected') {
+          setConnectionStatus('connected');
+        } else if (connectionState === 'failed' || connectionState === 'closed') {
+          setConnectionStatus('failed');
+        } else if (connectionState === 'connecting' || connectionState === 'new') {
+          setConnectionStatus('connecting');
+        } else {
+          setConnectionStatus('disconnected');
+        }
+      }
+    };
+    
+    // Initial check
+    checkConnectionStatus();
+    
+    // Set up interval to check connection status
+    connectionCheckInterval.current = setInterval(checkConnectionStatus, 2000);
+    
+    return () => {
+      if (connectionCheckInterval.current) {
+        clearInterval(connectionCheckInterval.current);
+      }
+    };
+  }, [webRTCManager, friendId]);
+
   // Attempt to establish P2P connection when component mounts
   useEffect(() => {
     if (!webRTCManager || !friendId) return;
@@ -125,11 +163,6 @@ export const DirectMessage = ({
             const publicKey = webRTCManager.getPublicKey();
             if (publicKey) {
               await webRTCManager.connectToPeer(friendId, publicKey);
-              setConnectionStatus('connected');
-              toast({
-                title: "Tilkoblet",
-                description: "Sikker P2P-forbindelse opprettet",
-              });
             }
           } catch (error) {
             console.error('Failed to establish P2P connection:', error);
@@ -172,6 +205,8 @@ export const DirectMessage = ({
           await webRTCManager.sendDirectMessage(friendId, message);
           isSentP2P = true;
           
+          console.log('Message sent via WebRTC');
+          
           // Get current user's profile info
           const myUsername = userProfiles[currentUserId]?.username || 'Du';
           const myAvatar = userProfiles[currentUserId]?.avatar_url;
@@ -202,6 +237,7 @@ export const DirectMessage = ({
       
       // If P2P fails or not available, fall back to server
       if (!isSentP2P) {
+        console.log('Falling back to server for message delivery');
         const { encryptedContent, key, iv } = await encryptMessage(message);
         
         const { error } = await supabase
@@ -364,6 +400,15 @@ export const DirectMessage = ({
         <div ref={messagesEndRef} />
       </div>
 
+      {connectionStatus === 'failed' && (
+        <div className="px-4 py-2 bg-red-900/20 border-t border-red-800 text-xs flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 text-red-400" />
+          <span className="text-red-300">
+            Direkte tilkobling mislyktes. Meldinger sendes via server med 5 minutters utløpstid.
+          </span>
+        </div>
+      )}
+
       <div className="p-2 border-t border-cybergold-500/30">
         <form onSubmit={handleSendMessage} className="flex gap-2">
           <Input
@@ -382,6 +427,14 @@ export const DirectMessage = ({
           </Button>
         </form>
       </div>
+      
+      {/* Debug info - skjult i produksjon, kan vises for debugging */}
+      {debugInfo && process.env.NODE_ENV === 'development' && (
+        <div className="p-2 border-t border-gray-800 text-xs text-gray-500">
+          <p>Connection: {debugInfo.connectionState}</p>
+          <p>DataChannel: {debugInfo.dataChannelState}</p>
+        </div>
+      )}
     </div>
   );
 };
