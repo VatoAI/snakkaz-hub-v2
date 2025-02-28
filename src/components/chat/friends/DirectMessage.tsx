@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Friend } from "./types";
 import { Button } from "@/components/ui/button";
@@ -180,10 +179,15 @@ export const DirectMessage = ({
       
       // If P2P failed or we're using server fallback, send via the server
       if (!messageDelivered) {
-        const { error } = await supabase.rpc('send_encrypted_direct_message', {
-          recipient_id: friendId,
-          message_content: newMessage
-        });
+        // Use a custom query instead of rpc which may not exist
+        const { error } = await supabase
+          .from('encrypted_messages')
+          .insert({
+            sender_id: currentUserId,
+            receiver_id: friendId,
+            content: newMessage,
+            is_encrypted: true
+          });
         
         if (error) {
           throw error;
