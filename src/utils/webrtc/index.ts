@@ -12,6 +12,8 @@ export class WebRTCManager {
   private onMessageCallback: ((message: string, peerId: string) => void) | null = null;
   private secureConnections: Map<string, CryptoKey> = new Map();
   private signalingCleanup: (() => void) | null = null;
+  private reconnectAttempts: Map<string, number> = new Map();
+  private maxReconnectAttempts: number = 3;
 
   constructor(private userId: string) {
     this.peerManager = new PeerManager(userId);
@@ -45,11 +47,34 @@ export class WebRTCManager {
   }
 
   public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey) {
-    return this.connectionManager.connectToPeer(peerId, peerPublicKey);
+    try {
+      return await this.connectionManager.connectToPeer(peerId, peerPublicKey);
+    } catch (error) {
+      console.error(`Error connecting to peer ${peerId}:`, error);
+      throw error;
+    }
   }
 
   public async sendMessage(peerId: string, message: string, isDirect: boolean = false) {
-    return this.messageHandler.sendMessage(peerId, message, isDirect);
+    try {
+      return await this.messageHandler.sendMessage(peerId, message, isDirect);
+    } catch (error) {
+      console.error(`Error sending message to peer ${peerId}:`, error);
+      
+      // Try to auto-reconnect and retry once
+      if (this.localKeyPair?.publicKey) {
+        try {
+          await this.attemptReconnect(peerId);
+          // If reconnection worked, try sending again
+          return await this.messageHandler.sendMessage(peerId, message, isDirect);
+        } catch (reconnectError) {
+          console.error(`Auto-reconnect failed for peer ${peerId}:`, reconnectError);
+          throw error; // Throw the original error
+        }
+      } else {
+        throw error;
+      }
+    }
   }
 
   public onMessage(callback: (message: string, peerId: string) => void) {
@@ -73,28 +98,48 @@ export class WebRTCManager {
     try {
       // Check connection state before sending
       const connection = this.peerManager.getPeerConnection(peerId);
-      if (!connection || 
+      const needsReconnect = !connection || 
           !connection.dataChannel || 
           connection.dataChannel.readyState !== 'open' ||
-          connection.connection.connectionState !== 'connected') {
+          connection.connection.connectionState !== 'connected';
+          
+      if (needsReconnect) {
         console.log(`Connection to peer ${peerId} is not ready, attempting to reconnect`);
         
         // Try to reconnect if we have the peer's public key
         if (this.localKeyPair?.publicKey) {
-          await this.connectToPeer(peerId, this.localKeyPair.publicKey);
-          
-          // Wait for connection to establish
-          let attempts = 0;
-          while (attempts < 5) {
-            const updatedConnection = this.peerManager.getPeerConnection(peerId);
-            if (updatedConnection && 
-                updatedConnection.dataChannel && 
-                updatedConnection.dataChannel.readyState === 'open') {
-              break;
+          try {
+            await this.connectToPeer(peerId, this.localKeyPair.publicKey);
+            
+            // Wait for connection to establish
+            let connectionEstablished = false;
+            let attempts = 0;
+            const maxAttempts = 5;
+            
+            while (!connectionEstablished && attempts < maxAttempts) {
+              const updatedConnection = this.peerManager.getPeerConnection(peerId);
+              if (updatedConnection && 
+                  updatedConnection.dataChannel && 
+                  updatedConnection.dataChannel.readyState === 'open') {
+                connectionEstablished = true;
+                break;
+              }
+              
+              // Wait with exponential backoff
+              const waitTime = Math.min(1000 * Math.pow(2, attempts), 8000);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              attempts++;
             }
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            attempts++;
+            
+            if (!connectionEstablished) {
+              throw new Error(`Could not establish connection with peer ${peerId} after ${maxAttempts} attempts`);
+            }
+          } catch (reconnectError) {
+            console.error(`Reconnection to peer ${peerId} failed:`, reconnectError);
+            throw new Error(`Failed to establish connection with peer ${peerId}`);
           }
+        } else {
+          throw new Error('Cannot reconnect: no local public key available');
         }
       }
       
@@ -125,13 +170,58 @@ export class WebRTCManager {
     return this.connectionManager.getDataChannelState(peerId);
   }
   
-  // Method to try reconnecting with a peer
+  // Method to try reconnecting with a peer with improved error handling
   public async attemptReconnect(peerId: string) {
     if (!this.localKeyPair?.publicKey) {
       throw new Error('Cannot reconnect: no local public key available');
     }
     
-    return this.connectionManager.attemptReconnect(peerId, this.localKeyPair.publicKey);
+    const attempts = this.reconnectAttempts.get(peerId) || 0;
+    
+    if (attempts >= this.maxReconnectAttempts) {
+      console.log(`Max reconnection attempts (${this.maxReconnectAttempts}) reached for peer ${peerId}`);
+      // Reset for future attempts
+      this.reconnectAttempts.set(peerId, 0);
+      throw new Error(`Max reconnection attempts reached for peer ${peerId}`);
+    }
+    
+    try {
+      console.log(`Attempting to reconnect with peer ${peerId} (attempt ${attempts + 1}/${this.maxReconnectAttempts})`);
+      const result = await this.connectionManager.attemptReconnect(peerId, this.localKeyPair.publicKey);
+      
+      // Reset reconnect attempts on success
+      this.reconnectAttempts.delete(peerId);
+      
+      return result;
+    } catch (error) {
+      // Increment reconnect attempts
+      this.reconnectAttempts.set(peerId, attempts + 1);
+      console.error(`Reconnection attempt ${attempts + 1} to peer ${peerId} failed:`, error);
+      throw error;
+    }
+  }
+  
+  // Method to check if a peer is connected and ready for messaging
+  public isPeerReady(peerId: string): boolean {
+    const connState = this.getConnectionState(peerId);
+    const dataState = this.getDataChannelState(peerId);
+    
+    return connState === 'connected' && dataState === 'open';
+  }
+  
+  // Try to ensure a peer is ready, reconnecting if necessary
+  public async ensurePeerReady(peerId: string): Promise<boolean> {
+    if (this.isPeerReady(peerId)) {
+      return true;
+    }
+    
+    try {
+      await this.attemptReconnect(peerId);
+      return this.isPeerReady(peerId);
+    } catch (error) {
+      console.error(`Failed to ensure peer ${peerId} is ready:`, error);
+      return false;
+    }
   }
 }
 

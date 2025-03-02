@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { Friend } from "./types";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
 import { WebRTCManager } from "@/utils/webrtc";
+import { encryptMessage } from "@/utils/encryption";
 
 interface DirectMessageProps {
   friend: Friend;
@@ -35,12 +37,14 @@ export const DirectMessage = ({
   const [dataChannelState, setDataChannelState] = useState<string>("connecting");
   const [usingServerFallback, setUsingServerFallback] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const [sendError, setSendError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
   
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeout = useRef<NodeJS.Timeout | null>(null);
+  const errorResetTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const chatMessages = messages.filter(msg => 
     (msg.sender.id === friendId && !msg.receiver_id) || 
@@ -71,6 +75,7 @@ export const DirectMessage = ({
         toast({
           title: "Direkte tilkobling mislyktes",
           description: "Meldinger sendes via server med ende-til-ende-kryptering.",
+          variant: "default",
         });
       }
     }, 10000);
@@ -81,6 +86,9 @@ export const DirectMessage = ({
       }
       if (connectionTimeout.current) {
         clearTimeout(connectionTimeout.current);
+      }
+      if (errorResetTimeout.current) {
+        clearTimeout(errorResetTimeout.current);
       }
     };
   }, [webRTCManager, friendId, toast]);
@@ -112,9 +120,12 @@ export const DirectMessage = ({
     if (!newMessage.trim() || !friendId || !currentUserId) return;
     
     setIsLoading(true);
+    setSendError(null);
+    
     try {
       let messageDelivered = false;
       
+      const timestamp = new Date().toISOString();
       const localMessage: DecryptedMessage = {
         id: `local-${Date.now()}`,
         content: newMessage,
@@ -124,7 +135,7 @@ export const DirectMessage = ({
           full_name: null
         },
         receiver_id: friendId,
-        created_at: new Date().toISOString(),
+        created_at: timestamp,
         encryption_key: '',
         iv: '',
         is_encrypted: true
@@ -160,21 +171,31 @@ export const DirectMessage = ({
       }
       
       if (!messageDelivered) {
-        const { error } = await supabase
-          .from('messages')
-          .insert({
-            sender_id: currentUserId,
-            receiver_id: friendId,
-            encrypted_content: newMessage,
-            is_encrypted: true
-          });
-        
-        if (error) {
-          throw error;
+        try {
+          // Encrypt message for server transmission
+          const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
+          
+          const { error } = await supabase
+            .from('messages')
+            .insert({
+              sender_id: currentUserId,
+              receiver_id: friendId,
+              encrypted_content: encryptedContent,
+              encryption_key: key,
+              iv: iv,
+              is_encrypted: true
+            });
+          
+          if (error) {
+            throw error;
+          }
+          
+          messageDelivered = true;
+          console.log('Message sent via server with end-to-end encryption');
+        } catch (serverError) {
+          console.error('Server fallback failed:', serverError);
+          throw new Error('Both direct and server message delivery failed');
         }
-        
-        messageDelivered = true;
-        console.log('Message sent via server');
       }
       
       if (messageDelivered) {
@@ -183,11 +204,18 @@ export const DirectMessage = ({
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      setSendError('Kunne ikke sende melding. Prøv igjen senere.');
+      
       toast({
         title: "Feil",
         description: "Kunne ikke sende melding. Prøv igjen senere.",
         variant: "destructive",
       });
+      
+      // Auto-clear error after 5 seconds
+      errorResetTimeout.current = setTimeout(() => {
+        setSendError(null);
+      }, 5000);
     } finally {
       setIsLoading(false);
     }
@@ -198,6 +226,7 @@ export const DirectMessage = ({
     
     setConnectionAttempts(prev => prev + 1);
     setUsingServerFallback(false);
+    setSendError(null);
     
     toast({
       title: "Kobler til...",
@@ -271,7 +300,7 @@ export const DirectMessage = ({
                 ? 'Tilkoblet direkte'
                 : usingServerFallback
                 ? 'Bruker server'
-                : `Connection: ${connectionState}, DataChannel: ${dataChannelState}`}
+                : 'Kobler til...'}
             </span>
             
             {(connectionState !== 'connected' || dataChannelState !== 'open') && (
@@ -337,6 +366,14 @@ export const DirectMessage = ({
           <Alert className="mb-2 bg-amber-900/20 border-amber-700 text-amber-300 py-2">
             <AlertDescription className="text-xs">
               Direkte tilkobling mislyktes. Meldinger sendes via server med ende-til-ende-kryptering.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        {sendError && (
+          <Alert className="mb-2 bg-red-900/20 border-red-700 text-red-300 py-2">
+            <AlertDescription className="text-xs">
+              {sendError}
             </AlertDescription>
           </Alert>
         )}

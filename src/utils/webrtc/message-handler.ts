@@ -3,6 +3,9 @@ import { encryptMessage, decryptMessage } from '../encryption';
 import { PeerManager } from './peer-manager';
 
 export class MessageHandler {
+  private retryAttempts: Map<string, number> = new Map();
+  private maxRetries: number = 3;
+  
   constructor(
     private peerManager: PeerManager,
     private secureConnections: Map<string, CryptoKey>
@@ -33,13 +36,17 @@ export class MessageHandler {
           type: 'direct',
           content: encryptedContent,
           key: key,
-          iv: iv
+          iv: iv,
+          timestamp: new Date().toISOString(),
+          messageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         });
       } else {
         // For regular messages, just wrap with type
         messageToSend = JSON.stringify({
           type: 'regular',
-          content: message
+          content: message,
+          timestamp: new Date().toISOString(),
+          messageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         });
       }
       
@@ -54,6 +61,15 @@ export class MessageHandler {
 
   public async sendDirectMessage(peerId: string, message: string) {
     try {
+      // Get current retry count
+      const retryCount = this.retryAttempts.get(peerId) || 0;
+      
+      // Check if we've exceeded max retries
+      if (retryCount >= this.maxRetries) {
+        this.retryAttempts.delete(peerId); // Reset for future attempts
+        throw new Error(`Max retry attempts (${this.maxRetries}) reached for peer ${peerId}`);
+      }
+      
       // Check connection state before sending
       const connection = this.peerManager.getPeerConnection(peerId);
       if (!connection || 
@@ -61,8 +77,15 @@ export class MessageHandler {
           connection.dataChannel.readyState !== 'open' ||
           connection.connection.connectionState !== 'connected') {
         console.log(`Connection to peer ${peerId} is not ready for direct messaging`);
+        
+        // Increment retry count
+        this.retryAttempts.set(peerId, retryCount + 1);
+        
         throw new Error(`Connection to peer ${peerId} is not ready for direct messaging`);
       }
+      
+      // Reset retry count on successful connection
+      this.retryAttempts.delete(peerId);
       
       return await this.sendMessage(peerId, message, true);
     } catch (error) {
@@ -87,7 +110,7 @@ export class MessageHandler {
             parsedMessage.key,
             parsedMessage.iv
           );
-          callback(`[Privat] ${decryptedMessage}`, peerId);
+          callback(`${decryptedMessage}`, peerId);
         } else {
           // Handle regular message
           callback(parsedMessage.content, peerId);
@@ -97,5 +120,37 @@ export class MessageHandler {
         callback(messageData, peerId); // Fallback to raw message
       }
     };
+  }
+  
+  // Add method to retry failed message delivery
+  public async retryMessage(peerId: string, message: string, isDirect: boolean = true): Promise<boolean> {
+    const retryCount = this.retryAttempts.get(peerId) || 0;
+    
+    if (retryCount >= this.maxRetries) {
+      console.log(`Max retry attempts (${this.maxRetries}) reached for peer ${peerId}`);
+      return false;
+    }
+    
+    try {
+      console.log(`Retrying message to peer ${peerId} (attempt ${retryCount + 1}/${this.maxRetries})`);
+      
+      // Wait with exponential backoff
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+      
+      // Try sending again
+      await this.sendMessage(peerId, message, isDirect);
+      
+      // Reset retry count on success
+      this.retryAttempts.delete(peerId);
+      
+      return true;
+    } catch (error) {
+      console.error(`Retry attempt ${retryCount + 1} failed:`, error);
+      
+      // Increment retry count
+      this.retryAttempts.set(peerId, retryCount + 1);
+      
+      return false;
+    }
   }
 }

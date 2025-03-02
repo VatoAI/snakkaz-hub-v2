@@ -19,6 +19,25 @@ export const useChatState = () => {
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [userProfiles, setUserProfiles] = useState<Record<string, {username: string | null, avatar_url: string | null}>>({});
   const [activeTab, setActiveTab] = useState<string>("global");
+  const [connectionErrors, setConnectionErrors] = useState<Record<string, string>>({});
+  const [lastSendAttempt, setLastSendAttempt] = useState<Date | null>(null);
+
+  const addConnectionError = (userId: string, error: string) => {
+    setConnectionErrors(prev => ({...prev, [userId]: error}));
+    setLastSendAttempt(new Date());
+  };
+
+  const clearConnectionError = (userId: string) => {
+    setConnectionErrors(prev => {
+      const newErrors = {...prev};
+      delete newErrors[userId];
+      return newErrors;
+    });
+  };
+
+  const clearAllConnectionErrors = () => {
+    setConnectionErrors({});
+  };
 
   return {
     authLoading,
@@ -45,6 +64,12 @@ export const useChatState = () => {
     setUserProfiles,
     activeTab,
     setActiveTab,
+    connectionErrors,
+    addConnectionError,
+    clearConnectionError,
+    clearAllConnectionErrors,
+    lastSendAttempt,
+    setLastSendAttempt,
     toast
   };
 };
