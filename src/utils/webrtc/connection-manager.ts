@@ -1,18 +1,23 @@
 
 import { PeerManager } from './peer-manager';
-import { establishSecureConnection } from '../encryption';
+import { ConnectionRetryManager } from './connection-retry-manager';
+import { ConnectionTimeoutManager } from './connection-timeout-manager';
+import { SecureConnectionManager } from './secure-connection-manager';
 
 export class ConnectionManager {
-  private connectionAttempts: Map<string, number> = new Map();
-  private maxConnectionAttempts = 5;
-  private retryTimeout: number = 10000; // 10 seconds between retry attempts
-  private connectionTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private retryManager: ConnectionRetryManager;
+  private timeoutManager: ConnectionTimeoutManager;
+  private secureConnectionManager: SecureConnectionManager;
 
   constructor(
     private peerManager: PeerManager,
     private secureConnections: Map<string, CryptoKey>,
     private localKeyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey } | null
-  ) {}
+  ) {
+    this.retryManager = new ConnectionRetryManager();
+    this.timeoutManager = new ConnectionTimeoutManager();
+    this.secureConnectionManager = new SecureConnectionManager(secureConnections);
+  }
 
   public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey) {
     if (!this.localKeyPair) {
@@ -21,14 +26,13 @@ export class ConnectionManager {
 
     try {
       // Check if we've exceeded max connection attempts
-      const attempts = this.connectionAttempts.get(peerId) || 0;
-      if (attempts >= this.maxConnectionAttempts) {
+      if (this.retryManager.hasReachedMaxAttempts(peerId)) {
         console.log(`Max connection attempts reached for peer ${peerId}`);
         return null;
       }
       
       // Increment connection attempts
-      this.connectionAttempts.set(peerId, attempts + 1);
+      this.retryManager.incrementAttempts(peerId);
 
       // Check if already connected - if so, return the existing connection
       const isConnected = this.peerManager.isConnected(peerId);
@@ -50,7 +54,7 @@ export class ConnectionManager {
           connection = await this.peerManager.createPeer(peerId);
           
           // Set a timeout to check connection status and attempt reconnect if needed
-          const connectionTimeout = setTimeout(() => {
+          this.timeoutManager.setTimeout(peerId, () => {
             const currentConnection = this.peerManager.getPeerConnection(peerId);
             if (currentConnection && 
                 (currentConnection.connection.connectionState === 'failed' || 
@@ -60,8 +64,6 @@ export class ConnectionManager {
               this.connectToPeer(peerId, peerPublicKey);
             }
           }, 5000); // Check after 5 seconds
-          
-          this.connectionTimeouts.set(peerId, connectionTimeout);
         } catch (createError) {
           console.error(`Error creating peer connection to ${peerId}:`, createError);
           throw createError;
@@ -69,28 +71,17 @@ export class ConnectionManager {
       }
 
       // Establish secure connection if we don't already have one
-      if (!this.secureConnections.has(peerId)) {
-        console.log(`Establishing secure connection with peer ${peerId}`);
-        try {
-          const secureConnection = await establishSecureConnection(
-            this.localKeyPair.publicKey,
-            this.localKeyPair.privateKey,
-            peerPublicKey
-          );
-          this.secureConnections.set(peerId, secureConnection);
-        } catch (secureConnError) {
-          console.error(`Error establishing secure connection with peer ${peerId}:`, secureConnError);
-          // Continue without secure connection - we'll fall back to server if needed
-        }
+      if (this.localKeyPair) {
+        await this.secureConnectionManager.establishSecureConnection(
+          peerId,
+          this.localKeyPair.publicKey,
+          this.localKeyPair.privateKey,
+          peerPublicKey
+        );
       }
 
-      // Set a timeout to clear this connection attempt
-      setTimeout(() => {
-        const currentAttempts = this.connectionAttempts.get(peerId) || 0;
-        if (currentAttempts === attempts + 1) {
-          this.connectionAttempts.set(peerId, currentAttempts - 1);
-        }
-      }, this.retryTimeout);
+      // Schedule retry reset
+      this.retryManager.scheduleRetryReset(peerId);
 
       return connection;
     } catch (error) {
@@ -102,28 +93,25 @@ export class ConnectionManager {
   public disconnect(peerId: string) {
     console.log(`Disconnecting from peer ${peerId}`);
     
-    // Clear any pending connection timeout
-    const timeout = this.connectionTimeouts.get(peerId);
-    if (timeout) {
-      clearTimeout(timeout);
-      this.connectionTimeouts.delete(peerId);
-    }
+    // Clear any pending timeouts
+    this.timeoutManager.clearTimeout(peerId);
     
+    // Disconnect peer and clean up
     this.peerManager.disconnect(peerId);
-    this.secureConnections.delete(peerId);
-    this.connectionAttempts.delete(peerId);
+    this.secureConnectionManager.removeSecureConnection(peerId);
+    this.retryManager.resetAttempts(peerId);
   }
 
   public disconnectAll() {
     console.log('Disconnecting from all peers');
     
     // Clear all timeouts
-    this.connectionTimeouts.forEach(timeout => clearTimeout(timeout));
-    this.connectionTimeouts.clear();
+    this.timeoutManager.clearAllTimeouts();
     
+    // Disconnect all peers and clean up
     this.peerManager.disconnectAll();
-    this.secureConnections.clear();
-    this.connectionAttempts.clear();
+    this.secureConnectionManager.clearAllSecureConnections();
+    this.retryManager.resetAllAttempts();
   }
 
   public getConnectionState(peerId: string): string {
@@ -144,7 +132,7 @@ export class ConnectionManager {
     console.log(`Attempting to reconnect with peer ${peerId}`);
     
     // Reset connection attempts for this peer
-    this.connectionAttempts.set(peerId, 0);
+    this.retryManager.resetAttempts(peerId);
     
     // Clean up existing connection
     this.peerManager.disconnect(peerId);
