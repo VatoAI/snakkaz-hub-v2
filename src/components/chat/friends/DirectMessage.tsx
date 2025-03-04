@@ -6,7 +6,7 @@ import { DirectMessageHeader } from "./DirectMessageHeader";
 import { DirectMessageEmptyState } from "./DirectMessageEmptyState";
 import { DirectMessageList } from "./DirectMessageList";
 import { DirectMessageForm } from "./DirectMessageForm";
-import { useDirectMessage } from "./useDirectMessage";
+import { useDirectMessage } from "./hooks/useDirectMessage";
 
 interface DirectMessageProps {
   friend: Friend;
@@ -79,6 +79,8 @@ export const DirectMessage = ({
         sendError={sendError}
         isLoading={isLoading}
         onSendMessage={handleSendMessage}
+        newMessage={newMessage}
+        onChangeMessage={setNewMessage}
       />
     </div>
   );

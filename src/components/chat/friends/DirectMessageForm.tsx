@@ -10,22 +10,23 @@ interface DirectMessageFormProps {
   sendError: string | null;
   isLoading: boolean;
   onSendMessage: (e: React.FormEvent) => Promise<void>;
+  newMessage: string;
+  onChangeMessage: (message: string) => void;
 }
 
 export const DirectMessageForm = ({
   usingServerFallback,
   sendError,
   isLoading,
-  onSendMessage
+  onSendMessage,
+  newMessage,
+  onChangeMessage
 }: DirectMessageFormProps) => {
-  const [newMessage, setNewMessage] = useState("");
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
     
     await onSendMessage(e);
-    setNewMessage("");
   };
 
   return (
@@ -49,7 +50,7 @@ export const DirectMessageForm = ({
       <form onSubmit={handleSubmit} className="flex gap-2">
         <Input
           value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
+          onChange={(e) => onChangeMessage(e.target.value)}
           placeholder="Skriv en kryptert melding..."
           className="flex-1 bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100"
         />
