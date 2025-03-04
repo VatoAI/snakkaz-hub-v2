@@ -6,12 +6,15 @@ import { DecryptedMessage } from "@/types/message";
 import { useToast } from "@/components/ui/use-toast";
 import { useConnectionState, setupConnectionTimeout } from "../utils/directMessage-connection-utils";
 import { useDirectMessageSender } from "./useDirectMessageSender";
+import { useTypingIndicator } from "@/hooks/message/useTypingIndicator";
+import { useReadReceipts } from "@/hooks/message/useReadReceipts";
 
 export const useDirectMessage = (
   friend: Friend,
   currentUserId: string,
   webRTCManager: WebRTCManager | null,
-  onNewMessage: (message: DecryptedMessage) => void
+  onNewMessage: (message: DecryptedMessage) => void,
+  messages: DecryptedMessage[] = []
 ) => {
   const [newMessage, setNewMessage] = useState("");
   const [connectionState, setConnectionState] = useState<string>("connecting");
@@ -38,6 +41,17 @@ export const useDirectMessage = (
     usingServerFallback, 
     onNewMessage
   );
+  
+  // Add typing indicator
+  const { peerIsTyping, startTyping } = useTypingIndicator(currentUserId, friendId);
+  
+  // Add read receipts
+  const { isMessageRead, markMessagesAsRead } = useReadReceipts(currentUserId, friendId, messages);
+
+  // Mark messages as read when component mounts or messages change
+  useEffect(() => {
+    markMessagesAsRead();
+  }, [messages]);
 
   useEffect(() => {
     if (!webRTCManager || !friendId) return;
@@ -104,10 +118,16 @@ export const useDirectMessage = (
       setNewMessage("");
     }
   };
+  
+  // Handle input changes, trigger typing indicator
+  const handleInputChange = (text: string) => {
+    setNewMessage(text);
+    startTyping();
+  };
 
   return {
     newMessage,
-    setNewMessage,
+    setNewMessage: handleInputChange,
     isLoading,
     connectionState,
     dataChannelState,
@@ -115,6 +135,8 @@ export const useDirectMessage = (
     connectionAttempts,
     sendError,
     handleSendMessage: handleSubmit,
-    handleReconnect
+    handleReconnect,
+    peerIsTyping,
+    isMessageRead
   };
 };

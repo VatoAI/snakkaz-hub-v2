@@ -32,6 +32,13 @@ export const DirectMessage = ({
   const username = friendProfile?.username || 'Ukjent bruker';
   const avatarUrl = friendProfile?.avatar_url;
 
+  // Filter messages for this direct chat
+  const chatMessages = messages.filter(msg => 
+    (msg.sender.id === friendId && !msg.receiver_id) || 
+    (msg.sender.id === currentUserId && msg.receiver_id === friendId) || 
+    (msg.sender.id === friendId && msg.receiver_id === currentUserId)
+  );
+
   const {
     newMessage,
     setNewMessage,
@@ -42,14 +49,10 @@ export const DirectMessage = ({
     connectionAttempts,
     sendError,
     handleSendMessage,
-    handleReconnect
-  } = useDirectMessage(friend, currentUserId, webRTCManager, onNewMessage);
-
-  const chatMessages = messages.filter(msg => 
-    (msg.sender.id === friendId && !msg.receiver_id) || 
-    (msg.sender.id === currentUserId && msg.receiver_id === friendId) || 
-    (msg.sender.id === friendId && msg.receiver_id === currentUserId)
-  );
+    handleReconnect,
+    peerIsTyping,
+    isMessageRead
+  } = useDirectMessage(friend, currentUserId, webRTCManager, onNewMessage, chatMessages);
 
   return (
     <div className="flex flex-col h-full bg-cyberdark-950">
@@ -63,6 +66,7 @@ export const DirectMessage = ({
         connectionAttempts={connectionAttempts}
         onBack={onBack}
         onReconnect={handleReconnect}
+        isTyping={peerIsTyping}
       />
       
       {chatMessages.length === 0 ? (
@@ -70,7 +74,9 @@ export const DirectMessage = ({
       ) : (
         <DirectMessageList 
           messages={chatMessages} 
-          currentUserId={currentUserId} 
+          currentUserId={currentUserId}
+          peerIsTyping={peerIsTyping}
+          isMessageRead={isMessageRead}
         />
       )}
       

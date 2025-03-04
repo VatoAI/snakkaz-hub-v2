@@ -86,6 +86,16 @@ export const FriendsList = ({
             msg => msg.sender.id === friendId && !readMessages.has(msg.id)
           );
           
+          // Find the most recent message for this friend
+          const recentMessages = directMessages.filter(
+            msg => (msg.sender.id === friendId && msg.receiver_id === currentUserId) || 
+                   (msg.sender.id === currentUserId && msg.receiver_id === friendId)
+          ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          
+          const lastMessage = recentMessages.length > 0 ? recentMessages[0] : null;
+          const isRecentMessage = lastMessage && 
+            (new Date().getTime() - new Date(lastMessage.created_at).getTime() < 60000); // Within last minute
+          
           // Get user profile info
           const friendProfile = friend.profile || userProfiles[friendId];
           const username = friendProfile?.username || 'Ukjent bruker';
@@ -98,25 +108,31 @@ export const FriendsList = ({
               onClick={() => handleSelectFriend(friend)}
             >
               <div className="flex items-center gap-3">
-                <Avatar className="w-10 h-10 border-2 border-cybergold-500/20">
-                  {avatarUrl ? (
-                    <AvatarImage 
-                      src={supabase.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl} 
-                      alt={username}
-                    />
-                  ) : (
-                    <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
-                      {username.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                <div className="relative">
+                  <Avatar className="w-10 h-10 border-2 border-cybergold-500/20">
+                    {avatarUrl ? (
+                      <AvatarImage 
+                        src={supabase.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl} 
+                        alt={username}
+                      />
+                    ) : (
+                      <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
+                        {username.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  {isRecentMessage && (
+                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border border-cyberdark-800"></span>
                   )}
-                </Avatar>
+                </div>
                 <div>
                   <p className="text-cybergold-200 font-medium">
                     {username}
                   </p>
-                  {unreadMessages.length > 0 && (
-                    <p className="text-xs text-cybergold-400">
-                      {unreadMessages.length} nye {unreadMessages.length === 1 ? 'melding' : 'meldinger'}
+                  {lastMessage && (
+                    <p className="text-xs text-cybergold-400 truncate max-w-[150px]">
+                      {lastMessage.sender.id === currentUserId ? 'You: ' : ''}
+                      {lastMessage.content}
                     </p>
                   )}
                 </div>

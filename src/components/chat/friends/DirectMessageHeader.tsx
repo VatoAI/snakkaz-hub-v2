@@ -1,20 +1,21 @@
 
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowLeft, RefreshCcw } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { Friend } from "./types";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, RefreshCw, Wifi, WifiOff, MessageSquare } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface DirectMessageHeaderProps {
   friend: Friend;
   username: string;
-  avatarUrl: string | null;
+  avatarUrl?: string | null;
   connectionState: string;
   dataChannelState: string;
   usingServerFallback: boolean;
   connectionAttempts: number;
   onBack: () => void;
-  onReconnect: () => Promise<void>;
+  onReconnect: () => void;
+  isTyping?: boolean;
 }
 
 export const DirectMessageHeader = ({
@@ -26,65 +27,72 @@ export const DirectMessageHeader = ({
   usingServerFallback,
   connectionAttempts,
   onBack,
-  onReconnect
+  onReconnect,
+  isTyping
 }: DirectMessageHeaderProps) => {
+  const isConnected = connectionState === 'connected' && dataChannelState === 'open';
+  
   return (
-    <div className="flex items-center gap-2 border-b border-cybergold-500/30 p-3 bg-cyberdark-900">
-      <Button 
-        onClick={onBack}
-        size="icon" 
-        variant="ghost" 
-        className="text-cybergold-300 hover:text-cybergold-200 hover:bg-cyberdark-800"
-      >
-        <ArrowLeft className="h-5 w-5" />
-      </Button>
-      
-      <Avatar className="h-8 w-8 mr-2">
-        {avatarUrl ? (
-          <AvatarImage 
-            src={supabase.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl}
-            alt={username} 
-          />
-        ) : (
-          <AvatarFallback className="bg-cybergold-500/20 text-cybergold-300">
-            {username.substring(0, 2).toUpperCase()}
-          </AvatarFallback>
-        )}
-      </Avatar>
-      
-      <div className="flex-1">
-        <h2 className="text-cybergold-200 font-medium">{username}</h2>
-        <div className="flex items-center text-xs">
-          <span 
-            className={`w-2 h-2 rounded-full mr-1 ${
-              connectionState === 'connected' && dataChannelState === 'open'
-                ? 'bg-green-500'
-                : connectionState === 'connecting' || dataChannelState === 'connecting'
-                ? 'bg-amber-500'
-                : 'bg-red-500'
-            }`}
-          ></span>
-          <span className="text-cyberdark-400">
-            {connectionState === 'connected' && dataChannelState === 'open'
-              ? 'Tilkoblet direkte'
-              : usingServerFallback
-              ? 'Bruker server'
-              : 'Kobler til...'}
-          </span>
+    <div className="flex items-center justify-between p-3 bg-cyberdark-900 border-b border-cybergold-500/30">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onBack}
+          className="text-cybergold-500 hover:text-cybergold-400 hover:bg-cyberdark-800"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        
+        <div className="flex items-center gap-3">
+          <Avatar className="h-10 w-10 border-2 border-cybergold-500/20">
+            {avatarUrl ? (
+              <AvatarImage 
+                src={supabase.storage.from('avatars').getPublicUrl(avatarUrl).data.publicUrl} 
+                alt={username} 
+              />
+            ) : (
+              <AvatarFallback className="bg-cybergold-900 text-cybergold-500">
+                {username.substring(0, 2).toUpperCase()}
+              </AvatarFallback>
+            )}
+          </Avatar>
           
-          {(connectionState !== 'connected' || dataChannelState !== 'open') && (
-            <Button 
-              size="icon" 
-              variant="ghost" 
-              className="h-6 w-6 ml-1 text-cybergold-400 hover:text-cybergold-300"
-              onClick={onReconnect}
-              disabled={connectionAttempts > 3}
-              title="Forsøk å koble til igjen"
-            >
-              <RefreshCcw className="h-3 w-3" />
-            </Button>
-          )}
+          <div>
+            <h3 className="font-medium text-cybergold-100">{username}</h3>
+            <div className="flex items-center gap-1">
+              {isTyping ? (
+                <span className="text-xs text-cybergold-400 flex items-center">
+                  <MessageSquare className="h-3 w-3 mr-1" />
+                  Skriver...
+                </span>
+              ) : (
+                <span className="text-xs text-cybergold-500">
+                  {usingServerFallback ? 'Server mode' : isConnected ? 'P2P connected' : `Connecting... (${connectionState})`}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        {isConnected ? (
+          <Wifi className="h-4 w-4 text-green-500" />
+        ) : usingServerFallback ? (
+          <WifiOff className="h-4 w-4 text-yellow-500" />
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onReconnect}
+            disabled={connectionAttempts > 5}
+            className="text-xs text-cybergold-400 hover:text-cybergold-300 p-1"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Retry
+          </Button>
+        )}
       </div>
     </div>
   );
