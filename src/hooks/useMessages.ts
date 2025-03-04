@@ -1,16 +1,13 @@
 
-import { useState } from "react";
 import { useMessageState } from "./message/useMessageState";
 import { useMessageFetch } from "./message/useMessageFetch";
 import { useMessageRealtime } from "./message/useMessageRealtime";
 import { useMessageSend } from "./message/useMessageSend";
 import { useMessageP2P } from "./message/useMessageP2P";
 import { useMessageExpiry } from "./message/useMessageExpiry";
-import { DecryptedMessage } from "@/types/message";
+import { useMessageActions } from "./message/useMessageActions";
 
 export const useMessages = (userId: string | null, receiverId?: string, groupId?: string) => {
-  const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
-
   const {
     messages,
     setMessages,
@@ -23,64 +20,62 @@ export const useMessages = (userId: string | null, receiverId?: string, groupId?
     toast
   } = useMessageState();
 
-  // Vi må sørge for at vi sender riktig antall parametere til hver hook
-  const { fetchMessages } = useMessageFetch(userId, setMessages, toast);
-  const { setupRealtimeSubscription } = useMessageRealtime(userId, setMessages);
+  // Fetch messages from the server
+  const { fetchMessages } = useMessageFetch(userId, setMessages, toast, receiverId, groupId);
+  
+  // Setup realtime subscription
+  const { setupRealtimeSubscription } = useMessageRealtime(userId, setMessages, receiverId, groupId);
+  
+  // Message sending, editing, and deleting
   const { handleSendMessage, handleEditMessage, handleDeleteMessage } = useMessageSend(
     userId, newMessage, setNewMessage, ttl, setIsLoading, toast
   );
+  
+  // P2P message handling
   const { addP2PMessage } = useMessageP2P(setMessages);
+  
+  // Message expiry handling
   const { handleMessageExpired } = useMessageExpiry(setMessages);
+  
+  // Message editing and deletion actions
+  const { 
+    editingMessage, 
+    handleStartEditMessage, 
+    handleCancelEditMessage,
+    handleSubmitEditMessage,
+    handleDeleteMessageById
+  } = useMessageActions(userId, handleEditMessage, handleDeleteMessage);
 
-  const handleStartEditMessage = (message: { id: string; content: string }) => {
-    setEditingMessage(message);
-    setNewMessage(message.content);
-  };
-
-  const handleCancelEditMessage = () => {
-    setEditingMessage(null);
-    setNewMessage('');
-  };
-
-  const handleSubmitEditMessage = async () => {
-    if (!editingMessage) return;
-    
-    await handleEditMessage(editingMessage.id, newMessage);
-    setEditingMessage(null);
-  };
-
-  const handleDeleteMessageById = async (messageId: string) => {
-    await handleDeleteMessage(messageId);
-    // Oppdater lokalt for å få umiddelbar visuell tilbakemelding
-    setMessages(prev => prev.map(msg => 
-      msg.id === messageId 
-        ? { ...msg, is_deleted: true, deleted_at: new Date().toISOString() } 
-        : msg
-    ));
-  };
-
+  // Handle message submission (new or edit)
   const handleSubmitMessage = async (webRTCManager: any, onlineUsers: Set<string>, mediaFile?: File) => {
     if (editingMessage) {
-      await handleSubmitEditMessage();
+      await handleSubmitEditMessage(newMessage);
     } else {
       await handleSendMessage(webRTCManager, onlineUsers, mediaFile, receiverId, groupId);
     }
   };
 
   return {
+    // Message state
     messages,
     newMessage,
     setNewMessage,
     isLoading,
     ttl,
     setTtl,
+    
+    // Message operations
     fetchMessages,
     setupRealtimeSubscription,
     addP2PMessage,
     handleSendMessage: handleSubmitMessage,
     handleMessageExpired,
+    
+    // Editing and deletion
     editingMessage,
-    handleStartEditMessage,
+    handleStartEditMessage: (message: { id: string; content: string }) => {
+      setNewMessage(handleStartEditMessage(message));
+    },
     handleCancelEditMessage,
     handleDeleteMessage: handleDeleteMessageById
   };
