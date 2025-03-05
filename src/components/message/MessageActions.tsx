@@ -49,6 +49,16 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
     );
   }
 
+  const handleEdit = () => {
+    console.log("Editing message:", message.id);
+    onEdit(message);
+  };
+
+  const handleDelete = () => {
+    console.log("Deleting message:", message.id);
+    onDelete(message.id);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -68,7 +78,7 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
             {!isEditingDisabled && (
               <DropdownMenuItem 
                 className="text-cybergold-300 cursor-pointer flex items-center"
-                onClick={() => onEdit(message)}
+                onClick={handleEdit}
               >
                 <Edit className="mr-2 h-4 w-4" />
                 <span>Rediger</span>
@@ -77,7 +87,7 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
             {!isDeletionDisabled && (
               <DropdownMenuItem 
                 className="text-red-400 cursor-pointer flex items-center"
-                onClick={() => onDelete(message.id)}
+                onClick={handleDelete}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 <span>Slett</span>

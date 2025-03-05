@@ -19,7 +19,9 @@ export const useMessageDeleter = (
       // Ensure necessary columns exist
       await ensureMessageColumnsExist();
       
-      const { error } = await supabase
+      console.log(`Attempting to delete message ${messageId} for user ${userId}`);
+      
+      const { data, error } = await supabase
         .from('messages')
         .update({
           is_deleted: true,
@@ -32,6 +34,8 @@ export const useMessageDeleter = (
         console.error('Delete message error:', error);
         throw error;
       }
+      
+      console.log('Delete message result:', data);
     } catch (error) {
       console.error('Error deleting message:', error);
       toast({
@@ -39,6 +43,7 @@ export const useMessageDeleter = (
         description: "Kunne ikke slette melding",
         variant: "destructive",
       });
+      throw error; // Re-throw to handle in the calling function
     } finally {
       setIsLoading(false);
     }

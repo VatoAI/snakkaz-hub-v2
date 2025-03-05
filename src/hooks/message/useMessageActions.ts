@@ -11,14 +11,17 @@ export const useMessageActions = (
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
   const { toast } = useToast();
 
-  const handleStartEditMessage = (message: { id: string; content: string }) => {
+  const handleStartEditMessage = (message: DecryptedMessage) => {
     // Allow editing for your own messages
-    if (editingMessage) {
-      setEditingMessage(null);
-    } else {
-      setEditingMessage(message);
+    if (message.sender.id === userId) {
+      if (editingMessage && editingMessage.id === message.id) {
+        setEditingMessage(null);
+      } else {
+        setEditingMessage({ id: message.id, content: message.content });
+      }
+      return message.content;
     }
-    return message.content;
+    return "";
   };
 
   const handleCancelEditMessage = () => {
@@ -37,6 +40,7 @@ export const useMessageActions = (
         description: "Meldingen ble oppdatert",
       });
     } catch (error) {
+      console.error("Error editing message:", error);
       toast({
         title: "Feil",
         description: "Kunne ikke redigere meldingen",
@@ -49,12 +53,14 @@ export const useMessageActions = (
 
   const handleDeleteMessageById = async (messageId: string) => {
     try {
+      console.log("Deleting message with ID:", messageId);
       await handleDeleteMessage(messageId);
       toast({
         title: "Melding slettet",
         description: "Meldingen ble slettet",
       });
     } catch (error) {
+      console.error("Error deleting message:", error);
       toast({
         title: "Feil",
         description: "Kunne ikke slette meldingen",

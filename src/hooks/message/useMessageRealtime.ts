@@ -96,15 +96,29 @@ export const useMessageRealtime = (
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'messages'
+          table: 'messages',
+          filter: channelFilter
         },
         async (payload) => {
+          console.log("Message update received:", payload);
           const updatedMessage = payload.new as any;
           
           // Handle updates to messages (editing, deletion)
           setMessages(prevMessages => 
             prevMessages.map(msg => {
               if (msg.id === updatedMessage.id) {
+                console.log(`Updating message ${msg.id} in state`);
+                
+                // If the message is marked as deleted
+                if (updatedMessage.is_deleted) {
+                  console.log(`Message ${msg.id} is marked as deleted`);
+                  return {
+                    ...msg,
+                    is_deleted: true,
+                    deleted_at: updatedMessage.deleted_at || new Date().toISOString()
+                  };
+                }
+                
                 // If the content was updated, decrypt it
                 if (updatedMessage.encrypted_content && updatedMessage.encryption_key && updatedMessage.iv) {
                   decryptMessage(
@@ -112,6 +126,7 @@ export const useMessageRealtime = (
                     updatedMessage.encryption_key,
                     updatedMessage.iv
                   ).then(content => {
+                    console.log(`Decrypted updated content for ${msg.id}`);
                     setMessages(prev => 
                       prev.map(m => 
                         m.id === updatedMessage.id 

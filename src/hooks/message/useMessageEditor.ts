@@ -22,12 +22,14 @@ export const useMessageEditor = (
 
     setIsLoading(true);
     try {
+      console.log(`Attempting to edit message ${messageId} for user ${userId}`);
+      
       // Ensure necessary columns exist
       await ensureMessageColumnsExist();
 
       const { encryptedContent, key, iv } = await encryptMessage(content.trim());
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('messages')
         .update({
           encrypted_content: encryptedContent,
@@ -46,13 +48,10 @@ export const useMessageEditor = (
           description: "Kunne ikke redigere melding: " + error.message,
           variant: "destructive",
         });
+        throw error;
       } else {
-        console.log("Melding redigert");
+        console.log("Melding redigert", data);
         setNewMessage("");
-        toast({
-          title: "Redigert",
-          description: "Meldingen ble redigert",
-        });
       }
     } catch (error) {
       console.error('Error editing message:', error);
@@ -61,6 +60,7 @@ export const useMessageEditor = (
         description: "Kunne ikke redigere melding",
         variant: "destructive",
       });
+      throw error;
     } finally {
       setIsLoading(false);
     }

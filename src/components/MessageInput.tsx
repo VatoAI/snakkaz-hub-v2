@@ -55,6 +55,8 @@ export const MessageInput = ({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (!newMessage.trim() && !selectedFile) return;
+    
     onSubmit(e, selectedFile || undefined);
     setSelectedFile(null);
     
@@ -65,6 +67,9 @@ export const MessageInput = ({
     resetInput(cameraInputRef.current);
     resetInput(documentInputRef.current);
   };
+
+  // Log the editingMessage to debug
+  console.log("Editing message in MessageInput:", editingMessage);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">

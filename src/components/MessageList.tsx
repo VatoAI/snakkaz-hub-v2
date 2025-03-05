@@ -59,13 +59,36 @@ export const MessageList = ({
 
   const handleEdit = (message: DecryptedMessage) => {
     if (onEditMessage) {
+      console.log("Editing message in MessageList:", message.id);
       onEditMessage({ id: message.id, content: message.content });
     }
   };
 
   const handleDelete = async () => {
     if (confirmDelete && onDeleteMessage) {
-      await onDeleteMessage(confirmDelete);
+      console.log("Confirming deletion of message:", confirmDelete);
+      try {
+        await onDeleteMessage(confirmDelete);
+        // After successful deletion, update local state to reflect the change immediately
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.id === confirmDelete 
+              ? {...msg, is_deleted: true, deleted_at: new Date().toISOString()} 
+              : msg
+          )
+        );
+        toast({
+          title: "Melding slettet",
+          description: "Meldingen ble slettet",
+        });
+      } catch (error) {
+        console.error("Error deleting message:", error);
+        toast({
+          title: "Feil",
+          description: "Kunne ikke slette meldingen",
+          variant: "destructive",
+        });
+      }
       setConfirmDelete(null);
     }
   };
@@ -80,10 +103,15 @@ export const MessageList = ({
     let currentGroup: DecryptedMessage[] = [];
 
     messages.forEach((message, index) => {
-      if (index === 0) {
+      // Skip deleted messages when displaying
+      if (message.is_deleted) {
+        return;
+      }
+      
+      if (index === 0 || currentGroup.length === 0) {
         currentGroup.push(message);
       } else {
-        const prevMessage = messages[index - 1];
+        const prevMessage = currentGroup[currentGroup.length - 1];
         const timeDiff = new Date(message.created_at).getTime() - new Date(prevMessage.created_at).getTime();
         const sameUser = message.sender.id === prevMessage.sender.id;
         
