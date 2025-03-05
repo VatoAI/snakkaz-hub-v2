@@ -52,11 +52,6 @@ export const MessageInput = ({
   if (ttl !== defaultTtl) {
     setTtl(defaultTtl);
   }
-  
-  // Since editing is not allowed anyway, we'll disable it
-  if (editingMessage && onCancelEdit) {
-    onCancelEdit();
-  }
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -73,6 +68,12 @@ export const MessageInput = ({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
+      {editingMessage && onCancelEdit && (
+        <EditingMessage
+          onCancelEdit={onCancelEdit}
+        />
+      )}
+
       <div className="flex-1 flex gap-2 w-full">
         <Alert className="bg-cyberdark-800/50 border-cybergold-400/30 mb-2 p-2">
           <AlertDescription className="text-xs text-cybergold-300 flex items-center">
@@ -118,7 +119,7 @@ export const MessageInput = ({
         newMessage={newMessage}
         selectedFile={selectedFile}
         isRecording={isRecording}
-        editingMessage={null} // Disable editing
+        editingMessage={editingMessage}
       />
     </form>
   );

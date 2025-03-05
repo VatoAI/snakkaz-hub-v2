@@ -22,11 +22,11 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
     return null;
   }
 
-  // Editing and deleting are now disabled for all messages
-  const isEditingDisabled = true;
-  const isDeletionDisabled = true;
+  // Allow editing and deletion (24-hour auto-delete still applies)
+  const isEditingDisabled = false;
+  const isDeletionDisabled = false;
 
-  // If both editing and deletion are disabled, show info instead
+  // Show clock icon with tooltip if both editing and deletion are disabled
   if (isEditingDisabled && isDeletionDisabled) {
     return (
       <TooltipProvider>
@@ -61,12 +61,9 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52 bg-cyberdark-800 border-cybergold-500/30">
-        {isEditingDisabled && isDeletionDisabled ? (
-          <DropdownMenuLabel className="text-xs text-cyberdark-400">
-            Meldinger slettes automatisk etter 24 timer.
-            Redigering og sletting er deaktivert.
-          </DropdownMenuLabel>
-        ) : (
+        <DropdownMenuLabel className="text-xs text-cyberdark-400">
+          Meldinger slettes automatisk etter 24 timer
+        </DropdownMenuLabel>
           <>
             {!isEditingDisabled && (
               <DropdownMenuItem 
@@ -87,7 +84,6 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
               </DropdownMenuItem>
             )}
           </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

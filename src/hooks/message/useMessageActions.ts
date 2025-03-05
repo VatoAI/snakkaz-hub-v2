@@ -12,12 +12,12 @@ export const useMessageActions = (
   const { toast } = useToast();
 
   const handleStartEditMessage = (message: { id: string; content: string }) => {
-    // Don't allow editing - all messages are auto-deleted after 24 hours
-    toast({
-      title: "Ikke tilgjengelig",
-      description: "Redigering av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
-      variant: "destructive",
-    });
+    // Allow editing for your own messages
+    if (editingMessage) {
+      setEditingMessage(null);
+    } else {
+      setEditingMessage(message);
+    }
     return message.content;
   };
 
@@ -26,22 +26,41 @@ export const useMessageActions = (
   };
 
   const handleSubmitEditMessage = async (newMessage: string) => {
-    // Don't allow editing
-    toast({
-      title: "Ikke tilgjengelig",
-      description: "Redigering av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
-      variant: "destructive",
-    });
-    setEditingMessage(null);
+    if (!editingMessage || !newMessage.trim()) {
+      return;
+    }
+    
+    try {
+      await handleEditMessage(editingMessage.id, newMessage);
+      toast({
+        title: "Melding redigert",
+        description: "Meldingen ble oppdatert",
+      });
+    } catch (error) {
+      toast({
+        title: "Feil",
+        description: "Kunne ikke redigere meldingen",
+        variant: "destructive",
+      });
+    } finally {
+      setEditingMessage(null);
+    }
   };
 
   const handleDeleteMessageById = async (messageId: string) => {
-    // Don't allow deleting
-    toast({
-      title: "Ikke tilgjengelig",
-      description: "Sletting av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
-      variant: "destructive",
-    });
+    try {
+      await handleDeleteMessage(messageId);
+      toast({
+        title: "Melding slettet",
+        description: "Meldingen ble slettet",
+      });
+    } catch (error) {
+      toast({
+        title: "Feil",
+        description: "Kunne ikke slette meldingen",
+        variant: "destructive",
+      });
+    }
   };
 
   return {

@@ -22,7 +22,8 @@ export const MessageBubble = ({
   onEdit,
   onDelete
 }: MessageBubbleProps) => {
-  const ttlIsFixed = true; // All messages have 24-hour auto-delete
+  // All messages still have 24-hour auto-delete
+  const ttlIsFixed = true;
   const isAutoDelete = message.ephemeral_ttl ? true : false;
 
   return (
@@ -57,8 +58,8 @@ export const MessageBubble = ({
         )}
       </div>
       
-      {/* Only show actions on hover if it's the current user's message and editing/deletion isn't disabled */}
-      {isCurrentUser && !ttlIsFixed && (
+      {/* Show actions on hover if it's the current user's message */}
+      {isCurrentUser && (
         <div className="self-start ml-1">
           <MessageActions 
             message={message} 

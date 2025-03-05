@@ -58,22 +58,16 @@ export const MessageList = ({
   };
 
   const handleEdit = (message: DecryptedMessage) => {
-    // Editing is disabled
-    toast({
-      title: "Ikke tilgjengelig",
-      description: "Redigering av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
-      variant: "destructive",
-    });
+    if (onEditMessage) {
+      onEditMessage({ id: message.id, content: message.content });
+    }
   };
 
   const handleDelete = async () => {
-    // Deletion is disabled
-    toast({
-      title: "Ikke tilgjengelig",
-      description: "Sletting av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
-      variant: "destructive",
-    });
-    setConfirmDelete(null);
+    if (confirmDelete && onDeleteMessage) {
+      await onDeleteMessage(confirmDelete);
+      setConfirmDelete(null);
+    }
   };
 
   const isUserMessage = (message: DecryptedMessage) => {
@@ -121,7 +115,7 @@ export const MessageList = ({
       <Alert className="mb-4 bg-cyberdark-800/50 border-cybergold-500/30">
         <AlertDescription className="text-xs text-cybergold-300 flex items-center">
           <Clock className="h-3 w-3 mr-1" /> 
-          Alle meldinger slettes automatisk etter 24 timer. Redigering og sletting er deaktivert.
+          Alle meldinger slettes automatisk etter 24 timer.
         </AlertDescription>
       </Alert>
       
@@ -133,14 +127,7 @@ export const MessageList = ({
             isCurrentUser={isUserMessage(group[0])}
             onMessageExpired={handleMessageExpired}
             onEdit={handleEdit}
-            onDelete={(messageId) => {
-              // Don't open delete dialog, just show toast
-              toast({
-                title: "Ikke tilgjengelig",
-                description: "Sletting av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
-                variant: "destructive",
-              });
-            }}
+            onDelete={(messageId) => setConfirmDelete(messageId)}
           />
         ))}
         <div ref={messagesEndRef} />
@@ -159,12 +146,12 @@ export const MessageList = ({
         )}
       </div>
       
-      {/* We don't need this dialog anymore since deletion is disabled */}
-      {/* <DeleteMessageDialog
+      {/* Re-enable the delete confirmation dialog */}
+      <DeleteMessageDialog
         isOpen={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
-      /> */}
+      />
     </ScrollArea>
   );
 };
