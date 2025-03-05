@@ -54,6 +54,8 @@ export const DirectMessage = ({
     isMessageRead
   } = useDirectMessage(friend, currentUserId, webRTCManager, onNewMessage, chatMessages);
 
+  const isSecureConnection = (connectionState === 'connected' && dataChannelState === 'open') || usingServerFallback;
+
   return (
     <div className="flex flex-col h-full bg-cyberdark-950">
       <DirectMessageHeader 
@@ -69,7 +71,7 @@ export const DirectMessage = ({
         isTyping={peerIsTyping}
       />
       
-      {chatMessages.length === 0 ? (
+      {chatMessages.length === 0 && isSecureConnection ? (
         <DirectMessageEmptyState usingServerFallback={usingServerFallback} />
       ) : (
         <DirectMessageList 
@@ -77,6 +79,9 @@ export const DirectMessage = ({
           currentUserId={currentUserId}
           peerIsTyping={peerIsTyping}
           isMessageRead={isMessageRead}
+          connectionState={connectionState}
+          dataChannelState={dataChannelState}
+          usingServerFallback={usingServerFallback}
         />
       )}
       
@@ -87,6 +92,8 @@ export const DirectMessage = ({
         onSendMessage={handleSendMessage}
         newMessage={newMessage}
         onChangeMessage={setNewMessage}
+        connectionState={connectionState}
+        dataChannelState={dataChannelState}
       />
     </div>
   );

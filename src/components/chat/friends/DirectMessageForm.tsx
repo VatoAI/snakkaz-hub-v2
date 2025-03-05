@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send } from "lucide-react";
+import { Send, Lock, Shield } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface DirectMessageFormProps {
@@ -12,6 +12,8 @@ interface DirectMessageFormProps {
   onSendMessage: (e: React.FormEvent) => Promise<void>;
   newMessage: string;
   onChangeMessage: (message: string) => void;
+  connectionState: string;
+  dataChannelState: string;
 }
 
 export const DirectMessageForm = ({
@@ -20,11 +22,15 @@ export const DirectMessageForm = ({
   isLoading,
   onSendMessage,
   newMessage,
-  onChangeMessage
+  onChangeMessage,
+  connectionState,
+  dataChannelState
 }: DirectMessageFormProps) => {
+  const isSecureConnection = (connectionState === 'connected' && dataChannelState === 'open') || usingServerFallback;
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !isSecureConnection) return;
     
     await onSendMessage(e);
   };
@@ -33,7 +39,8 @@ export const DirectMessageForm = ({
     <div className="p-3 border-t border-cybergold-500/30 bg-cyberdark-900">
       {usingServerFallback && (
         <Alert className="mb-2 bg-amber-900/20 border-amber-700 text-amber-300 py-2">
-          <AlertDescription className="text-xs">
+          <AlertDescription className="text-xs flex items-center">
+            <Lock className="h-3 w-3 mr-1" />
             Direkte tilkobling mislyktes. Meldinger sendes via server med ende-til-ende-kryptering.
           </AlertDescription>
         </Alert>
@@ -51,18 +58,24 @@ export const DirectMessageForm = ({
         <Input
           value={newMessage}
           onChange={(e) => onChangeMessage(e.target.value)}
-          placeholder="Skriv en kryptert melding..."
-          className="flex-1 bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100"
+          placeholder={isSecureConnection 
+            ? "Skriv en kryptert melding..." 
+            : "Venter på sikker tilkobling..."}
+          className={`flex-1 bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 ${!isSecureConnection ? 'opacity-50' : ''}`}
+          disabled={isLoading || !isSecureConnection}
         />
         <Button 
           type="submit" 
-          disabled={isLoading || !newMessage.trim()}
+          disabled={isLoading || !newMessage.trim() || !isSecureConnection}
           className="bg-cybergold-500 hover:bg-cybergold-600 text-black"
         >
           {isLoading ? (
             <span className="animate-spin">⏳</span>
           ) : (
-            <Send className="h-5 w-5" />
+            <div className="flex items-center gap-1">
+              {isSecureConnection && <Shield className="h-3 w-3" />}
+              <Send className="h-5 w-5" />
+            </div>
           )}
         </Button>
       </form>
