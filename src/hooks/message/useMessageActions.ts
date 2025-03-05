@@ -11,14 +11,20 @@ export const useMessageActions = (
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
   const { toast } = useToast();
 
-  const handleStartEditMessage = (message: DecryptedMessage) => {
+  const handleStartEditMessage = (message: DecryptedMessage | { id: string; content: string }) => {
     // Allow editing for your own messages
-    if (message.sender.id === userId) {
-      if (editingMessage && editingMessage.id === message.id) {
-        setEditingMessage(null);
-      } else {
-        setEditingMessage({ id: message.id, content: message.content });
+    if ('sender' in message) {
+      if (message.sender.id === userId) {
+        if (editingMessage && editingMessage.id === message.id) {
+          setEditingMessage(null);
+        } else {
+          setEditingMessage({ id: message.id, content: message.content });
+        }
+        return message.content;
       }
+    } else {
+      // Already in simplified format, just set it
+      setEditingMessage(message);
       return message.content;
     }
     return "";

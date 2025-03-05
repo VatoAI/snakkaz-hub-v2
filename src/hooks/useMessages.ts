@@ -6,6 +6,7 @@ import { useMessageSend } from "./message/useMessageSend";
 import { useMessageP2P } from "./message/useMessageP2P";
 import { useMessageExpiry } from "./message/useMessageExpiry";
 import { useMessageActions } from "./message/useMessageActions";
+import { DecryptedMessage } from "@/types/message";
 
 export const useMessages = (userId: string | null, receiverId?: string, groupId?: string) => {
   const {
@@ -73,7 +74,8 @@ export const useMessages = (userId: string | null, receiverId?: string, groupId?
     
     // Editing and deletion
     editingMessage,
-    handleStartEditMessage: (message: { id: string; content: string }) => {
+    // Fix here - pass the entire message object or a simplified version with id and content
+    handleStartEditMessage: (message: DecryptedMessage | { id: string; content: string }) => {
       setNewMessage(handleStartEditMessage(message));
     },
     handleCancelEditMessage,
