@@ -70,6 +70,7 @@ export const MessageInput = ({
     <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
       {editingMessage && onCancelEdit && (
         <EditingMessage
+          editingMessage={editingMessage}
           onCancelEdit={onCancelEdit}
         />
       )}
