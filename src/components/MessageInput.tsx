@@ -80,7 +80,7 @@ export const MessageInput = ({
         />
       )}
 
-      <div className="flex-1 flex gap-2 w-full">
+      <div className="flex-1 flex flex-col sm:flex-row gap-2 w-full">
         <Alert className="bg-cyberdark-800/50 border-cybergold-400/30 mb-2 p-2">
           <AlertDescription className="text-xs text-cybergold-300 flex items-center">
             <Clock className="h-3 w-3 mr-1" /> 
@@ -88,35 +88,37 @@ export const MessageInput = ({
           </AlertDescription>
         </Alert>
         
-        <FileInputs 
-          selectedFile={selectedFile}
-          setSelectedFile={setSelectedFile}
-          isLoading={isLoading}
-          isRecording={isRecording}
-        />
-        
-        <Input
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={receiverId ? "Skriv en privat melding..." : "Skriv din melding..."}
-          className="flex-1 bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
-          disabled={isLoading || isRecording}
-        />
-        
-        <div className="flex gap-2">
-          <AudioRecorder
+        <div className="flex flex-1 gap-2">
+          <FileInputs 
+            selectedFile={selectedFile}
+            setSelectedFile={setSelectedFile}
             isLoading={isLoading}
             isRecording={isRecording}
-            setIsRecording={setIsRecording}
-            setSelectedFile={setSelectedFile}
           />
           
-          <TTLSelector
-            ttl={defaultTtl}
-            setTtl={setTtl}
-            isLoading={isLoading}
-            isRecording={isRecording}
+          <Input
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder={receiverId ? "Skriv en privat melding..." : "Skriv din melding..."}
+            className="flex-1 bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
+            disabled={isLoading || isRecording}
           />
+          
+          <div className="flex gap-2">
+            <AudioRecorder
+              isLoading={isLoading}
+              isRecording={isRecording}
+              setIsRecording={setIsRecording}
+              setSelectedFile={setSelectedFile}
+            />
+            
+            <TTLSelector
+              ttl={defaultTtl}
+              setTtl={setTtl}
+              isLoading={isLoading}
+              isRecording={isRecording}
+            />
+          </div>
         </div>
       </div>
       
