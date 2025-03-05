@@ -94,6 +94,10 @@ export const useMessageSender = (
       // Always store in database for history and offline users
       const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
       
+      // Set default 24-hour TTL for normal messages
+      const defaultTtl = 86400; // 24 hours in seconds
+      const messageTtl = ttl || defaultTtl;
+      
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -101,7 +105,7 @@ export const useMessageSender = (
           encrypted_content: encryptedContent,
           encryption_key: key,
           iv: iv,
-          ephemeral_ttl: ttl,
+          ephemeral_ttl: messageTtl,
           media_url: mediaUrl,
           media_type: mediaType,
           receiver_id: receiverId,

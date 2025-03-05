@@ -1,13 +1,15 @@
 
-import { Edit, Trash2, MoreVertical } from "lucide-react";
+import { Edit, Trash2, MoreVertical, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
 import { DecryptedMessage } from "@/types/message";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MessageActionsProps {
   message: DecryptedMessage;
@@ -18,6 +20,33 @@ interface MessageActionsProps {
 export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProps) => {
   if (message.is_deleted) {
     return null;
+  }
+
+  // Editing and deleting are now disabled for all messages
+  const isEditingDisabled = true;
+  const isDeletionDisabled = true;
+
+  // If both editing and deletion are disabled, show info instead
+  if (isEditingDisabled && isDeletionDisabled) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-7 w-7 ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-cyberdark-400 hover:text-cyberdark-300"
+            >
+              <Clock className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs text-xs bg-cyberdark-800 border-cybergold-500/30">
+            <p>Meldinger slettes automatisk etter 24 timer.</p>
+            <p>Redigering og sletting er deaktivert.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   }
 
   return (
@@ -31,21 +60,34 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-40 bg-cyberdark-800 border-cybergold-500/30">
-        <DropdownMenuItem 
-          className="text-cybergold-300 cursor-pointer flex items-center"
-          onClick={() => onEdit(message)}
-        >
-          <Edit className="mr-2 h-4 w-4" />
-          <span>Rediger</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          className="text-red-400 cursor-pointer flex items-center"
-          onClick={() => onDelete(message.id)}
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          <span>Slett</span>
-        </DropdownMenuItem>
+      <DropdownMenuContent align="end" className="w-52 bg-cyberdark-800 border-cybergold-500/30">
+        {isEditingDisabled && isDeletionDisabled ? (
+          <DropdownMenuLabel className="text-xs text-cyberdark-400">
+            Meldinger slettes automatisk etter 24 timer.
+            Redigering og sletting er deaktivert.
+          </DropdownMenuLabel>
+        ) : (
+          <>
+            {!isEditingDisabled && (
+              <DropdownMenuItem 
+                className="text-cybergold-300 cursor-pointer flex items-center"
+                onClick={() => onEdit(message)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                <span>Rediger</span>
+              </DropdownMenuItem>
+            )}
+            {!isDeletionDisabled && (
+              <DropdownMenuItem 
+                className="text-red-400 cursor-pointer flex items-center"
+                onClick={() => onDelete(message.id)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                <span>Slett</span>
+              </DropdownMenuItem>
+            )}
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

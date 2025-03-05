@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import { DecryptedMessage } from "@/types/message";
+import { useToast } from "@/components/ui/use-toast";
 
 export const useMessageActions = (
   userId: string | null, 
@@ -8,9 +9,15 @@ export const useMessageActions = (
   handleDeleteMessage: (messageId: string) => Promise<void>
 ) => {
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
+  const { toast } = useToast();
 
   const handleStartEditMessage = (message: { id: string; content: string }) => {
-    setEditingMessage(message);
+    // Don't allow editing - all messages are auto-deleted after 24 hours
+    toast({
+      title: "Ikke tilgjengelig",
+      description: "Redigering av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
+      variant: "destructive",
+    });
     return message.content;
   };
 
@@ -19,14 +26,22 @@ export const useMessageActions = (
   };
 
   const handleSubmitEditMessage = async (newMessage: string) => {
-    if (!editingMessage) return;
-    
-    await handleEditMessage(editingMessage.id, newMessage);
+    // Don't allow editing
+    toast({
+      title: "Ikke tilgjengelig",
+      description: "Redigering av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
+      variant: "destructive",
+    });
     setEditingMessage(null);
   };
 
   const handleDeleteMessageById = async (messageId: string) => {
-    await handleDeleteMessage(messageId);
+    // Don't allow deleting
+    toast({
+      title: "Ikke tilgjengelig",
+      description: "Sletting av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
+      variant: "destructive",
+    });
   };
 
   return {

@@ -10,13 +10,14 @@ interface MessageTimerProps {
 
 export const MessageTimer = ({ message, onExpired }: MessageTimerProps) => {
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  
+  // Ensure all messages have the 24-hour TTL
+  const messageTtl = message.ephemeral_ttl || 86400; // Default to 24 hours in seconds
 
   useEffect(() => {
-    if (!message.ephemeral_ttl) return;
-
     const calculateTimeLeft = () => {
       const createdAt = new Date(message.created_at).getTime();
-      const expiresAt = createdAt + (message.ephemeral_ttl * 1000);
+      const expiresAt = createdAt + (messageTtl * 1000);
       const now = new Date().getTime();
       const difference = expiresAt - now;
       
@@ -40,16 +41,25 @@ export const MessageTimer = ({ message, onExpired }: MessageTimerProps) => {
     return () => {
       clearInterval(timer);
     };
-  }, [message.created_at, message.ephemeral_ttl, onExpired]);
+  }, [message.created_at, messageTtl, onExpired]);
 
-  if (timeLeft === null || !message.ephemeral_ttl) return null;
+  if (timeLeft === null) return null;
   if (timeLeft <= 0) return null;
 
-  const minutes = Math.floor(timeLeft / 60);
+  // Format the display based on time remaining
+  const hours = Math.floor(timeLeft / 3600);
+  const minutes = Math.floor((timeLeft % 3600) / 60);
   const seconds = timeLeft % 60;
-  const timeString = minutes > 0 
-    ? `${minutes}m ${seconds}s`
-    : `${seconds}s`;
+  
+  let timeString = '';
+  
+  if (hours > 0) {
+    timeString = `${hours}t ${minutes}m`;
+  } else if (minutes > 0) {
+    timeString = `${minutes}m ${seconds}s`;
+  } else {
+    timeString = `${seconds}s`;
+  }
 
   return (
     <div className="flex items-center gap-1 text-xs text-cybergold-300">

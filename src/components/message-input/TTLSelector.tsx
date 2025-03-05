@@ -7,6 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface TTLSelectorProps {
   ttl: number | null;
@@ -16,39 +17,33 @@ interface TTLSelectorProps {
 }
 
 export const TTLSelector = ({ ttl, setTtl, isLoading, isRecording }: TTLSelectorProps) => {
-  const ttlOptions = [
-    { label: 'Normal melding', value: null },
-    { label: '30 sek', value: 30 },
-    { label: '5 min', value: 300 },
-    { label: '30 min', value: 1800 },
-    { label: '1 time', value: 3600 }
-  ];
-
+  // Messages now always have a 24-hour TTL (86400 seconds)
+  const defaultTtl = 86400;
+  
+  // User can no longer change TTL, as all messages expire after 24 hours
+  const isDisabled = true;
+  
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button 
-          type="button"
-          variant="outline" 
-          size="icon"
-          className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700"
-          disabled={isLoading || isRecording}
-        >
-          <Clock className="w-4 h-4" />
-          <span className="sr-only">Velg tidsgrense</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="bg-cyberdark-800 border-cybergold-500/30">
-        {ttlOptions.map((option) => (
-          <DropdownMenuItem
-            key={option.value ?? 'permanent'}
-            onClick={() => setTtl(option.value)}
-            className="text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700 cursor-pointer"
-          >
-            {option.label} {ttl === option.value && '✓'}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div>
+            <Button 
+              type="button"
+              variant="outline" 
+              size="icon"
+              className="bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-700"
+              disabled={isLoading || isRecording || isDisabled}
+            >
+              <Clock className="w-4 h-4" />
+              <span className="sr-only">24-timers melding</span>
+            </Button>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="bg-cyberdark-800 border-cybergold-500/30">
+          <p className="text-xs">Alle meldinger slettes automatisk etter 24 timer</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

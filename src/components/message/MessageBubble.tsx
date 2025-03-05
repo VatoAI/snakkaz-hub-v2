@@ -2,6 +2,8 @@
 import { DecryptedMessage } from "@/types/message";
 import { MessageContent } from "./MessageContent";
 import { MessageActions } from "./MessageActions";
+import { Clock } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MessageBubbleProps {
   message: DecryptedMessage;
@@ -15,33 +17,55 @@ interface MessageBubbleProps {
 export const MessageBubble = ({ 
   message, 
   isCurrentUser, 
-  messageIndex, 
+  messageIndex,
   onMessageExpired,
   onEdit,
   onDelete
 }: MessageBubbleProps) => {
+  const ttlIsFixed = true; // All messages have 24-hour auto-delete
+  const isAutoDelete = message.ephemeral_ttl ? true : false;
+
   return (
     <div 
-      key={message.id}
-      className={`group flex ${isCurrentUser ? 'justify-end' : 'justify-start'} p-2 sm:p-3 rounded-lg transition-all duration-300 ${
-        isCurrentUser 
-          ? 'bg-cybergold-900/20 hover:bg-cybergold-900/30' 
-          : 'bg-cyberdark-800/50 hover:bg-cyberdark-800/70'
-      } ${messageIndex > 0 ? 'mt-1' : ''}`}
+      className={`group relative flex mb-1 ${messageIndex === 0 ? '' : 'mt-1'}`}
     >
-      <div className="flex-1 min-w-0">
-        <MessageContent 
-          message={message} 
-          onMessageExpired={onMessageExpired} 
-        />
+      <div 
+        className={`
+          py-2 px-3 rounded-md max-w-full break-words 
+          ${isCurrentUser 
+            ? 'bg-cyberblue-900 text-white' 
+            : 'bg-cyberdark-800 text-cyberblue-100'
+          }
+        `}
+      >
+        <MessageContent message={message} onMessageExpired={onMessageExpired} />
+        
+        {ttlIsFixed && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex items-center text-[10px] text-cyberdark-400 mt-1 ml-2">
+                  <Clock className="h-3 w-3 mr-1" />
+                  24t
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="center" className="text-xs">
+                Slettes automatisk etter 24 timer
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
       
-      {isCurrentUser && (
-        <MessageActions 
-          message={message} 
-          onEdit={onEdit} 
-          onDelete={onDelete} 
-        />
+      {/* Only show actions on hover if it's the current user's message and editing/deletion isn't disabled */}
+      {isCurrentUser && !ttlIsFixed && (
+        <div className="self-start ml-1">
+          <MessageActions 
+            message={message} 
+            onEdit={onEdit} 
+            onDelete={onDelete} 
+          />
+        </div>
       )}
     </div>
   );

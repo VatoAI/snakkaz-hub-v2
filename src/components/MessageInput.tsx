@@ -7,6 +7,8 @@ import { AudioRecorder } from "./message-input/AudioRecorder";
 import { TTLSelector } from "./message-input/TTLSelector";
 import { EditingMessage } from "./message-input/EditingMessage";
 import { SubmitButton } from "./message-input/SubmitButton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Clock } from "lucide-react";
 
 interface MessageInputProps {
   newMessage: string;
@@ -44,6 +46,18 @@ export const MessageInput = ({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
 
+  // Fixed TTL of 24 hours (86400 seconds)
+  const defaultTtl = 86400;
+  // Force 24-hour TTL for all messages
+  if (ttl !== defaultTtl) {
+    setTtl(defaultTtl);
+  }
+  
+  // Since editing is not allowed anyway, we'll disable it
+  if (editingMessage && onCancelEdit) {
+    onCancelEdit();
+  }
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit(e, selectedFile || undefined);
@@ -60,7 +74,12 @@ export const MessageInput = ({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
       <div className="flex-1 flex gap-2 w-full">
-        <EditingMessage editingMessage={editingMessage} onCancelEdit={onCancelEdit} />
+        <Alert className="bg-cyberdark-800/50 border-cybergold-400/30 mb-2 p-2">
+          <AlertDescription className="text-xs text-cybergold-300 flex items-center">
+            <Clock className="h-3 w-3 mr-1" /> 
+            Alle meldinger slettes automatisk etter 24 timer
+          </AlertDescription>
+        </Alert>
         
         <FileInputs 
           selectedFile={selectedFile}
@@ -72,7 +91,7 @@ export const MessageInput = ({
         <Input
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
-          placeholder={editingMessage ? "Endre melding..." : receiverId ? "Skriv en privat melding..." : "Skriv din melding..."}
+          placeholder={receiverId ? "Skriv en privat melding..." : "Skriv din melding..."}
           className="flex-1 bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
           disabled={isLoading || isRecording}
         />
@@ -86,7 +105,7 @@ export const MessageInput = ({
           />
           
           <TTLSelector
-            ttl={ttl}
+            ttl={defaultTtl}
             setTtl={setTtl}
             isLoading={isLoading}
             isRecording={isRecording}
@@ -99,7 +118,7 @@ export const MessageInput = ({
         newMessage={newMessage}
         selectedFile={selectedFile}
         isRecording={isRecording}
-        editingMessage={editingMessage}
+        editingMessage={null} // Disable editing
       />
     </form>
   );

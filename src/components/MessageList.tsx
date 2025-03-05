@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { MessageGroup } from "./message/MessageGroup";
 import { DeleteMessageDialog } from "./message/DeleteMessageDialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Clock } from "lucide-react";
 
 interface MessageListProps {
   messages: DecryptedMessage[];
@@ -56,29 +58,22 @@ export const MessageList = ({
   };
 
   const handleEdit = (message: DecryptedMessage) => {
-    if (onEditMessage) {
-      onEditMessage({ id: message.id, content: message.content });
-    }
+    // Editing is disabled
+    toast({
+      title: "Ikke tilgjengelig",
+      description: "Redigering av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
+      variant: "destructive",
+    });
   };
 
   const handleDelete = async () => {
-    if (!confirmDelete || !onDeleteMessage) return;
-    
-    try {
-      onDeleteMessage(confirmDelete);
-      setConfirmDelete(null);
-      toast({
-        title: "Slettet",
-        description: "Meldingen ble slettet",
-      });
-    } catch (error) {
-      console.error("Error deleting message:", error);
-      toast({
-        title: "Feil",
-        description: "Kunne ikke slette meldingen",
-        variant: "destructive",
-      });
-    }
+    // Deletion is disabled
+    toast({
+      title: "Ikke tilgjengelig",
+      description: "Sletting av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
+      variant: "destructive",
+    });
+    setConfirmDelete(null);
   };
 
   const isUserMessage = (message: DecryptedMessage) => {
@@ -123,6 +118,13 @@ export const MessageList = ({
       onScrollCapture={handleScroll}
       ref={scrollAreaRef}
     >
+      <Alert className="mb-4 bg-cyberdark-800/50 border-cybergold-500/30">
+        <AlertDescription className="text-xs text-cybergold-300 flex items-center">
+          <Clock className="h-3 w-3 mr-1" /> 
+          Alle meldinger slettes automatisk etter 24 timer. Redigering og sletting er deaktivert.
+        </AlertDescription>
+      </Alert>
+      
       <div className="space-y-2 sm:space-y-4">
         {messageGroups.map((group, groupIndex) => (
           <MessageGroup
@@ -131,7 +133,14 @@ export const MessageList = ({
             isCurrentUser={isUserMessage(group[0])}
             onMessageExpired={handleMessageExpired}
             onEdit={handleEdit}
-            onDelete={(messageId) => setConfirmDelete(messageId)}
+            onDelete={(messageId) => {
+              // Don't open delete dialog, just show toast
+              toast({
+                title: "Ikke tilgjengelig",
+                description: "Sletting av meldinger er deaktivert. Alle meldinger slettes automatisk etter 24 timer.",
+                variant: "destructive",
+              });
+            }}
           />
         ))}
         <div ref={messagesEndRef} />
@@ -150,11 +159,12 @@ export const MessageList = ({
         )}
       </div>
       
-      <DeleteMessageDialog
+      {/* We don't need this dialog anymore since deletion is disabled */}
+      {/* <DeleteMessageDialog
         isOpen={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}
         onConfirm={handleDelete}
-      />
+      /> */}
     </ScrollArea>
   );
 };
