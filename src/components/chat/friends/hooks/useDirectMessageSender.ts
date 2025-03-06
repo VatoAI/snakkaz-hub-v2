@@ -88,7 +88,7 @@ export const useDirectMessageSender = (
 
   const handleSendMessage = async (e: React.FormEvent, message: string) => {
     e.preventDefault();
-    if (!message.trim() || !friendId || !currentUserId) return;
+    if (!message.trim() || !friendId || !currentUserId) return false;
     
     setIsLoading(true);
     clearSendError();
