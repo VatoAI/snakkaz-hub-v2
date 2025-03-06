@@ -65,10 +65,12 @@ export type Database = {
           group_id: boolean | null
           id: string
           is_deleted: boolean | null
+          is_delivered: boolean | null
           is_edited: boolean | null
           iv: string | null
           media_type: string | null
           media_url: string | null
+          read_at: string | null
           receiver_id: string | null
           sender_id: string
           updated_at: string
@@ -83,10 +85,12 @@ export type Database = {
           group_id?: boolean | null
           id?: string
           is_deleted?: boolean | null
+          is_delivered?: boolean | null
           is_edited?: boolean | null
           iv?: string | null
           media_type?: string | null
           media_url?: string | null
+          read_at?: string | null
           receiver_id?: string | null
           sender_id: string
           updated_at?: string
@@ -101,10 +105,12 @@ export type Database = {
           group_id?: boolean | null
           id?: string
           is_deleted?: boolean | null
+          is_delivered?: boolean | null
           is_edited?: boolean | null
           iv?: string | null
           media_type?: string | null
           media_url?: string | null
+          read_at?: string | null
           receiver_id?: string | null
           sender_id?: string
           updated_at?: string
@@ -207,6 +213,12 @@ export type Database = {
         Args: {
           message_id: string
           user_id: string
+        }
+        Returns: undefined
+      }
+      mark_message_as_read: {
+        Args: {
+          message_id: string
         }
         Returns: undefined
       }
