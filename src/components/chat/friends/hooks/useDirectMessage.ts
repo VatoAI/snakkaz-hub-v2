@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Friend } from "../types";
 import { WebRTCManager } from "@/utils/webrtc";
@@ -140,18 +139,9 @@ export const useDirectMessage = (
     
     if (editingMessage) {
       // Handle edit submission
-      const success = await handleEditMessage(editingMessage.id, newMessage);
-      if (success) {
-        setEditingMessage(null);
-        setNewMessage("");
-        // Update the message locally for immediate feedback
-        onNewMessage({
-          ...messages.find(m => m.id === editingMessage.id)!,
-          content: newMessage,
-          is_edited: true,
-          edited_at: new Date().toISOString()
-        });
-      }
+      await handleEditMessage(editingMessage.id, newMessage);
+      setEditingMessage(null);
+      setNewMessage("");
     } else {
       // Handle new message submission
       const success = await handleSendMessage(e, newMessage);
@@ -176,21 +166,7 @@ export const useDirectMessage = (
     setEditingMessage(null);
     setNewMessage("");
   };
-  
-  // Delete a message
-  const handleDeleteMessage = async (messageId: string) => {
-    const success = await handleDeleteMessage(messageId);
-    if (success) {
-      // Update local state to show the message as deleted
-      onNewMessage({
-        ...messages.find(m => m.id === messageId)!,
-        is_deleted: true,
-        deleted_at: new Date().toISOString(),
-        content: "Denne meldingen er slettet"
-      });
-    }
-  };
-  
+
   // Handle input changes, trigger typing indicator
   const handleInputChange = (text: string) => {
     setNewMessage(text);

@@ -15,10 +15,10 @@ export const useMessageEditor = (
   const handleEditMessage = useCallback(async (
     messageId: string,
     content: string,
-  ) => {
+  ): Promise<void> => {
     if (!content.trim() || !userId) {
       console.log("Ingen melding å redigere, eller bruker ikke pålogget");
-      return null;
+      return;
     }
 
     setIsLoading(true);
@@ -31,7 +31,7 @@ export const useMessageEditor = (
       const { encryptedContent, key, iv } = await encryptMessage(content.trim());
       
       // Use an RPC call to ensure proper validation on the server
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('messages')
         .update({
           encrypted_content: encryptedContent,
@@ -41,8 +41,7 @@ export const useMessageEditor = (
           edited_at: new Date().toISOString()
         })
         .eq('id', messageId)
-        .eq('sender_id', userId) // Ensure only sender can edit
-        .select();
+        .eq('sender_id', userId); // Ensure only sender can edit
 
       if (error) {
         console.error('Edit message error:', error);
@@ -53,11 +52,8 @@ export const useMessageEditor = (
         });
         throw error;
       } else {
-        console.log("Melding redigert", data);
+        console.log("Melding redigert");
         setNewMessage("");
-        
-        // Return true to indicate successful edit
-        return true;
       }
     } catch (error) {
       console.error('Error editing message:', error);
@@ -66,7 +62,6 @@ export const useMessageEditor = (
         description: "Kunne ikke redigere melding",
         variant: "destructive",
       });
-      return null;
     } finally {
       setIsLoading(false);
     }
