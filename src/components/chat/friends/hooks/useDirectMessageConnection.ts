@@ -66,7 +66,8 @@ export const useDirectMessageConnection = (
   const handleReconnect = async () => {
     if (!webRTCManager || !friendId) return;
     
-    setConnectionAttempts(prev => prev + 1);
+    // Fix: Change from using a function to directly setting the new value
+    setConnectionAttempts(connectionAttempts + 1);
     const success = await attemptReconnect(usingServerFallback, setUsingServerFallback);
     
     if (success && connectionTimeout.current) {
