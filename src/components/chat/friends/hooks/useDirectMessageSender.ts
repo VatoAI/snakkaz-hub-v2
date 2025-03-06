@@ -37,9 +37,9 @@ export const useDirectMessageSender = (
         await webRTCManager.sendDirectMessage(friendId, message);
         return true;
       } else {
-        console.log(`Connection not ready (${connState}/${dataState}), trying to reconnect`);
+        // Faster reconnection attempt - reduced wait time
         await webRTCManager.attemptReconnect(friendId);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 1000ms
         
         const newConnState = webRTCManager.getConnectionState(friendId);
         const newDataState = webRTCManager.getDataChannelState(friendId);
@@ -60,7 +60,6 @@ export const useDirectMessageSender = (
     if (!currentUserId || !friendId) return false;
     
     try {
-      // Encrypt message for server transmission
       const { encryptedContent, key, iv } = await encryptMessage(message.trim());
       
       const { error } = await supabase
@@ -71,7 +70,9 @@ export const useDirectMessageSender = (
           encrypted_content: encryptedContent,
           encryption_key: key,
           iv: iv,
-          is_encrypted: true
+          is_encrypted: true,
+          read_at: null, // Add tracking for read status
+          is_delivered: false // Track delivery status
         });
       
       if (error) {

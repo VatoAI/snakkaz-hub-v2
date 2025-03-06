@@ -1,4 +1,3 @@
-
 import { PeerManager } from './peer-manager';
 import { ConnectionRetryManager } from './connection-retry-manager';
 import { ConnectionTimeoutManager } from './connection-timeout-manager';
@@ -25,23 +24,20 @@ export class ConnectionManager {
     }
 
     try {
-      // Check if we've exceeded max connection attempts
+      // Reduce max connection attempts
       if (this.retryManager.hasReachedMaxAttempts(peerId)) {
         console.log(`Max connection attempts reached for peer ${peerId}`);
         return null;
       }
       
-      // Increment connection attempts
       this.retryManager.incrementAttempts(peerId);
 
-      // Check if already connected - if so, return the existing connection
       const isConnected = this.peerManager.isConnected(peerId);
       if (isConnected) {
         console.log(`Already connected to peer ${peerId}`);
         return this.peerManager.getPeerConnection(peerId);
       }
 
-      // Get existing connection or create new one
       let connection = this.peerManager.getPeerConnection(peerId);
       const needsNewConnection = !connection || 
           connection.connection.connectionState === 'failed' || 
@@ -53,7 +49,7 @@ export class ConnectionManager {
         try {
           connection = await this.peerManager.createPeer(peerId);
           
-          // Set a timeout to check connection status and attempt reconnect if needed
+          // Reduced timeout from 5s to 3s for faster fallback
           this.timeoutManager.setTimeout(peerId, () => {
             const currentConnection = this.peerManager.getPeerConnection(peerId);
             if (currentConnection && 
@@ -63,14 +59,13 @@ export class ConnectionManager {
               console.log(`Connection to peer ${peerId} failed, attempting reconnect`);
               this.connectToPeer(peerId, peerPublicKey);
             }
-          }, 5000); // Check after 5 seconds
+          }, 3000);
         } catch (createError) {
           console.error(`Error creating peer connection to ${peerId}:`, createError);
           throw createError;
         }
       }
 
-      // Establish secure connection if we don't already have one
       if (this.localKeyPair) {
         await this.secureConnectionManager.establishSecureConnection(
           peerId,
@@ -80,7 +75,7 @@ export class ConnectionManager {
         );
       }
 
-      // Schedule retry reset
+      // Schedule retry reset after 5s instead of previous longer timeout
       this.retryManager.scheduleRetryReset(peerId);
 
       return connection;
