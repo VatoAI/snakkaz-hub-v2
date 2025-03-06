@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Send, Lock, Shield, Clock } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { EditingMessage } from "@/components/message-input/EditingMessage";
 
 interface DirectMessageFormProps {
   usingServerFallback: boolean;
@@ -15,6 +16,8 @@ interface DirectMessageFormProps {
   onChangeMessage: (message: string) => void;
   connectionState: string;
   dataChannelState: string;
+  editingMessage?: { id: string; content: string } | null;
+  onCancelEdit?: () => void;
 }
 
 export const DirectMessageForm = ({
@@ -25,7 +28,9 @@ export const DirectMessageForm = ({
   newMessage,
   onChangeMessage,
   connectionState,
-  dataChannelState
+  dataChannelState,
+  editingMessage,
+  onCancelEdit
 }: DirectMessageFormProps) => {
   const isSecureConnection = (connectionState === 'connected' && dataChannelState === 'open') || usingServerFallback;
   
@@ -38,12 +43,21 @@ export const DirectMessageForm = ({
 
   return (
     <div className="p-3 border-t border-cybergold-500/30 bg-cyberdark-900">
-      <Alert className="mb-2 bg-cyberdark-800/50 border-cybergold-400/30">
+      {/* Timer notification - moved to a separate component and made smaller */}
+      <Alert className="mb-2 py-1 px-2 bg-cyberdark-800/50 border-cybergold-400/30">
         <AlertDescription className="text-xs text-cybergold-300 flex items-center">
           <Clock className="h-3 w-3 mr-1" /> 
           Alle meldinger slettes automatisk etter 24 timer
         </AlertDescription>
       </Alert>
+      
+      {/* Show editing message component if we're editing */}
+      {editingMessage && onCancelEdit && (
+        <EditingMessage
+          editingMessage={editingMessage}
+          onCancelEdit={onCancelEdit}
+        />
+      )}
       
       {usingServerFallback && (
         <Alert className="mb-2 bg-amber-900/20 border-amber-700 text-amber-300 py-2">

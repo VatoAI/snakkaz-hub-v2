@@ -8,6 +8,8 @@ import { useConnectionState, setupConnectionTimeout } from "../utils/directMessa
 import { useDirectMessageSender } from "./useDirectMessageSender";
 import { useTypingIndicator } from "@/hooks/message/useTypingIndicator";
 import { useReadReceipts } from "@/hooks/message/useReadReceipts";
+import { useMessageEditor } from "@/hooks/message/useMessageEditor";
+import { useMessageDeleter } from "@/hooks/message/useMessageDeleter";
 
 export const useDirectMessage = (
   friend: Friend,
@@ -23,6 +25,9 @@ export const useDirectMessage = (
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const { toast } = useToast();
   
+  // Add editing message state
+  const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
+  
   const friendId = friend.user_id === currentUserId ? friend.friend_id : friend.user_id;
   const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -30,7 +35,7 @@ export const useDirectMessage = (
   const { updateConnectionStatus, attemptReconnect } = useConnectionState(webRTCManager, friendId, toast);
   
   const { 
-    isLoading, 
+    isLoading: sendLoading, 
     sendError, 
     handleSendMessage,
     clearSendError
@@ -42,12 +47,30 @@ export const useDirectMessage = (
     onNewMessage
   );
   
+  // Initialize the message editor and deleter hooks
+  const { handleEditMessage } = useMessageEditor(
+    currentUserId,
+    newMessage,
+    setNewMessage,
+    (loading) => setIsLoading(loading),
+    toast
+  );
+  
+  const { handleDeleteMessage } = useMessageDeleter(
+    currentUserId,
+    (loading) => setIsLoading(loading),
+    toast
+  );
+  
   // Add typing indicator
   const { peerIsTyping, startTyping } = useTypingIndicator(currentUserId, friendId);
   
   // Add read receipts
   const { isMessageRead, markMessagesAsRead } = useReadReceipts(currentUserId, friendId, messages);
 
+  // Combined loading state
+  const [isLoading, setIsLoading] = useState(false);
+  
   // Mark messages as read when component mounts or messages change
   useEffect(() => {
     markMessagesAsRead();
@@ -113,9 +136,58 @@ export const useDirectMessage = (
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    const success = await handleSendMessage(e, newMessage);
+    e.preventDefault();
+    
+    if (editingMessage) {
+      // Handle edit submission
+      const success = await handleEditMessage(editingMessage.id, newMessage);
+      if (success) {
+        setEditingMessage(null);
+        setNewMessage("");
+        // Update the message locally for immediate feedback
+        onNewMessage({
+          ...messages.find(m => m.id === editingMessage.id)!,
+          content: newMessage,
+          is_edited: true,
+          edited_at: new Date().toISOString()
+        });
+      }
+    } else {
+      // Handle new message submission
+      const success = await handleSendMessage(e, newMessage);
+      if (success) {
+        setNewMessage("");
+      }
+    }
+  };
+  
+  // Start editing a message
+  const handleStartEditMessage = (message: DecryptedMessage) => {
+    console.log("Starting to edit message:", message.id);
+    setEditingMessage({
+      id: message.id,
+      content: message.content
+    });
+    setNewMessage(message.content);
+  };
+  
+  // Cancel editing
+  const handleCancelEditMessage = () => {
+    setEditingMessage(null);
+    setNewMessage("");
+  };
+  
+  // Delete a message
+  const handleDeleteMessage = async (messageId: string) => {
+    const success = await handleDeleteMessage(messageId);
     if (success) {
-      setNewMessage("");
+      // Update local state to show the message as deleted
+      onNewMessage({
+        ...messages.find(m => m.id === messageId)!,
+        is_deleted: true,
+        deleted_at: new Date().toISOString(),
+        content: "Denne meldingen er slettet"
+      });
     }
   };
   
@@ -128,7 +200,7 @@ export const useDirectMessage = (
   return {
     newMessage,
     setNewMessage: handleInputChange,
-    isLoading,
+    isLoading: isLoading || sendLoading,
     connectionState,
     dataChannelState,
     usingServerFallback,
@@ -137,6 +209,11 @@ export const useDirectMessage = (
     handleSendMessage: handleSubmit,
     handleReconnect,
     peerIsTyping,
-    isMessageRead
+    isMessageRead,
+    // Add editing and deletion functionality
+    editingMessage,
+    handleStartEditMessage,
+    handleCancelEditMessage,
+    handleDeleteMessage
   };
 };

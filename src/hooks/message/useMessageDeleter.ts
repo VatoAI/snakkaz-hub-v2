@@ -2,16 +2,17 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ensureMessageColumnsExist } from "./utils/message-db-utils";
+import { useToast } from "@/components/ui/use-toast";
 
 export const useMessageDeleter = (
   userId: string | null,
   setIsLoading: (loading: boolean) => void,
-  toast: any
+  toast: ReturnType<typeof useToast>["toast"]
 ) => {
   const handleDeleteMessage = useCallback(async (messageId: string) => {
     if (!userId) {
       console.log("Bruker ikke pålogget");
-      return;
+      return null;
     }
 
     setIsLoading(true);
@@ -21,25 +22,35 @@ export const useMessageDeleter = (
       
       console.log(`Attempting to delete message ${messageId} for user ${userId}`);
       
+      // Call Supabase RPC function to mark message as deleted
       const { data, error } = await supabase
-        .from('messages')
-        .update({
-          is_deleted: true,
-          deleted_at: new Date().toISOString()
-        })
-        .eq('id', messageId)
-        .eq('sender_id', userId); // Ensure only sender can delete
+        .rpc('mark_message_as_deleted', { 
+          message_id: messageId, 
+          user_id: userId 
+        });
 
       if (error) {
         console.error('Delete message error:', error);
+        toast({
+          title: "Feil ved sletting",
+          description: "Kunne ikke slette meldingen: " + error.message,
+          variant: "destructive",
+        });
         throw error;
       }
       
-      console.log('Delete message result:', data);
-      return data;
+      console.log('Message successfully marked as deleted');
+      
+      // Return true to indicate successful deletion
+      return true;
     } catch (error) {
       console.error('Error deleting message:', error);
-      throw error; // Re-throw to handle in the calling function
+      toast({
+        title: "Feil",
+        description: "Kunne ikke slette meldingen",
+        variant: "destructive",
+      });
+      return null;
     } finally {
       setIsLoading(false);
     }

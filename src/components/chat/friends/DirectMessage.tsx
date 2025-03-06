@@ -51,7 +51,12 @@ export const DirectMessage = ({
     handleSendMessage,
     handleReconnect,
     peerIsTyping,
-    isMessageRead
+    isMessageRead,
+    // Add editing and deletion functionality
+    editingMessage,
+    handleStartEditMessage,
+    handleCancelEditMessage,
+    handleDeleteMessage
   } = useDirectMessage(friend, currentUserId, webRTCManager, onNewMessage, chatMessages);
 
   const isSecureConnection = (connectionState === 'connected' && dataChannelState === 'open') || usingServerFallback;
@@ -82,6 +87,8 @@ export const DirectMessage = ({
           connectionState={connectionState}
           dataChannelState={dataChannelState}
           usingServerFallback={usingServerFallback}
+          onEditMessage={handleStartEditMessage}
+          onDeleteMessage={handleDeleteMessage}
         />
       )}
       
@@ -94,6 +101,8 @@ export const DirectMessage = ({
         onChangeMessage={setNewMessage}
         connectionState={connectionState}
         dataChannelState={dataChannelState}
+        editingMessage={editingMessage}
+        onCancelEdit={handleCancelEditMessage}
       />
     </div>
   );

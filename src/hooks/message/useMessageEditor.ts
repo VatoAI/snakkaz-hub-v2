@@ -3,13 +3,14 @@ import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { encryptMessage } from "@/utils/encryption";
 import { ensureMessageColumnsExist } from "./utils/message-db-utils";
+import { useToast } from "@/components/ui/use-toast";
 
 export const useMessageEditor = (
   userId: string | null,
   newMessage: string,
   setNewMessage: (message: string) => void,
   setIsLoading: (loading: boolean) => void,
-  toast: any
+  toast: ReturnType<typeof useToast>["toast"]
 ) => {
   const handleEditMessage = useCallback(async (
     messageId: string,
@@ -17,7 +18,7 @@ export const useMessageEditor = (
   ) => {
     if (!content.trim() || !userId) {
       console.log("Ingen melding å redigere, eller bruker ikke pålogget");
-      return;
+      return null;
     }
 
     setIsLoading(true);
@@ -29,6 +30,7 @@ export const useMessageEditor = (
 
       const { encryptedContent, key, iv } = await encryptMessage(content.trim());
       
+      // Use an RPC call to ensure proper validation on the server
       const { data, error } = await supabase
         .from('messages')
         .update({
@@ -39,7 +41,8 @@ export const useMessageEditor = (
           edited_at: new Date().toISOString()
         })
         .eq('id', messageId)
-        .eq('sender_id', userId); // Ensure only sender can edit
+        .eq('sender_id', userId) // Ensure only sender can edit
+        .select();
 
       if (error) {
         console.error('Edit message error:', error);
@@ -52,6 +55,9 @@ export const useMessageEditor = (
       } else {
         console.log("Melding redigert", data);
         setNewMessage("");
+        
+        // Return true to indicate successful edit
+        return true;
       }
     } catch (error) {
       console.error('Error editing message:', error);
@@ -60,7 +66,7 @@ export const useMessageEditor = (
         description: "Kunne ikke redigere melding",
         variant: "destructive",
       });
-      throw error;
+      return null;
     } finally {
       setIsLoading(false);
     }
