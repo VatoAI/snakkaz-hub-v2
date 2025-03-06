@@ -9,10 +9,10 @@ export const useMessageDeleter = (
   setIsLoading: (loading: boolean) => void,
   toast: ReturnType<typeof useToast>["toast"]
 ) => {
-  const handleDeleteMessage = useCallback(async (messageId: string) => {
+  const handleDeleteMessage = useCallback(async (messageId: string): Promise<void> => {
     if (!userId) {
       console.log("Bruker ikke pålogget");
-      return null;
+      return;
     }
 
     setIsLoading(true);
@@ -23,7 +23,7 @@ export const useMessageDeleter = (
       console.log(`Attempting to delete message ${messageId} for user ${userId}`);
       
       // Call Supabase RPC function to mark message as deleted
-      const { data, error } = await supabase
+      const { error } = await supabase
         .rpc('mark_message_as_deleted', { 
           message_id: messageId, 
           user_id: userId 
@@ -40,9 +40,6 @@ export const useMessageDeleter = (
       }
       
       console.log('Message successfully marked as deleted');
-      
-      // Return true to indicate successful deletion
-      return true;
     } catch (error) {
       console.error('Error deleting message:', error);
       toast({
@@ -50,7 +47,6 @@ export const useMessageDeleter = (
         description: "Kunne ikke slette meldingen",
         variant: "destructive",
       });
-      return null;
     } finally {
       setIsLoading(false);
     }
