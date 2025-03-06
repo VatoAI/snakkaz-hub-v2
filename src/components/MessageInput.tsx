@@ -68,9 +68,6 @@ export const MessageInput = ({
     resetInput(documentInputRef.current);
   };
 
-  // Log the editingMessage to debug
-  console.log("Editing message in MessageInput:", editingMessage);
-
   return (
     <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
       {editingMessage && onCancelEdit && (

@@ -25,6 +25,8 @@ export const useMessageRealtime = (
       channelFilter = `and(receiver_id:is:null,group_id:is:null)`;
     }
 
+    console.log("Setting up realtime subscription with filter:", channelFilter);
+
     const channel = supabase
       .channel('messages-channel')
       .on(
@@ -36,6 +38,7 @@ export const useMessageRealtime = (
           filter: channelFilter
         },
         async (payload) => {
+          console.log("Realtime INSERT event received:", payload);
           const newMessage = payload.new as any;
           
           // Skip messages sent by this user (already in UI)
@@ -100,7 +103,7 @@ export const useMessageRealtime = (
           filter: channelFilter
         },
         async (payload) => {
-          console.log("Message update received:", payload);
+          console.log("Realtime UPDATE event received:", payload);
           const updatedMessage = payload.new as any;
           
           // Handle updates to messages (editing, deletion)
@@ -121,12 +124,13 @@ export const useMessageRealtime = (
                 
                 // If the content was updated, decrypt it
                 if (updatedMessage.encrypted_content && updatedMessage.encryption_key && updatedMessage.iv) {
+                  // Use a promise to update the message content
                   decryptMessage(
                     updatedMessage.encrypted_content,
                     updatedMessage.encryption_key,
                     updatedMessage.iv
                   ).then(content => {
-                    console.log(`Decrypted updated content for ${msg.id}`);
+                    console.log(`Decrypted updated content for ${msg.id}:`, content);
                     setMessages(prev => 
                       prev.map(m => 
                         m.id === updatedMessage.id 
@@ -163,6 +167,8 @@ export const useMessageRealtime = (
         }
       )
       .subscribe();
+
+    console.log("Realtime subscription set up successfully");
 
     // Return cleanup function
     return () => {

@@ -40,11 +40,13 @@ export const useMessageActions = (
     }
     
     try {
+      console.log("Submitting edited message:", editingMessage.id, newMessage);
       await handleEditMessage(editingMessage.id, newMessage);
       toast({
         title: "Melding redigert",
         description: "Meldingen ble oppdatert",
       });
+      setEditingMessage(null);
     } catch (error) {
       console.error("Error editing message:", error);
       toast({
@@ -52,8 +54,6 @@ export const useMessageActions = (
         description: "Kunne ikke redigere meldingen",
         variant: "destructive",
       });
-    } finally {
-      setEditingMessage(null);
     }
   };
 

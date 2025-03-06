@@ -36,13 +36,9 @@ export const useMessageDeleter = (
       }
       
       console.log('Delete message result:', data);
+      return data;
     } catch (error) {
       console.error('Error deleting message:', error);
-      toast({
-        title: "Feil",
-        description: "Kunne ikke slette melding",
-        variant: "destructive",
-      });
       throw error; // Re-throw to handle in the calling function
     } finally {
       setIsLoading(false);

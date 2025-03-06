@@ -13,7 +13,7 @@ interface MessageListProps {
   messages: DecryptedMessage[];
   onMessageExpired?: (messageId: string) => void;
   currentUserId?: string | null;
-  onEditMessage?: (message: { id: string; content: string }) => void;
+  onEditMessage?: (message: DecryptedMessage) => void;
   onDeleteMessage?: (messageId: string) => void;
 }
 
@@ -34,13 +34,13 @@ export const MessageList = ({
   useEffect(() => {
     setMessages(initialMessages);
     
-    // Auto-scroll til bunnen når nye meldinger kommer
+    // Auto-scroll to bottom when new messages come
     if (autoScroll && messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [initialMessages, autoScroll]);
 
-  // Sjekk om brukeren har scrollet opp (deaktiver auto-scroll)
+  // Check if user has scrolled up (disable auto-scroll)
   const handleScroll = () => {
     if (!scrollAreaRef.current) return;
     
@@ -60,7 +60,7 @@ export const MessageList = ({
   const handleEdit = (message: DecryptedMessage) => {
     if (onEditMessage) {
       console.log("Editing message in MessageList:", message.id);
-      onEditMessage({ id: message.id, content: message.content });
+      onEditMessage(message);
     }
   };
 
@@ -69,6 +69,7 @@ export const MessageList = ({
       console.log("Confirming deletion of message:", confirmDelete);
       try {
         await onDeleteMessage(confirmDelete);
+        
         // After successful deletion, update local state to reflect the change immediately
         setMessages(prev => 
           prev.map(msg => 
@@ -77,6 +78,7 @@ export const MessageList = ({
               : msg
           )
         );
+        
         toast({
           title: "Melding slettet",
           description: "Meldingen ble slettet",
@@ -97,17 +99,12 @@ export const MessageList = ({
     return message.sender.id === currentUserId;
   };
 
-  // Funksjon for å gruppere meldinger fra samme avsender
+  // Function to group messages from same sender
   const groupMessages = () => {
     const groups: DecryptedMessage[][] = [];
     let currentGroup: DecryptedMessage[] = [];
 
     messages.forEach((message, index) => {
-      // Skip deleted messages when displaying
-      if (message.is_deleted) {
-        return;
-      }
-      
       if (index === 0 || currentGroup.length === 0) {
         currentGroup.push(message);
       } else {
@@ -115,7 +112,7 @@ export const MessageList = ({
         const timeDiff = new Date(message.created_at).getTime() - new Date(prevMessage.created_at).getTime();
         const sameUser = message.sender.id === prevMessage.sender.id;
         
-        // Gruppér meldinger hvis de er fra samme bruker og ikke mer enn 5 minutter mellom
+        // Group messages if they are from same user and not more than 5 minutes apart
         if (sameUser && timeDiff < 5 * 60 * 1000) {
           currentGroup.push(message);
         } else {
@@ -150,7 +147,7 @@ export const MessageList = ({
       <div className="space-y-2 sm:space-y-4">
         {messageGroups.map((group, groupIndex) => (
           <MessageGroup
-            key={`group-${groupIndex}`}
+            key={`group-${groupIndex}-${group[0].id}`}
             messages={group}
             isCurrentUser={isUserMessage(group[0])}
             onMessageExpired={handleMessageExpired}
@@ -174,7 +171,6 @@ export const MessageList = ({
         )}
       </div>
       
-      {/* Re-enable the delete confirmation dialog */}
       <DeleteMessageDialog
         isOpen={!!confirmDelete}
         onClose={() => setConfirmDelete(null)}

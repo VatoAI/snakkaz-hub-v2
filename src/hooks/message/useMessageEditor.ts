@@ -22,7 +22,7 @@ export const useMessageEditor = (
 
     setIsLoading(true);
     try {
-      console.log(`Attempting to edit message ${messageId} for user ${userId}`);
+      console.log(`Attempting to edit message ${messageId} for user ${userId} with content: ${content}`);
       
       // Ensure necessary columns exist
       await ensureMessageColumnsExist();

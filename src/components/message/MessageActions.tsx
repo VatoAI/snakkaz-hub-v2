@@ -22,39 +22,20 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
     return null;
   }
 
-  // Allow editing and deletion (24-hour auto-delete still applies)
+  // Always allow editing and deletion (24-hour auto-delete still applies)
   const isEditingDisabled = false;
   const isDeletionDisabled = false;
 
-  // Show clock icon with tooltip if both editing and deletion are disabled
-  if (isEditingDisabled && isDeletionDisabled) {
-    return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              className="h-7 w-7 ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-cyberdark-400 hover:text-cyberdark-300"
-            >
-              <Clock className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs text-xs bg-cyberdark-800 border-cybergold-500/30">
-            <p>Meldinger slettes automatisk etter 24 timer.</p>
-            <p>Redigering og sletting er deaktivert.</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }
-
-  const handleEdit = () => {
+  const handleEdit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log("Editing message:", message.id);
     onEdit(message);
   };
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     console.log("Deleting message:", message.id);
     onDelete(message.id);
   };
@@ -74,26 +55,26 @@ export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProp
         <DropdownMenuLabel className="text-xs text-cyberdark-400">
           Meldinger slettes automatisk etter 24 timer
         </DropdownMenuLabel>
-          <>
-            {!isEditingDisabled && (
-              <DropdownMenuItem 
-                className="text-cybergold-300 cursor-pointer flex items-center"
-                onClick={handleEdit}
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                <span>Rediger</span>
-              </DropdownMenuItem>
-            )}
-            {!isDeletionDisabled && (
-              <DropdownMenuItem 
-                className="text-red-400 cursor-pointer flex items-center"
-                onClick={handleDelete}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                <span>Slett</span>
-              </DropdownMenuItem>
-            )}
-          </>
+        <>
+          {!isEditingDisabled && (
+            <DropdownMenuItem 
+              className="text-cybergold-300 cursor-pointer flex items-center"
+              onClick={handleEdit}
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              <span>Rediger</span>
+            </DropdownMenuItem>
+          )}
+          {!isDeletionDisabled && (
+            <DropdownMenuItem 
+              className="text-red-400 cursor-pointer flex items-center"
+              onClick={handleDelete}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              <span>Slett</span>
+            </DropdownMenuItem>
+          )}
+        </>
       </DropdownMenuContent>
     </DropdownMenu>
   );
