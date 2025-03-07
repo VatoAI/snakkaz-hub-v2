@@ -97,21 +97,28 @@ export const DirectMessageList = ({
                     </Tooltip>
                   </TooltipProvider>
                   
-                  {/* Add read receipts */}
-                  {isCurrentUser && isMessageRead && (
+                  {/* Enhanced read receipts */}
+                  {isCurrentUser && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <span className="text-xs ml-1">
-                            {isMessageRead(message.id) ? (
+                            {isMessageRead && isMessageRead(message.id) ? (
                               <CheckCheck className="h-3 w-3 text-cybergold-400" />
-                            ) : (
+                            ) : message.is_delivered ? (
                               <Check className="h-3 w-3 text-cyberdark-400" />
+                            ) : (
+                              <span className="h-3 w-3 flex items-center justify-center">
+                                <svg width="10" height="10" viewBox="0 0 10 10" className="text-cyberdark-400">
+                                  <circle cx="5" cy="5" r="4" stroke="currentColor" strokeWidth="1" fill="none"/>
+                                </svg>
+                              </span>
                             )}
                           </span>
                         </TooltipTrigger>
                         <TooltipContent side="top" align="center" className="text-xs">
-                          {isMessageRead(message.id) ? 'Lest' : 'Levert'}
+                          {isMessageRead && isMessageRead(message.id) ? 'Lest' : 
+                           message.is_delivered ? 'Levert' : 'Sendt'}
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

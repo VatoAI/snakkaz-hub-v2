@@ -1,114 +1,56 @@
 
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
-export const useTypingIndicator = (
-  userId: string | null,
-  receiverId: string | undefined,
-  channelName: string = 'direct_typing'
-) => {
-  const [isTyping, setIsTyping] = useState(false);
+export const useTypingIndicator = (currentUserId: string | null, friendId: string | null) => {
   const [peerIsTyping, setPeerIsTyping] = useState(false);
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-
-  const startTyping = () => {
-    if (!userId || !receiverId) return;
-    
-    // Update local state
-    setIsTyping(true);
-    
-    // Clear existing timeout if any
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-    
-    // Set timeout to stop typing indicator after 2 seconds of inactivity
-    typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
-      
-      // Broadcast stopped typing
-      if (channelRef.current) {
-        channelRef.current.track({
-          user_id: userId,
-          is_typing: false,
-          timestamp: new Date().toISOString()
-        }).catch(error => console.error("Error updating typing status:", error));
-      }
-    }, 2000);
-    
-    // Broadcast typing
-    if (channelRef.current) {
-      channelRef.current.track({
-        user_id: userId,
-        is_typing: true,
-        timestamp: new Date().toISOString()
-      }).catch(error => console.error("Error updating typing status:", error));
-    }
-  };
-
-  // Setup channel for typing indicators
+  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
-    if (!userId || !receiverId) return;
+    if (!currentUserId || !friendId) return;
 
-    const typingChannel = supabase.channel(`${channelName}:${userId}_${receiverId}`);
-    
-    typingChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = typingChannel.presenceState();
-        // Process all users' states
-        for (const userStates of Object.values(state)) {
-          for (const presenceState of userStates as any[]) {
-            if (presenceState.user_id === receiverId) {
-              setPeerIsTyping(presenceState.is_typing || false);
-            }
+    // Subscribe to the typing indicators channel
+    const channel = supabase
+      .channel(`typing:${currentUserId}-${friendId}`)
+      .on('broadcast', { event: 'typing' }, (payload) => {
+        if (payload.payload.senderId === friendId) {
+          setPeerIsTyping(true);
+          
+          // Clear any existing timeout
+          if (typingTimeout.current) {
+            clearTimeout(typingTimeout.current);
           }
-        }
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        // Someone joined or updated their state
-        for (const presence of newPresences) {
-          if (presence.user_id === receiverId) {
-            setPeerIsTyping(presence.is_typing || false);
-          }
-        }
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        // Someone left or stopped typing
-        for (const presence of leftPresences) {
-          if (presence.user_id === receiverId) {
+          
+          // Set timeout to clear typing indicator after 3 seconds
+          typingTimeout.current = setTimeout(() => {
             setPeerIsTyping(false);
-          }
+          }, 3000);
         }
       })
-      .subscribe(async (status) => {
-        if (status !== 'SUBSCRIBED') {
-          console.error("Failed to subscribe to typing channel:", status);
-          return;
-        }
-        
-        // Track initial presence
-        await typingChannel.track({
-          user_id: userId,
-          is_typing: false,
-          timestamp: new Date().toISOString()
-        });
-        
-        channelRef.current = typingChannel;
-      });
+      .subscribe();
     
-    // Cleanup function
     return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+      if (typingTimeout.current) {
+        clearTimeout(typingTimeout.current);
       }
-      
-      supabase.removeChannel(typingChannel);
+      supabase.removeChannel(channel);
     };
-  }, [userId, receiverId, channelName]);
-
+  }, [currentUserId, friendId]);
+  
+  // Function to broadcast typing event to the other user
+  const startTyping = useCallback(() => {
+    if (!currentUserId || !friendId) return;
+    
+    supabase
+      .channel(`typing:${friendId}-${currentUserId}`)
+      .send({
+        type: 'broadcast',
+        event: 'typing',
+        payload: { senderId: currentUserId }
+      });
+  }, [currentUserId, friendId]);
+  
   return {
-    isTyping,
     peerIsTyping,
     startTyping
   };

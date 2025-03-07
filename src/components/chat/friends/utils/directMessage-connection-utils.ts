@@ -1,40 +1,70 @@
 
 import { WebRTCManager } from "@/utils/webrtc";
-import { useToast } from "@/components/ui/use-toast";
+import { useCallback } from "react";
 
 export const useConnectionState = (
-  webRTCManager: WebRTCManager | null, 
+  webRTCManager: WebRTCManager | null,
   friendId: string | undefined,
-  toast: ReturnType<typeof useToast>["toast"]
+  toast: any
 ) => {
-  const updateConnectionStatus = () => {
-    if (!webRTCManager || !friendId) return { connState: 'disconnected', dataState: 'closed' };
-    
+  const updateConnectionStatus = useCallback(() => {
+    if (!webRTCManager || !friendId) {
+      return { connState: 'disconnected', dataState: 'closed' };
+    }
+
     const connState = webRTCManager.getConnectionState(friendId);
     const dataState = webRTCManager.getDataChannelState(friendId);
-    
-    return { connState, dataState };
-  };
 
-  const attemptReconnect = async (usingServerFallback: boolean, setUsingServerFallback: (value: boolean) => void) => {
-    if (!webRTCManager || !friendId) return;
-    
-    setUsingServerFallback(false);
-    
-    toast({
-      title: "Kobler til...",
-      description: "Forsøker å etablere direkte tilkobling.",
-    });
-    
+    return { connState, dataState };
+  }, [webRTCManager, friendId]);
+
+  const attemptReconnect = useCallback(async (
+    usingServerFallback: boolean,
+    setUsingServerFallback: (value: boolean) => void
+  ) => {
+    if (!webRTCManager || !friendId) return false;
+
     try {
+      console.log(`Attempting to reconnect to ${friendId}`);
+      
+      // If we're already using server fallback, don't attempt to reconnect via WebRTC again
+      if (usingServerFallback) {
+        return false;
+      }
+      
       await webRTCManager.attemptReconnect(friendId);
-      return true;
+      
+      // Check if connection was successful
+      const connState = webRTCManager.getConnectionState(friendId);
+      const dataState = webRTCManager.getDataChannelState(friendId);
+      
+      if (connState === 'connected' && dataState === 'open') {
+        toast({
+          title: "Tilkoblet",
+          description: "Direkte tilkobling gjenopprettet",
+        });
+        return true;
+      } else {
+        console.log(`Reconnection attempt failed, falling back to server: ${connState}, ${dataState}`);
+        // Fall back to server
+        setUsingServerFallback(true);
+        toast({
+          title: "Server modus",
+          description: "Bruker nå kryptert servermodus for meldinger",
+        });
+        return false;
+      }
     } catch (error) {
-      console.error('Error reconnecting:', error);
+      console.error(`Reconnection error:`, error);
+      // Fall back to server
       setUsingServerFallback(true);
+      toast({
+        title: "Server modus",
+        description: "Bruker nå kryptert servermodus for meldinger",
+      });
       return false;
     }
-  };
+  }, [webRTCManager, friendId, toast]);
 
   return {
     updateConnectionStatus,
@@ -46,22 +76,24 @@ export const setupConnectionTimeout = (
   webRTCManager: WebRTCManager | null,
   friendId: string | undefined,
   setUsingServerFallback: (value: boolean) => void,
-  toast: ReturnType<typeof useToast>["toast"],
-  timeoutMs: number = 10000
+  toast: any,
+  timeout: number = 3000 // Reduced from 5000ms to 3000ms
 ) => {
-  if (!webRTCManager || !friendId) return null;
-  
   return setTimeout(() => {
+    if (!webRTCManager || !friendId) return;
+    
     const connState = webRTCManager.getConnectionState(friendId);
     const dataState = webRTCManager.getDataChannelState(friendId);
     
+    // If still not connected after timeout, fall back to server mode
     if (connState !== 'connected' || dataState !== 'open') {
+      console.log(`Connection timed out after ${timeout}ms, falling back to server`);
       setUsingServerFallback(true);
       toast({
-        title: "Direkte tilkobling mislyktes",
-        description: "Meldinger sendes via server med ende-til-ende-kryptering.",
+        title: "Server modus",
+        description: "Bruker nå kryptert servermodus for meldinger",
         variant: "default",
       });
     }
-  }, timeoutMs);
+  }, timeout);
 };

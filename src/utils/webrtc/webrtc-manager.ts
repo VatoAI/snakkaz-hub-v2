@@ -22,7 +22,7 @@ export class WebRTCManager implements IWebRTCManager {
     private userId: string,
     options: WebRTCOptions = {}
   ) {
-    const { maxReconnectAttempts = 3 } = options;
+    const { maxReconnectAttempts = 5 } = options; // Increased from 3 to 5
     
     this.peerManager = new PeerManager(userId);
     this.connectionManager = new ConnectionManager(this.peerManager, this.secureConnections, this.localKeyPair);
@@ -116,10 +116,10 @@ export class WebRTCManager implements IWebRTCManager {
           try {
             await this.connectToPeer(peerId, this.localKeyPair.publicKey);
             
-            // Wait for connection to establish
+            // Wait for connection to establish with shorter timeouts
             let connectionEstablished = false;
             let attempts = 0;
-            const maxAttempts = 5;
+            const maxAttempts = 3; // Reduced from 5 to 3
             
             while (!connectionEstablished && attempts < maxAttempts) {
               if (this.connectionStateManager.isPeerReady(peerId)) {
@@ -127,8 +127,8 @@ export class WebRTCManager implements IWebRTCManager {
                 break;
               }
               
-              // Wait with exponential backoff
-              const waitTime = Math.min(1000 * Math.pow(2, attempts), 8000);
+              // Use shorter wait times for faster connection
+              const waitTime = Math.min(500 * Math.pow(1.5, attempts), 2000); // Reduced from 1000ms to 500ms base
               await new Promise(resolve => setTimeout(resolve, waitTime));
               attempts++;
             }

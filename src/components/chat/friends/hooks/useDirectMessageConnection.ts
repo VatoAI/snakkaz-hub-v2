@@ -30,7 +30,7 @@ export const useDirectMessageConnection = (
     setConnectionState(connState);
     setDataChannelState(dataState);
     
-    // Set up interval to check connection status
+    // Set up interval to check connection status - check more frequently
     statusCheckInterval.current = setInterval(() => {
       const { connState, dataState } = updateConnectionStatus();
       setConnectionState(connState);
@@ -43,14 +43,15 @@ export const useDirectMessageConnection = (
           connectionTimeout.current = null;
         }
       }
-    }, 2000);
+    }, 1000); // Reduced from 2000ms to 1000ms for more frequent checks
 
-    // Set up connection timeout
+    // Set up connection timeout - make it shorter
     connectionTimeout.current = setupConnectionTimeout(
       webRTCManager, 
       friendId, 
       setUsingServerFallback, 
-      toast
+      toast,
+      3000 // Reduced from default (typically 5000ms) to 3000ms
     );
 
     return () => {
@@ -66,8 +67,9 @@ export const useDirectMessageConnection = (
   const handleReconnect = async () => {
     if (!webRTCManager || !friendId) return;
     
-    // Fix: Change from using a function to directly setting the new value
+    // Fix the error by directly setting the value instead of using a function
     setConnectionAttempts(connectionAttempts + 1);
+    
     const success = await attemptReconnect(usingServerFallback, setUsingServerFallback);
     
     if (success && connectionTimeout.current) {
@@ -77,7 +79,7 @@ export const useDirectMessageConnection = (
         friendId, 
         setUsingServerFallback, 
         toast, 
-        5000
+        3000 // Reduced from 5000ms to 3000ms
       );
     }
   };

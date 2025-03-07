@@ -1,162 +1,106 @@
 
-import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { DecryptedMessage } from "@/types/message";
-
-type ReadReceipt = {
-  message_id: string;
-  read_at: string;
-  user_id: string;
-};
+import { useCallback, useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { DecryptedMessage } from '@/types/message';
 
 export const useReadReceipts = (
-  userId: string | null,
-  receiverId: string | undefined,
-  messages: DecryptedMessage[],
-  channelName: string = 'direct_read_receipts'
+  currentUserId: string | null, 
+  friendId: string | null,
+  messages: DecryptedMessage[] = []
 ) => {
-  const [readMessages, setReadMessages] = useState<Map<string, ReadReceipt>>(new Map());
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const unreadMessageIds = useRef<Set<string>>(new Set());
+  const [readMessages, setReadMessages] = useState<Set<string>>(new Set());
 
-  // Mark messages from the other user as read
-  const markMessagesAsRead = async () => {
-    if (!userId || !receiverId || messages.length === 0) return;
+  // Mark messages as read on initial load and when new messages arrive
+  useEffect(() => {
+    if (!currentUserId || !friendId) return;
     
-    // Get messages from the other user that we've received
-    const otherUserMessageIds = messages
-      .filter(msg => msg.sender.id === receiverId && !readMessages.has(msg.id))
+    const friendMessages = messages.filter(msg => 
+      msg.sender.id === friendId && msg.receiver_id === currentUserId
+    );
+    
+    if (friendMessages.length === 0) return;
+    
+    // Get message IDs that need to be marked as read
+    const unreadMessageIds = friendMessages
+      .filter(msg => !msg.read_at)
       .map(msg => msg.id);
     
-    if (otherUserMessageIds.length === 0) return;
+    // Mark messages as read in the database
+    const markMessagesAsRead = async () => {
+      if (unreadMessageIds.length === 0) return;
+      
+      for (const messageId of unreadMessageIds) {
+        try {
+          // Use the database function to mark as read
+          await supabase.rpc('mark_message_as_read', { message_id: messageId });
+          
+          // Update local state
+          setReadMessages(prev => new Set([...prev, messageId]));
+        } catch (error) {
+          console.error('Error marking message as read:', error);
+        }
+      }
+    };
     
-    // Create read receipts for these messages
-    const now = new Date().toISOString();
-    const receipts = otherUserMessageIds.map(msgId => ({
-      message_id: msgId,
-      read_at: now,
-      user_id: userId
-    }));
+    markMessagesAsRead();
     
-    // Add to local state
-    const updatedReadMessages = new Map(readMessages);
-    receipts.forEach(receipt => {
-      updatedReadMessages.set(receipt.message_id, receipt);
-    });
-    setReadMessages(updatedReadMessages);
-    
-    // Broadcast that we've read these messages
-    if (channelRef.current) {
-      channelRef.current.track({
-        user_id: userId,
-        receipts: receipts,
-        timestamp: now
-      }).catch(error => console.error("Error updating read receipts:", error));
-    }
-  };
-
-  // Set up presence channel for read receipts
-  useEffect(() => {
-    if (!userId || !receiverId) return;
-
-    const readReceiptsChannel = supabase.channel(`${channelName}:${userId}_${receiverId}`);
-    
-    readReceiptsChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = readReceiptsChannel.presenceState();
-        processReadReceipts(state);
-      })
-      .on('presence', { event: 'join' }, ({ newPresences }) => {
-        for (const presence of newPresences) {
-          if (presence.user_id === receiverId && presence.receipts) {
-            processUserReceipts(presence.receipts);
+    // Set up realtime subscription for read status changes
+    const channel = supabase
+      .channel('read-receipts')
+      .on('postgres_changes', 
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `receiver_id=eq.${currentUserId}`
+        }, 
+        (payload) => {
+          const { new: newRecord } = payload;
+          if (newRecord && newRecord.read_at) {
+            setReadMessages(prev => new Set([...prev, newRecord.id]));
           }
         }
-      })
-      .subscribe(async (status) => {
-        if (status !== 'SUBSCRIBED') {
-          console.error("Failed to subscribe to read receipts channel:", status);
-          return;
-        }
-        
-        // Track initial presence (empty receipts)
-        await readReceiptsChannel.track({
-          user_id: userId,
-          receipts: [],
-          timestamp: new Date().toISOString()
-        });
-        
-        channelRef.current = readReceiptsChannel;
-        
-        // Mark any existing messages as read
-        markMessagesAsRead();
-      });
+      )
+      .subscribe();
     
-    // Cleanup function
     return () => {
-      supabase.removeChannel(readReceiptsChannel);
+      supabase.removeChannel(channel);
     };
-  }, [userId, receiverId, channelName]);
+  }, [currentUserId, friendId, messages]);
 
-  // Process receipts when messages change
-  useEffect(() => {
-    // Check if there are new messages to mark as read
-    const hasNewUnreadMessages = messages.some(msg => {
-      return msg.sender.id === receiverId && !readMessages.has(msg.id) && !unreadMessageIds.current.has(msg.id);
-    });
-    
-    if (hasNewUnreadMessages) {
-      // Update the set of unread messages
-      messages.forEach(msg => {
-        if (msg.sender.id === receiverId && !readMessages.has(msg.id)) {
-          unreadMessageIds.current.add(msg.id);
-        }
-      });
-      
-      // Mark messages as read
-      markMessagesAsRead();
-    }
-  }, [messages, receiverId, readMessages]);
-
-  // Helper function to process read receipts from presence state
-  const processReadReceipts = (state: Record<string, unknown>) => {
-    const updatedReadMessages = new Map(readMessages);
-    
-    for (const userStates of Object.values(state)) {
-      for (const presenceState of userStates as any[]) {
-        if (presenceState.user_id === receiverId && presenceState.receipts) {
-          processUserReceipts(presenceState.receipts, updatedReadMessages);
-        }
-      }
+  // Function to check if a message is read
+  const isMessageRead = useCallback((messageId: string) => {
+    // Check our local state first
+    if (readMessages.has(messageId)) {
+      return true;
     }
     
-    setReadMessages(updatedReadMessages);
-  };
+    // Then check the message object in the array
+    const message = messages.find(msg => msg.id === messageId);
+    return message?.read_at !== null && message?.read_at !== undefined;
+  }, [messages, readMessages]);
 
-  // Helper function to process receipts from a single user
-  const processUserReceipts = (receipts: ReadReceipt[], stateMap: Map<string, ReadReceipt> = readMessages) => {
-    if (!Array.isArray(receipts)) return;
+  // Function to manually mark messages as read
+  const markMessagesAsRead = useCallback(async () => {
+    if (!currentUserId || !friendId) return;
     
-    const updatedMap = new Map(stateMap);
+    const unreadFriendMessages = messages.filter(msg => 
+      msg.sender.id === friendId && 
+      msg.receiver_id === currentUserId && 
+      !msg.read_at
+    );
     
-    receipts.forEach(receipt => {
-      // Only store receipts for messages sent by current user
-      const message = messages.find(msg => msg.id === receipt.message_id);
-      if (message && message.sender.id === userId) {
-        updatedMap.set(receipt.message_id, receipt);
+    for (const message of unreadFriendMessages) {
+      try {
+        await supabase.rpc('mark_message_as_read', { message_id: message.id });
+        setReadMessages(prev => new Set([...prev, message.id]));
+      } catch (error) {
+        console.error('Error marking message as read:', error);
       }
-    });
-    
-    setReadMessages(updatedMap);
-  };
-
-  // Check if a message has been read
-  const isMessageRead = (messageId: string): boolean => {
-    return readMessages.has(messageId);
-  };
+    }
+  }, [currentUserId, friendId, messages]);
 
   return {
-    readMessages,
     isMessageRead,
     markMessagesAsRead
   };

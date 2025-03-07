@@ -1,5 +1,5 @@
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { Friend } from "../types";
 import { WebRTCManager } from "@/utils/webrtc";
 import { DecryptedMessage } from "@/types/message";
@@ -60,9 +60,9 @@ export const useDirectMessage = (
   const { isMessageRead, markMessagesAsRead } = useReadReceipts(currentUserId, friendId, messages);
 
   // Mark messages as read when component mounts or messages change
-  useRef(() => {
+  useEffect(() => {
     markMessagesAsRead();
-  });
+  }, [markMessagesAsRead, messages]);
 
   // Message sending functionality
   const { 

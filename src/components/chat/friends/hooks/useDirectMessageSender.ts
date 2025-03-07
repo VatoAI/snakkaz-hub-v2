@@ -37,9 +37,9 @@ export const useDirectMessageSender = (
         await webRTCManager.sendDirectMessage(friendId, message);
         return true;
       } else {
-        // Faster reconnection attempt - reduced wait time
+        // Faster reconnection attempt with shorter timeout
         await webRTCManager.attemptReconnect(friendId);
-        await new Promise(resolve => setTimeout(resolve, 500)); // Reduced from 1000ms
+        await new Promise(resolve => setTimeout(resolve, 300)); // Reduced from 500ms
         
         const newConnState = webRTCManager.getConnectionState(friendId);
         const newDataState = webRTCManager.getDataChannelState(friendId);
@@ -71,8 +71,8 @@ export const useDirectMessageSender = (
           encryption_key: key,
           iv: iv,
           is_encrypted: true,
-          read_at: null, // Add tracking for read status
-          is_delivered: false // Track delivery status
+          read_at: null,
+          is_delivered: false
         });
       
       if (error) {
@@ -110,15 +110,26 @@ export const useDirectMessageSender = (
         created_at: timestamp,
         encryption_key: '',
         iv: '',
-        is_encrypted: true
+        is_encrypted: true,
+        is_delivered: false,
+        read_at: null
       };
       
+      // First try P2P if not in server fallback mode already
       if (webRTCManager && !usingServerFallback) {
         messageDelivered = await sendMessageViaP2P(message);
       }
       
+      // Fall back to server delivery if P2P fails or we're already in fallback mode
       if (!messageDelivered) {
         messageDelivered = await sendMessageViaServer(message);
+        // If we weren't in fallback mode but had to fall back, set the flag
+        if (!usingServerFallback && messageDelivered) {
+          toast({
+            title: "Server modus",
+            description: "Bruker kryptert servermodus for denne meldingen",
+          });
+        }
       }
       
       if (messageDelivered) {

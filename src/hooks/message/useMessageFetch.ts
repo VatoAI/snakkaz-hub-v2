@@ -22,7 +22,7 @@ export const useMessageFetch = (
       try {
         await supabase.rpc('check_and_add_columns', { 
           p_table_name: 'messages', 
-          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id'] as any
+          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id', 'read_at', 'is_delivered'] as any
         });
       } catch (error) {
         console.log('Error checking columns, continuing anyway:', error);
@@ -46,6 +46,8 @@ export const useMessageFetch = (
           is_deleted,
           deleted_at,
           group_id,
+          read_at,
+          is_delivered,
           sender:sender_id (
             id,
             username,
@@ -110,7 +112,9 @@ export const useMessageFetch = (
               is_deleted: message.is_deleted || false,
               deleted_at: message.deleted_at || null,
               receiver_id: message.receiver_id,
-              group_id: message.group_id
+              group_id: message.group_id,
+              read_at: message.read_at,
+              is_delivered: message.is_delivered || false
             };
           } catch (decryptError) {
             console.error("Error decrypting message:", decryptError);
