@@ -85,7 +85,9 @@ export const useMessageRealtime = (
               is_deleted: newMessage.is_deleted || false,
               deleted_at: newMessage.deleted_at || null,
               receiver_id: newMessage.receiver_id,
-              group_id: newMessage.group_id || null
+              group_id: newMessage.group_id || null,
+              read_at: newMessage.read_at,
+              is_delivered: newMessage.is_delivered || false
             };
 
             setMessages(prevMessages => [...prevMessages, decryptedMessage]);
@@ -140,7 +142,9 @@ export const useMessageRealtime = (
                               is_edited: updatedMessage.is_edited || false,
                               edited_at: updatedMessage.edited_at || null,
                               is_deleted: updatedMessage.is_deleted || false,
-                              deleted_at: updatedMessage.deleted_at || null
+                              deleted_at: updatedMessage.deleted_at || null,
+                              read_at: updatedMessage.read_at,
+                              is_delivered: updatedMessage.is_delivered || false
                             } 
                           : m
                       )
@@ -151,13 +155,15 @@ export const useMessageRealtime = (
                   // Return as is for now, will be updated in the next render
                   return msg;
                 } else {
-                  // If only metadata was updated (e.g., is_deleted flag)
+                  // If only metadata was updated (e.g., is_deleted flag, read status)
                   return { 
                     ...msg, 
                     is_edited: updatedMessage.is_edited || msg.is_edited,
                     edited_at: updatedMessage.edited_at || msg.edited_at,
                     is_deleted: updatedMessage.is_deleted || msg.is_deleted,
-                    deleted_at: updatedMessage.deleted_at || msg.deleted_at
+                    deleted_at: updatedMessage.deleted_at || msg.deleted_at,
+                    read_at: updatedMessage.read_at || msg.read_at,
+                    is_delivered: updatedMessage.is_delivered || msg.is_delivered
                   };
                 }
               }

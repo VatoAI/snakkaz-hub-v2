@@ -21,4 +21,7 @@ export interface DecryptedMessage {
   is_deleted?: boolean;
   deleted_at?: string | null;
   group_id?: boolean | null;
+  // Add the new properties for read receipts
+  read_at?: string | null;
+  is_delivered?: boolean | null;
 }

@@ -1,46 +1,42 @@
 
-import { useState } from "react";
-import { DecryptedMessage } from "@/types/message";
+import { useState, useRef, useCallback } from "react";
 
-export const useDirectMessageState = (
-  currentUserId: string,
-  friendId: string
-) => {
+export const useDirectMessageState = (currentUserId: string, friendId: string | undefined) => {
   const [newMessage, setNewMessage] = useState("");
-  const [connectionState, setConnectionState] = useState<string>("connecting");
-  const [dataChannelState, setDataChannelState] = useState<string>("connecting");
+  const [connectionState, setConnectionState] = useState("disconnected");
+  const [dataChannelState, setDataChannelState] = useState("closed");
   const [usingServerFallback, setUsingServerFallback] = useState(false);
   const [connectionAttempts, setConnectionAttempts] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
-
-  // Start editing a message
-  const handleStartEditMessage = (message: DecryptedMessage) => {
-    console.log("Starting to edit message:", message.id);
+  
+  // Handler for starting to edit a message
+  const handleStartEditMessage = (message: any) => {
     setEditingMessage({
       id: message.id,
       content: message.content
     });
-    setNewMessage(message.content);
+    return message.content;
   };
   
-  // Cancel editing
+  // Handler for canceling message editing
   const handleCancelEditMessage = () => {
     setEditingMessage(null);
-    setNewMessage("");
   };
-
-  // Handle input changes, includes typing indicator triggering
-  const handleInputChange = (text: string, startTyping?: () => void) => {
+  
+  // Modified setNewMessage to include typing indicator trigger
+  const setNewMessageWithTyping = useCallback((text: string, startTyping?: () => void) => {
     setNewMessage(text);
-    if (startTyping) {
+    
+    // If the typing function is provided, and the text is not empty, trigger typing
+    if (startTyping && text.trim().length > 0) {
       startTyping();
     }
-  };
-
+  }, []);
+  
   return {
     newMessage,
-    setNewMessage: handleInputChange,
+    setNewMessage: setNewMessageWithTyping,
     connectionState,
     setConnectionState,
     dataChannelState,
@@ -49,11 +45,10 @@ export const useDirectMessageState = (
     setUsingServerFallback,
     connectionAttempts,
     setConnectionAttempts,
-    isLoading,
+    isLoading, 
     setIsLoading,
     editingMessage,
-    setEditingMessage,
     handleStartEditMessage,
-    handleCancelEditMessage,
+    handleCancelEditMessage
   };
 };
