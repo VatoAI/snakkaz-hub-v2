@@ -27,16 +27,23 @@ export const useDirectMessageSender = (
   };
 
   const sendMessageViaP2P = async (message: string): Promise<boolean> => {
-    if (!webRTCManager || !friendId) return false;
+    if (!webRTCManager || !friendId) {
+      console.log('P2P message failed: Missing webRTCManager or friendId', { webRTCManager: !!webRTCManager, friendId });
+      return false;
+    }
     
     try {
       const connState = webRTCManager.getConnectionState(friendId);
       const dataState = webRTCManager.getDataChannelState(friendId);
       
+      console.log('P2P connection state:', { connState, dataState, friendId });
+      
       if (connState === 'connected' && dataState === 'open') {
         await webRTCManager.sendDirectMessage(friendId, message);
+        console.log('P2P message sent successfully');
         return true;
       } else {
+        console.log('Attempting reconnection before sending...');
         // Faster reconnection attempt with shorter timeout
         await webRTCManager.attemptReconnect(friendId);
         await new Promise(resolve => setTimeout(resolve, 300)); // Reduced from 500ms
@@ -44,8 +51,11 @@ export const useDirectMessageSender = (
         const newConnState = webRTCManager.getConnectionState(friendId);
         const newDataState = webRTCManager.getDataChannelState(friendId);
         
+        console.log('P2P connection state after reconnection:', { newConnState, newDataState });
+        
         if (newConnState === 'connected' && newDataState === 'open') {
           await webRTCManager.sendDirectMessage(friendId, message);
+          console.log('P2P message sent after reconnection');
           return true;
         }
       }
@@ -53,16 +63,22 @@ export const useDirectMessageSender = (
       console.error('Error sending P2P message:', error);
     }
     
+    console.log('P2P message sending failed, will try server fallback');
     return false;
   };
 
   const sendMessageViaServer = async (message: string): Promise<boolean> => {
-    if (!currentUserId || !friendId) return false;
+    if (!currentUserId || !friendId) {
+      console.log('Server message failed: Missing currentUserId or friendId', { currentUserId, friendId });
+      return false;
+    }
     
     try {
+      console.log('Encrypting message for server delivery...');
       const { encryptedContent, key, iv } = await encryptMessage(message.trim());
       
-      const { error } = await supabase
+      console.log('Sending message via server...');
+      const { error, data } = await supabase
         .from('messages')
         .insert({
           sender_id: currentUserId,
@@ -72,14 +88,16 @@ export const useDirectMessageSender = (
           iv: iv,
           is_encrypted: true,
           read_at: null,
-          is_delivered: false
-        });
+          is_deleted: false,  // Using is_deleted instead of is_delivered
+        })
+        .select();
       
       if (error) {
+        console.error('Error from server when sending message:', error);
         throw error;
       }
       
-      console.log('Message sent via server with end-to-end encryption');
+      console.log('Message sent via server with end-to-end encryption', data);
       return true;
     } catch (error) {
       console.error('Server fallback failed:', error);
@@ -89,8 +107,16 @@ export const useDirectMessageSender = (
 
   const handleSendMessage = async (e: React.FormEvent, message: string) => {
     e.preventDefault();
-    if (!message.trim() || !friendId || !currentUserId) return false;
+    if (!message.trim() || !friendId || !currentUserId) {
+      console.log('Message sending aborted: empty message or missing IDs', { 
+        messageEmpty: !message.trim(), 
+        friendId, 
+        currentUserId 
+      });
+      return false;
+    }
     
+    console.log('Starting message send process...');
     setIsLoading(true);
     clearSendError();
     
@@ -111,20 +137,23 @@ export const useDirectMessageSender = (
         encryption_key: '',
         iv: '',
         is_encrypted: true,
-        is_delivered: false,
-        read_at: null
+        is_deleted: false,  // Using is_deleted instead of is_delivered
+        deleted_at: null
       };
       
       // First try P2P if not in server fallback mode already
       if (webRTCManager && !usingServerFallback) {
+        console.log('Attempting P2P message delivery...');
         messageDelivered = await sendMessageViaP2P(message);
       }
       
       // Fall back to server delivery if P2P fails or we're already in fallback mode
       if (!messageDelivered) {
+        console.log('Attempting server message delivery...');
         messageDelivered = await sendMessageViaServer(message);
         // If we weren't in fallback mode but had to fall back, set the flag
         if (!usingServerFallback && messageDelivered) {
+          console.log('Switched to server fallback mode');
           toast({
             title: "Server modus",
             description: "Bruker kryptert servermodus for denne meldingen",
@@ -133,6 +162,7 @@ export const useDirectMessageSender = (
       }
       
       if (messageDelivered) {
+        console.log('Message delivered successfully, updating UI');
         onNewMessage(localMessage);
         return true;
       } else {

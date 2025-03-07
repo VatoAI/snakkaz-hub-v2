@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Lock, Shield, Clock } from "lucide-react";
+import { Send, Lock, Shield } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EditingMessage } from "@/components/message-input/EditingMessage";
@@ -43,13 +43,7 @@ export const DirectMessageForm = ({
 
   return (
     <div className="p-3 border-t border-cybergold-500/30 bg-cyberdark-900">
-      {/* Timer notification - moved to a separate component and made smaller */}
-      <Alert className="mb-2 py-1 px-2 bg-cyberdark-800/50 border-cybergold-400/30">
-        <AlertDescription className="text-xs text-cybergold-300 flex items-center">
-          <Clock className="h-3 w-3 mr-1" /> 
-          Alle meldinger slettes automatisk etter 24 timer
-        </AlertDescription>
-      </Alert>
+      {/* Removed timer notification - it's already shown in MessageListHeader */}
       
       {/* Show editing message component if we're editing */}
       {editingMessage && onCancelEdit && (

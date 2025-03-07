@@ -27,7 +27,6 @@ export const TTLSelector = ({ ttl, setTtl, isLoading, isRecording }: TTLSelector
               disabled={isLoading || isRecording}
             >
               <Clock className="w-4 h-4" />
-              <span className="sr-only">24-timers melding</span>
             </Button>
           </div>
         </TooltipTrigger>

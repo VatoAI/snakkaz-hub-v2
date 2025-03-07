@@ -1,4 +1,3 @@
-
 import { useRef, FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { useMessageInputState } from "./message-input/useMessageInputState";
@@ -7,8 +6,6 @@ import { AudioRecorder } from "./message-input/AudioRecorder";
 import { TTLSelector } from "./message-input/TTLSelector";
 import { EditingMessage } from "./message-input/EditingMessage";
 import { SubmitButton } from "./message-input/SubmitButton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock } from "lucide-react";
 
 interface MessageInputProps {
   newMessage: string;
@@ -78,13 +75,6 @@ export const MessageInput = ({
       )}
 
       <div className="flex-1 flex flex-col sm:flex-row gap-2 w-full">
-        <Alert className="bg-cyberdark-800/50 border-cybergold-400/30 mb-2 p-2">
-          <AlertDescription className="text-xs text-cybergold-300 flex items-center">
-            <Clock className="h-3 w-3 mr-1" /> 
-            Alle meldinger slettes automatisk etter 24 timer
-          </AlertDescription>
-        </Alert>
-        
         <div className="flex flex-1 gap-2">
           <FileInputs 
             selectedFile={selectedFile}
