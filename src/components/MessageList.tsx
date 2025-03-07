@@ -2,12 +2,12 @@
 import { DecryptedMessage } from "@/types/message";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useState, useEffect, useRef } from "react";
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { MessageGroup } from "./message/MessageGroup";
 import { DeleteMessageDialog } from "./message/DeleteMessageDialog";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock } from "lucide-react";
+import { MessageGroups } from "./message/MessageGroups";
+import { MessageListHeader } from "./message/MessageListHeader";
+import { ScrollToBottomButton } from "./message/ScrollToBottomButton";
+import { groupMessages } from "@/utils/message-grouping";
 
 interface MessageListProps {
   messages: DecryptedMessage[];
@@ -99,37 +99,12 @@ export const MessageList = ({
     return message.sender.id === currentUserId;
   };
 
-  // Function to group messages from same sender
-  const groupMessages = () => {
-    const groups: DecryptedMessage[][] = [];
-    let currentGroup: DecryptedMessage[] = [];
-
-    messages.forEach((message, index) => {
-      if (index === 0 || currentGroup.length === 0) {
-        currentGroup.push(message);
-      } else {
-        const prevMessage = currentGroup[currentGroup.length - 1];
-        const timeDiff = new Date(message.created_at).getTime() - new Date(prevMessage.created_at).getTime();
-        const sameUser = message.sender.id === prevMessage.sender.id;
-        
-        // Group messages if they are from same user and not more than 5 minutes apart
-        if (sameUser && timeDiff < 5 * 60 * 1000) {
-          currentGroup.push(message);
-        } else {
-          groups.push([...currentGroup]);
-          currentGroup = [message];
-        }
-      }
-    });
-
-    if (currentGroup.length > 0) {
-      groups.push(currentGroup);
-    }
-
-    return groups;
+  const handleScrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setAutoScroll(true);
   };
 
-  const messageGroups = groupMessages();
+  const messageGroups = groupMessages(messages);
 
   return (
     <ScrollArea 
@@ -137,39 +112,21 @@ export const MessageList = ({
       onScrollCapture={handleScroll}
       ref={scrollAreaRef}
     >
-      <Alert className="mb-4 bg-cyberdark-800/50 border-cybergold-500/30">
-        <AlertDescription className="text-xs text-cybergold-300 flex items-center">
-          <Clock className="h-3 w-3 mr-1" /> 
-          Alle meldinger slettes automatisk etter 24 timer.
-        </AlertDescription>
-      </Alert>
+      <MessageListHeader />
       
-      <div className="space-y-2 sm:space-y-4">
-        {messageGroups.map((group, groupIndex) => (
-          <MessageGroup
-            key={`group-${groupIndex}-${group[0].id}`}
-            messages={group}
-            isCurrentUser={isUserMessage(group[0])}
-            onMessageExpired={handleMessageExpired}
-            onEdit={handleEdit}
-            onDelete={(messageId) => setConfirmDelete(messageId)}
-          />
-        ))}
-        <div ref={messagesEndRef} />
-        
-        {!autoScroll && (
-          <Button
-            className="fixed bottom-20 right-8 bg-cybergold-500 text-black shadow-lg rounded-full p-2 z-10"
-            size="sm"
-            onClick={() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-              setAutoScroll(true);
-            }}
-          >
-            Scroll ned
-          </Button>
-        )}
-      </div>
+      <MessageGroups 
+        messageGroups={messageGroups}
+        isUserMessage={isUserMessage}
+        onMessageExpired={handleMessageExpired}
+        onEdit={handleEdit}
+        onDelete={setConfirmDelete}
+        messagesEndRef={messagesEndRef}
+      />
+      
+      <ScrollToBottomButton 
+        show={!autoScroll}
+        onClick={handleScrollToBottom}
+      />
       
       <DeleteMessageDialog
         isOpen={!!confirmDelete}
