@@ -38,5 +38,18 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Funksjon for å markere en melding som lest
+CREATE OR REPLACE FUNCTION mark_message_as_read(message_id uuid)
+RETURNS void AS $$
+BEGIN
+    UPDATE messages
+    SET 
+        read_at = now(),
+        is_delivered = true
+    WHERE 
+        id = message_id;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Kjør check_and_add_columns for å sikre at vi har alle nødvendige kolonner
-SELECT check_and_add_columns('messages', ARRAY['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id']);
+SELECT check_and_add_columns('messages', ARRAY['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id', 'read_at', 'is_delivered']);
