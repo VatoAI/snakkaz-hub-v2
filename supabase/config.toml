@@ -8,11 +8,7 @@ schemas = ["public", "storage", "graphql_public"]
 
 [db]
 port = 54322
-
-# Fix the migration configuration format
-[db.migration]
-# Use string path rather than nested directory structure 
-path = "migrations"
+migrations_dir = "migrations"
 
 [studio]
 enabled = true

@@ -27,8 +27,8 @@ const Chat = () => {
   const { userProfiles } = useUserProfiles();
   const { addP2PMessage } = useMessageP2P(setDirectMessages);
   
-  const { webRTCManager, setupPresenceChannel, initializeWebRTC } = useWebRTC(userId, (message: string, peerId: string) => {
-    addP2PMessage(message, peerId);
+  const { webRTCManager, setupPresenceChannel, initializeWebRTC } = useWebRTC(userId, () => {
+    addP2PMessage();
   });
 
   const { friends, friendsList, handleSendFriendRequest, handleStartChat } = useFriends(
