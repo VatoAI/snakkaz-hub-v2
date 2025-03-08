@@ -1,3 +1,4 @@
+
 import { useRef, FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { useMessageInputState } from "./message-input/useMessageInputState";
@@ -97,13 +98,6 @@ export const MessageInput = ({
               isRecording={isRecording}
               setIsRecording={setIsRecording}
               setSelectedFile={setSelectedFile}
-            />
-            
-            <TTLSelector
-              ttl={defaultTtl}
-              setTtl={setTtl}
-              isLoading={isLoading}
-              isRecording={isRecording}
             />
           </div>
         </div>
