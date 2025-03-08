@@ -64,15 +64,13 @@ export const useDirectMessage = (
     markMessagesAsRead();
   }, [markMessagesAsRead, messages]);
 
-  // Message sending functionality
+  // Message sending functionality - fix by removing unnecessary arguments
   const { 
     sendError, 
     handleSendMessage: handleSendDirectMessage
   } = useDirectMessageSender(
     currentUserId, 
     friendId, 
-    webRTCManager, 
-    usingServerFallback, 
     onNewMessage
   );
 

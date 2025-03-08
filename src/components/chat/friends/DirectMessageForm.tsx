@@ -14,6 +14,10 @@ interface DirectMessageFormProps {
   onChangeMessage: (message: string) => void;
   editingMessage?: { id: string; content: string } | null;
   onCancelEdit?: () => void;
+  // Add the missing properties from the error message
+  connectionState?: string;
+  dataChannelState?: string;
+  usingServerFallback?: boolean;
 }
 
 export const DirectMessageForm = ({
@@ -23,7 +27,11 @@ export const DirectMessageForm = ({
   newMessage,
   onChangeMessage,
   editingMessage,
-  onCancelEdit
+  onCancelEdit,
+  // Include the new props in the destructuring
+  connectionState,
+  dataChannelState,
+  usingServerFallback
 }: DirectMessageFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

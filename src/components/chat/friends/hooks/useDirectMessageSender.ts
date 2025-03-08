@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 export const useDirectMessageSender = (
   currentUserId: string,
   friendId: string | undefined,
+  // Remove webRTCManager and usingServerFallback parameters
   onNewMessage: (message: DecryptedMessage) => void
 ) => {
   const [isLoading, setIsLoading] = useState(false);
