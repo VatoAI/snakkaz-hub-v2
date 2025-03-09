@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import { useWebRTC } from '@/hooks/useWebRTC';
@@ -77,8 +76,9 @@ const Chat = () => {
       if (userId) {
         // Use a synchronous approach for the unload event
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', `${supabase.supabaseUrl}/rest/v1/user_presence?user_id=eq.${userId}`, false);
-        xhr.setRequestHeader('apikey', supabase.supabaseKey);
+        // Using REST endpoint instead of direct client properties
+        xhr.open('POST', `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_id=eq.${userId}`, false);
+        xhr.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_API_KEY);
         xhr.setRequestHeader('Content-Type', 'application/json');
         xhr.send(JSON.stringify({ method: 'DELETE' }));
       }

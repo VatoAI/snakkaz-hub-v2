@@ -16,7 +16,6 @@ export const useMessageP2P = (
         return [...prev, message];
       });
     }
-    return '';
   }, [setMessages]);
 
   return { addP2PMessage };
