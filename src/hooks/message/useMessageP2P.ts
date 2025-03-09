@@ -5,11 +5,19 @@ import { DecryptedMessage } from "@/types/message";
 export const useMessageP2P = (
   setMessages: (updater: (prev: DecryptedMessage[]) => DecryptedMessage[]) => void
 ) => {
-  // This function is now just a placeholder since we're not using P2P messaging anymore
-  const addP2PMessage = useCallback(() => {
-    console.log('P2P messaging has been disabled. Using server-only messaging.');
+  const addP2PMessage = useCallback((message?: any) => {
+    if (message) {
+      setMessages(prev => {
+        // Check if message already exists to avoid duplicates
+        const messageExists = prev.some(m => m.id === message.id);
+        if (messageExists) {
+          return prev;
+        }
+        return [...prev, message];
+      });
+    }
     return '';
-  }, []);
+  }, [setMessages]);
 
   return { addP2PMessage };
 };

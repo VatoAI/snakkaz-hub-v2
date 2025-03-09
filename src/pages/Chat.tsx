@@ -1,4 +1,5 @@
-import { useEffect } from 'react';
+
+import { useEffect, useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { useChatAuth } from '@/components/chat/ChatAuth';
@@ -9,6 +10,7 @@ import { useChatState } from '@/components/chat/hooks/useChatState';
 import { useUserProfiles } from '@/components/chat/hooks/useUserProfiles';
 import { useFriends } from '@/components/chat/hooks/useFriends';
 import { usePresence } from '@/components/chat/hooks/usePresence';
+import { supabase } from '@/integrations/supabase/client';
 
 const Chat = () => {
   const {
@@ -69,6 +71,25 @@ const Chat = () => {
     handleDeleteMessage
   } = useMessages(userId);
 
+  // Cleanup function to remove user presence on page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (userId) {
+        // Use a synchronous approach for the unload event
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', `${supabase.supabaseUrl}/rest/v1/user_presence?user_id=eq.${userId}`, false);
+        xhr.setRequestHeader('apikey', supabase.supabaseKey);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify({ method: 'DELETE' }));
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [userId]);
+
   useEffect(() => {
     if (userId) {
       console.log("Setting up messages for user:", userId);
@@ -76,6 +97,44 @@ const Chat = () => {
       return setupRealtimeSubscription();
     }
   }, [userId, fetchMessages, setupRealtimeSubscription]);
+
+  // Clear user presence when hidden status changes
+  useEffect(() => {
+    if (!userId) return;
+    
+    const updateVisibility = async () => {
+      try {
+        if (hidden) {
+          // Delete presence when hiding
+          const { error } = await supabase
+            .from('user_presence')
+            .delete()
+            .eq('user_id', userId);
+            
+          if (error && error.code !== 'PGRST116') {
+            console.error("Error deleting presence when hiding:", error);
+          }
+        } else {
+          // Restore presence when unhiding
+          const { error } = await supabase
+            .from('user_presence')
+            .upsert({
+              user_id: userId,
+              status: currentStatus,
+              last_seen: new Date().toISOString()
+            });
+            
+          if (error) {
+            console.error("Error restoring presence when unhiding:", error);
+          }
+        }
+      } catch (error) {
+        console.error("Error toggling visibility:", error);
+      }
+    };
+    
+    updateVisibility();
+  }, [hidden, userId, currentStatus]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
