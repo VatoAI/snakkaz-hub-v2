@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useMessages } from '@/hooks/useMessages';
 import { useWebRTC } from '@/hooks/useWebRTC';
@@ -76,7 +77,7 @@ const Chat = () => {
       if (userId) {
         // Use a synchronous approach for the unload event
         const xhr = new XMLHttpRequest();
-        // Using REST endpoint instead of direct client properties
+        // Using environment variables for Supabase URL and key instead of accessing protected properties
         xhr.open('POST', `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_id=eq.${userId}`, false);
         xhr.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_API_KEY);
         xhr.setRequestHeader('Content-Type', 'application/json');
