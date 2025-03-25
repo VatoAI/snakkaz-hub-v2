@@ -17,46 +17,47 @@ export const usePresence = (
     if (!userId) return;
 
     const setupPresence = async () => {
-      // First, remove any existing presence for this user
-      const cleanupExisting = async () => {
-        try {
-          const { error: deleteError } = await supabase
-            .from('user_presence')
-            .delete()
-            .eq('user_id', userId);
-            
-          if (deleteError && deleteError.code !== 'PGRST116') { // Ignore not found error
-            console.error("Error cleaning up existing presence:", deleteError);
+      try {
+        // If user is hidden, remove their presence record
+        if (hidden) {
+          try {
+            const { error: deleteError } = await supabase
+              .from('user_presence')
+              .delete()
+              .eq('user_id', userId);
+              
+            if (deleteError && deleteError.code !== 'PGRST116') { // Ignore not found error
+              console.error("Error cleaning up presence when hiding:", deleteError);
+            }
+          } catch (error) {
+            console.error("Error toggling visibility to hidden:", error);
           }
-        } catch (error) {
-          console.error("Failed to clean up existing presence:", error);
-        }
-      };
+        } else {
+          // If user is not hidden, upsert their presence record
+          try {
+            // Use upsert with explicit ON CONFLICT handling to avoid race conditions
+            const { error: upsertError } = await supabase
+              .from('user_presence')
+              .upsert({
+                user_id: userId,
+                status: currentStatus,
+                last_seen: new Date().toISOString()
+              }, { onConflict: 'user_id' });
 
-      await cleanupExisting();
-      
-      // If user is not hidden, create/update their presence
-      if (!hidden) {
-        try {
-          const { error: upsertError } = await supabase
-            .from('user_presence')
-            .upsert({
-              user_id: userId,
-              status: currentStatus,
-              last_seen: new Date().toISOString()
-            });
-
-          if (upsertError) {
-            console.error("Error setting initial presence:", upsertError);
-            toast({
-              title: "Feil ved oppdatering av status",
-              description: "Kunne ikke sette initial tilstedeværelse",
-              variant: "destructive",
-            });
+            if (upsertError) {
+              console.error("Error setting initial presence:", upsertError);
+              toast({
+                title: "Feil ved oppdatering av status",
+                description: "Kunne ikke sette initial tilstedeværelse",
+                variant: "destructive",
+              });
+            }
+          } catch (error) {
+            console.error("Error in presence setup:", error);
           }
-        } catch (error) {
-          console.error("Error in presence setup:", error);
         }
+      } catch (error) {
+        console.error("Unexpected error in presence setup:", error);
       }
 
       // Set up channel for presence updates
@@ -119,7 +120,7 @@ export const usePresence = (
 
       // Set up heartbeat to keep presence fresh
       const heartbeatInterval = setInterval(async () => {
-        if (hidden) return;
+        if (hidden || !userId) return;
         
         try {
           const { error } = await supabase
@@ -128,7 +129,7 @@ export const usePresence = (
               user_id: userId,
               status: currentStatus,
               last_seen: new Date().toISOString()
-            });
+            }, { onConflict: 'user_id' });
 
           if (error) {
             console.error("Heartbeat error:", error);
@@ -154,7 +155,7 @@ export const usePresence = (
       });
       
       // Clear user's presence when component unmounts
-      if (!hidden && userId) {
+      if (userId) {
         supabase
           .from('user_presence')
           .delete()
@@ -180,7 +181,7 @@ export const usePresence = (
             user_id: userId,
             status: currentStatus,
             last_seen: new Date().toISOString()
-          });
+          }, { onConflict: 'user_id' });
 
         if (error) {
           console.error("Error updating status:", error);
@@ -208,7 +209,7 @@ export const usePresence = (
           user_id: userId,
           status: newStatus,
           last_seen: new Date().toISOString()
-        });
+        }, { onConflict: 'user_id' });
 
       if (error) {
         console.error("Error updating status:", error);

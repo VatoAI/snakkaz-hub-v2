@@ -71,17 +71,21 @@ const Chat = () => {
     handleDeleteMessage
   } = useMessages(userId);
 
-  // Cleanup function to remove user presence on page unload
+  // Improved cleanup function to remove user presence on page unload
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (userId) {
-        // Use a synchronous approach for the unload event
-        const xhr = new XMLHttpRequest();
-        // Using environment variables for Supabase URL and key instead of accessing protected properties
-        xhr.open('POST', `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_id=eq.${userId}`, false);
-        xhr.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_API_KEY);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.send(JSON.stringify({ method: 'DELETE' }));
+        try {
+          // Use a synchronous approach for the unload event
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_presence?user_id=eq.${userId}`, false);
+          xhr.setRequestHeader('apikey', import.meta.env.VITE_SUPABASE_API_KEY);
+          xhr.setRequestHeader('Content-Type', 'application/json');
+          xhr.send(JSON.stringify({ method: 'DELETE' }));
+        } catch (error) {
+          // Can't log in beforeunload event as it's already closing
+          // But this provides some error protection
+        }
       }
     };
 
@@ -99,7 +103,7 @@ const Chat = () => {
     }
   }, [userId, fetchMessages, setupRealtimeSubscription]);
 
-  // Clear user presence when hidden status changes
+  // Improved visibility change handler
   useEffect(() => {
     if (!userId) return;
     
@@ -116,14 +120,14 @@ const Chat = () => {
             console.error("Error deleting presence when hiding:", error);
           }
         } else {
-          // Restore presence when unhiding
+          // Restore presence when unhiding - use upsert with onConflict to prevent duplicates
           const { error } = await supabase
             .from('user_presence')
             .upsert({
               user_id: userId,
               status: currentStatus,
               last_seen: new Date().toISOString()
-            });
+            }, { onConflict: 'user_id' });
             
           if (error) {
             console.error("Error restoring presence when unhiding:", error);

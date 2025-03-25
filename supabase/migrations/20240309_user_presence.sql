@@ -36,3 +36,26 @@ CREATE TRIGGER trigger_clean_stale_presence
   AFTER INSERT OR UPDATE ON public.user_presence
   FOR EACH STATEMENT
   EXECUTE FUNCTION clean_stale_presence();
+
+-- Function to safely handle presence upserts with explicit error handling
+CREATE OR REPLACE FUNCTION handle_presence_upsert(
+  p_user_id UUID,
+  p_status user_status,
+  p_last_seen TIMESTAMP WITH TIME ZONE
+)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  -- Try to insert, if it fails with unique violation, update instead
+  BEGIN
+    INSERT INTO public.user_presence(user_id, status, last_seen)
+    VALUES (p_user_id, p_status, p_last_seen);
+  EXCEPTION
+    WHEN unique_violation THEN
+      UPDATE public.user_presence
+      SET status = p_status, last_seen = p_last_seen
+      WHERE user_id = p_user_id;
+  END;
+END;
+$$;
