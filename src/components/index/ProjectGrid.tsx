@@ -1,6 +1,8 @@
 
 import { ProjectCard, ProjectProps } from "./ProjectCard";
 import { Button } from "@/components/ui/button";
+import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { ExternalLink, CheckCircle, Database } from "lucide-react";
 
 // Project data
 const projects: (ProjectProps & { isFeatured?: boolean })[] = [
