@@ -2,7 +2,8 @@
 import { ProjectCard, ProjectProps } from "./ProjectCard";
 import { Button } from "@/components/ui/button";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { ExternalLink, CheckCircle, Database } from "lucide-react";
+import { ExternalLink, CheckCircle, Database, RefreshCw } from "lucide-react";
+import { useState } from "react";
 
 // Project data
 const projects: (ProjectProps & { isFeatured?: boolean })[] = [
@@ -148,8 +149,14 @@ const CategorySection = ({ title, category }: CategorySectionProps) => {
 // Featured Project Component
 const FeaturedProject = () => {
   const featuredProject = projects.find(p => p.isFeatured);
+  const [refreshKey, setRefreshKey] = useState(0); // State to force image refresh
   
   if (!featuredProject) return null;
+  
+  // Function to refresh the preview image
+  const refreshPreview = () => {
+    setRefreshKey(prev => prev + 1);
+  };
   
   return (
     <div className="mb-12 bg-gradient-to-r from-cyberdark-800 to-cyberdark-900 border-2 border-cyberblue-500 rounded-lg p-6 shadow-neon-blue">
@@ -178,31 +185,39 @@ const FeaturedProject = () => {
           
           {featuredProject.hasSupabase && (
             <div className="mt-4 flex items-center text-cyberblue-300">
-              <CheckCircle size={16} className="mr-2" />
-              Connected with Supabase
+              <Database size={16} className="mr-2" />
+              Supabase Integration
             </div>
           )}
         </div>
         
         <div className="md:w-1/2">
-          <div className="overflow-hidden rounded-md border-2 border-cyberblue-500/50 shadow-lg">
+          <div className="overflow-hidden rounded-md border-2 border-cyberblue-500/50 shadow-lg relative group">
             <AspectRatio ratio={16/9} className="bg-cyberdark-800">
               <img 
-                src={`${featuredProject.previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png`}
+                key={refreshKey} // Use key to force reload of image when refreshed
+                src={`${featuredProject.previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${new Date().getTime()}`}
                 alt={`Preview of ${featuredProject.title}`}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = "/placeholder.svg";
                 }}
               />
+              <button 
+                className="absolute top-2 right-2 bg-cyberdark-900/80 p-1 rounded-full text-cyberblue-400 hover:text-cyberblue-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={refreshPreview}
+                title="Refresh preview"
+              >
+                <RefreshCw size={16} />
+              </button>
             </AspectRatio>
           </div>
           
-          <div className="mt-2 text-center">
+          <div className="mt-4 flex justify-center items-center">
             <img 
-              src="https://snakkaz.com/wp-content/uploads/2023/10/SnakkaZ_Main_Logo.png" 
+              src="/snakkaz-logo.png" 
               alt="SnakkaZ Logo" 
-              className="h-12 mx-auto" 
+              className="h-16 object-contain" 
               onError={(e) => {
                 (e.target as HTMLImageElement).src = "/placeholder.svg";
               }}
