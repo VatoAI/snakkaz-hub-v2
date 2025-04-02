@@ -7,7 +7,7 @@ import { useState } from "react";
 
 // Project data
 const projects: (ProjectProps & { isFeatured?: boolean })[] = [
-  // Chat Projects
+  // Featured Project
   {
     title: "SnakkaZ Guardian Chat",
     description: "Secure chat application with advanced encryption and privacy features",
@@ -17,6 +17,18 @@ const projects: (ProjectProps & { isFeatured?: boolean })[] = [
     hasSupabase: true,
     isFeatured: true
   },
+  
+  // Re-ordered projects - AI Dash Hub first
+  {
+    title: "AI Dash Hub",
+    description: "AI-powered analytics dashboard with predictive capabilities",
+    previewUrl: "https://preview--ai-dash-hub.lovable.app/",
+    githubUrl: "https://github.com/VatoAI/ai-dash-hub.git",
+    category: "analytics",
+    hasSupabase: true
+  },
+  
+  // Chat Projects
   {
     title: "ChatCipher Assistant",
     description: "Encrypted messaging platform with AI-powered assistant capabilities",
@@ -66,7 +78,7 @@ const projects: (ProjectProps & { isFeatured?: boolean })[] = [
     hasSupabase: true
   },
   
-  // Analytics Projects
+  // Analytics Projects (without AI Dash Hub which is now first)
   {
     title: "Norsk Crypto Insight",
     description: "Cryptocurrency analytics platform with Norwegian market focus",
@@ -90,14 +102,6 @@ const projects: (ProjectProps & { isFeatured?: boolean })[] = [
     githubUrl: "https://github.com/VatoAI/info-summit-dash.git",
     category: "analytics",
     hasSupabase: false
-  },
-  {
-    title: "AI Dash Hub",
-    description: "AI-powered analytics dashboard with predictive capabilities",
-    previewUrl: "https://preview--ai-dash-hub.lovable.app/",
-    githubUrl: "https://github.com/VatoAI/snakkaz-guardian-chat.git",
-    category: "analytics",
-    hasSupabase: true
   },
   
   // Infrastructure
