@@ -1,28 +1,33 @@
 
 import { ProjectCard, ProjectProps } from "./ProjectCard";
+import { Button } from "@/components/ui/button";
 
 // Project data
-const projects: ProjectProps[] = [
+const projects: (ProjectProps & { isFeatured?: boolean })[] = [
   // Chat Projects
   {
     title: "SnakkaZ Guardian Chat",
     description: "Secure chat application with advanced encryption and privacy features",
     previewUrl: "https://preview--snakkaz-guardian-chat.lovable.app/",
     githubUrl: "https://github.com/VatoAI/snakkaz-guardian-chat.git",
-    category: "chat"
+    category: "chat",
+    hasSupabase: true,
+    isFeatured: true
   },
   {
     title: "ChatCipher Assistant",
     description: "Encrypted messaging platform with AI-powered assistant capabilities",
     previewUrl: "https://preview--chatcipher-assistant.lovable.app/",
     githubUrl: "https://github.com/VatoAI/chatcipher-assistant.git",
-    category: "chat"
+    category: "chat",
+    hasSupabase: true
   },
   {
     title: "Stealthy Convo",
     description: "Private conversation platform with ephemeral messaging",
     previewUrl: "https://preview--stealthy-convo.lovable.app/",
-    category: "chat"
+    category: "chat",
+    hasSupabase: false
   },
   
   // Business Tools
@@ -31,27 +36,31 @@ const projects: ProjectProps[] = [
     description: "Food deal finder and grocery shopping assistant",
     previewUrl: "https://preview--mattilbud.lovable.app/",
     githubUrl: "https://github.com/VatoAI/mattilbud.git",
-    category: "business"
+    category: "business",
+    hasSupabase: true
   },
   {
     title: "MatTilbudBetter",
     description: "Enhanced version of the food deal platform with additional features",
     previewUrl: "https://preview--mattilbudbetter.lovable.app/",
     githubUrl: "https://github.com/VatoAI/mattilbudbetter.git",
-    category: "business"
+    category: "business",
+    hasSupabase: true
   },
   {
     title: "Budget Basket Helper",
     description: "Budget planning and shopping optimization tool",
     previewUrl: "https://preview--budget-basket-helper.lovable.app/",
     githubUrl: "https://github.com/VatoAI/budget-basket-helper.git",
-    category: "business"
+    category: "business",
+    hasSupabase: false
   },
   {
     title: "Norwegian Business Insights",
     description: "Business intelligence platform for Norwegian market",
     previewUrl: "https://preview--norwegian-business-insights.lovable.app/",
-    category: "business"
+    category: "business",
+    hasSupabase: true
   },
   
   // Analytics Projects
@@ -60,28 +69,32 @@ const projects: ProjectProps[] = [
     description: "Cryptocurrency analytics platform with Norwegian market focus",
     previewUrl: "https://preview--norsk-crypto-insight.lovable.app/",
     githubUrl: "https://github.com/VatoAI/norsk-crypto-insight.git",
-    category: "analytics"
+    category: "analytics",
+    hasSupabase: true
   },
   {
     title: "Crypto Perplexity Analytica",
     description: "Advanced crypto market analysis and prediction tools",
     previewUrl: "https://preview--crypto-perplexity-analytica.lovable.app/",
     githubUrl: "https://github.com/VatoAI/crypto-perplexity-analytica.git",
-    category: "analytics"
+    category: "analytics",
+    hasSupabase: true
   },
   {
     title: "Info Summit Dash",
     description: "Information dashboard with visualization and analysis tools",
     previewUrl: "https://preview--info-summit-dash.lovable.app/",
     githubUrl: "https://github.com/VatoAI/info-summit-dash.git",
-    category: "analytics"
+    category: "analytics",
+    hasSupabase: false
   },
   {
     title: "AI Dash Hub",
     description: "AI-powered analytics dashboard with predictive capabilities",
     previewUrl: "https://preview--ai-dash-hub.lovable.app/",
-    githubUrl: "https://github.com/VatoAI/ai-dash-hub.git",
-    category: "analytics"
+    githubUrl: "https://github.com/VatoAI/snakkaz-guardian-chat.git",
+    category: "analytics",
+    hasSupabase: true
   },
   
   // Infrastructure
@@ -89,13 +102,15 @@ const projects: ProjectProps[] = [
     title: "Query Gateway Symphony",
     description: "Advanced query processing and data orchestration service",
     previewUrl: "https://preview--query-gateway-symphony.lovable.app/",
-    category: "infrastructure"
+    category: "infrastructure",
+    hasSupabase: true
   },
   {
     title: "SecurePeer CryptoService",
     description: "Secure peer-to-peer cryptographic service platform",
     previewUrl: "https://preview--securepeer-cryptoservice.lovable.app/",
-    category: "infrastructure"
+    category: "infrastructure",
+    hasSupabase: true
   }
 ];
 
@@ -128,9 +143,80 @@ const CategorySection = ({ title, category }: CategorySectionProps) => {
   );
 };
 
+// Featured Project Component
+const FeaturedProject = () => {
+  const featuredProject = projects.find(p => p.isFeatured);
+  
+  if (!featuredProject) return null;
+  
+  return (
+    <div className="mb-12 bg-gradient-to-r from-cyberdark-800 to-cyberdark-900 border-2 border-cyberblue-500 rounded-lg p-6 shadow-neon-blue">
+      <div className="flex flex-col md:flex-row gap-6">
+        <div className="md:w-1/2">
+          <h2 className="text-3xl font-bold text-cyberblue-400 mb-4">Featured Project: {featuredProject.title}</h2>
+          <p className="text-gray-300 mb-6">{featuredProject.description}</p>
+          
+          <div className="flex gap-4">
+            <Button 
+              className="bg-cyberblue-500 hover:bg-cyberblue-600 text-white" 
+              onClick={() => window.open('/chat', '_self')}
+            >
+              Try Chat Now
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="border-cyberblue-500 text-cyberblue-400 hover:bg-cyberblue-900/50"
+              onClick={() => window.open(featuredProject.previewUrl, '_blank')}
+            >
+              <ExternalLink size={16} className="mr-2" />
+              Preview Site
+            </Button>
+          </div>
+          
+          {featuredProject.hasSupabase && (
+            <div className="mt-4 flex items-center text-cyberblue-300">
+              <CheckCircle size={16} className="mr-2" />
+              Connected with Supabase
+            </div>
+          )}
+        </div>
+        
+        <div className="md:w-1/2">
+          <div className="overflow-hidden rounded-md border-2 border-cyberblue-500/50 shadow-lg">
+            <AspectRatio ratio={16/9} className="bg-cyberdark-800">
+              <img 
+                src={`${featuredProject.previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png`}
+                alt={`Preview of ${featuredProject.title}`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/placeholder.svg";
+                }}
+              />
+            </AspectRatio>
+          </div>
+          
+          <div className="mt-2 text-center">
+            <img 
+              src="https://snakkaz.com/wp-content/uploads/2023/10/SnakkaZ_Main_Logo.png" 
+              alt="SnakkaZ Logo" 
+              className="h-12 mx-auto" 
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "/placeholder.svg";
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const ProjectGrid = () => {
   return (
     <div className="w-full max-w-7xl mx-auto px-4">
+      <FeaturedProject />
+      
       <h1 className="text-3xl font-bold text-center text-cybergold-500 mb-8">Lovable Prosjekter</h1>
       
       <CategorySection title="Kommunikasjon" category="chat" />
