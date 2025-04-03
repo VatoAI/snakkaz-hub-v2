@@ -1,10 +1,11 @@
+
 export const Header = () => {
   return (
     <div className="text-center mb-12">
       {/* Større logo */}
       <div className="w-48 h-48 mx-auto rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cybergold-400 flex items-center justify-center mb-6 shadow-[0_0_25px_rgba(230,179,0,0.3)]">
         <img
-          src="/SnakkaZlogo.png" // Bildet er i public-mappen
+          src="/snakkaz-logo.png" 
           alt="SnakkaZ Logo"
           className="rounded-full w-40 h-40 object-cover"
         />
