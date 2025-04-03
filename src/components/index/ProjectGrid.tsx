@@ -1,34 +1,34 @@
-
 import { ProjectCard, ProjectProps } from "./ProjectCard";
 import { Button } from "@/components/ui/button";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { ExternalLink, CheckCircle, Database, RefreshCw } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 // Project data
 const projects: (ProjectProps & { isFeatured?: boolean })[] = [
-  // Featured Project
-  {
-    title: "SnakkaZ Guardian Chat",
-    description: "Secure chat application with advanced encryption and privacy features",
-    previewUrl: "https://preview--snakkaz-guardian-chat.lovable.app/",
-    githubUrl: "https://github.com/VatoAI/snakkaz-guardian-chat.git",
-    category: "chat",
-    hasSupabase: true,
-    isFeatured: true
-  },
-  
-  // Re-ordered projects - AI Dash Hub first
+  // Featured Project - Now AI Dash Hub
   {
     title: "AI Dash Hub",
     description: "AI-powered analytics dashboard with predictive capabilities",
     previewUrl: "https://preview--ai-dash-hub.lovable.app/",
     githubUrl: "https://github.com/VatoAI/ai-dash-hub.git",
     category: "analytics",
+    hasSupabase: true,
+    isFeatured: true
+  },
+  
+  // SnakkaZ Guardian Chat - moved to regular projects
+  {
+    title: "SnakkaZ Guardian Chat",
+    description: "Secure chat application with advanced encryption and privacy features",
+    previewUrl: "https://preview--snakkaz-guardian-chat.lovable.app/",
+    githubUrl: "https://github.com/VatoAI/snakkaz-guardian-chat.git",
+    category: "chat",
     hasSupabase: true
   },
   
-  // Chat Projects
+  // Other Chat Projects
   {
     title: "ChatCipher Assistant",
     description: "Encrypted messaging platform with AI-powered assistant capabilities",
@@ -78,7 +78,7 @@ const projects: (ProjectProps & { isFeatured?: boolean })[] = [
     hasSupabase: true
   },
   
-  // Analytics Projects (without AI Dash Hub which is now first)
+  // Analytics Projects (without AI Dash Hub which is now featured)
   {
     title: "Norsk Crypto Insight",
     description: "Cryptocurrency analytics platform with Norwegian market focus",
@@ -123,7 +123,7 @@ const projects: (ProjectProps & { isFeatured?: boolean })[] = [
 
 // Helper function to filter projects by category
 const filterProjectsByCategory = (category: ProjectProps['category']) => {
-  return projects.filter(project => project.category === category);
+  return projects.filter(project => project.category === category && !project.isFeatured);
 };
 
 interface CategorySectionProps {
@@ -154,12 +154,22 @@ const CategorySection = ({ title, category }: CategorySectionProps) => {
 const FeaturedProject = () => {
   const featuredProject = projects.find(p => p.isFeatured);
   const [refreshKey, setRefreshKey] = useState(0); // State to force image refresh
+  const navigate = useNavigate();
   
   if (!featuredProject) return null;
   
   // Function to refresh the preview image
   const refreshPreview = () => {
     setRefreshKey(prev => prev + 1);
+  };
+  
+  // Special handling for SnakkaZ Guardian Chat - redirect to chat page
+  const handleSpecialRedirect = (projectUrl: string) => {
+    if (projectUrl.includes('snakkaz-guardian-chat')) {
+      navigate('/chat');
+      return true;
+    }
+    return false;
   };
   
   return (

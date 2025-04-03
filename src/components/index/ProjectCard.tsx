@@ -4,6 +4,7 @@ import { GithubIcon, ExternalLink, Database, RefreshCw } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export interface ProjectProps {
   title: string;
@@ -16,6 +17,7 @@ export interface ProjectProps {
 
 export const ProjectCard = ({ title, description, previewUrl, githubUrl, category, hasSupabase }: ProjectProps) => {
   const [refreshKey, setRefreshKey] = useState(0); // State to force image refresh
+  const navigate = useNavigate();
   
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -38,6 +40,14 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
     e.preventDefault();
     setRefreshKey(prev => prev + 1);
   };
+  
+  // Special handling for SnakkaZ Guardian Chat - redirect to chat page
+  const handlePreviewClick = (e: React.MouseEvent) => {
+    if (title === "SnakkaZ Guardian Chat") {
+      e.preventDefault();
+      navigate('/chat');
+    }
+  };
 
   // Determine the thumbnail URL based on the previewUrl with a cache-busting parameter
   const thumbnailUrl = `${previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}`;
@@ -59,7 +69,13 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
       <CardContent className="text-gray-300 text-sm space-y-4">
         <div className="overflow-hidden rounded-md border border-cyberdark-800 bg-cyberdark-800 relative group">
           <AspectRatio ratio={16/9} className="bg-cyberdark-800">
-            <a href={previewUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full relative group">
+            <a 
+              href={previewUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="block w-full h-full relative group"
+              onClick={handlePreviewClick}
+            >
               <img 
                 key={refreshKey} // Use key to force reload of image when refreshed
                 src={thumbnailUrl} 
@@ -72,7 +88,7 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
               <div className="absolute inset-0 bg-cyberdark-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
                 <span className="text-cyberblue-400 flex items-center">
                   <ExternalLink size={20} className="mr-2" />
-                  Preview Site
+                  {title === "SnakkaZ Guardian Chat" ? "Open Chat" : "Preview Site"}
                 </span>
               </div>
             </a>
@@ -91,13 +107,13 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
       
       <CardFooter className="flex justify-between mt-auto pt-4">
         <a
-          href={previewUrl}
-          target="_blank"
+          href={title === "SnakkaZ Guardian Chat" ? "/chat" : previewUrl}
+          target={title === "SnakkaZ Guardian Chat" ? "_self" : "_blank"}
           rel="noopener noreferrer"
           className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
         >
           <ExternalLink size={16} className="mr-1" />
-          Preview
+          {title === "SnakkaZ Guardian Chat" ? "Open Chat" : "Preview"}
         </a>
         
         {githubUrl ? (
