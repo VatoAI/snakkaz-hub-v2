@@ -7,24 +7,24 @@ import { useNavigate } from "react-router-dom";
 
 // Project data
 const projects: (ProjectProps & { isFeatured?: boolean })[] = [
-  // Featured Project - Now AI Dash Hub
-  {
-    title: "AI Dash Hub",
-    description: "AI-powered analytics dashboard with predictive capabilities",
-    previewUrl: "https://preview--ai-dash-hub.lovable.app/",
-    githubUrl: "https://github.com/VatoAI/ai-dash-hub.git",
-    category: "analytics",
-    hasSupabase: true,
-    isFeatured: true
-  },
-  
-  // SnakkaZ Guardian Chat - moved to regular projects
+  // SnakkaZ Guardian Chat as featured project
   {
     title: "SnakkaZ Guardian Chat",
     description: "Secure chat application with advanced encryption and privacy features",
     previewUrl: "https://preview--snakkaz-guardian-chat.lovable.app/",
     githubUrl: "https://github.com/VatoAI/snakkaz-guardian-chat.git",
     category: "chat",
+    hasSupabase: true,
+    isFeatured: true
+  },
+  
+  // AI Dash Hub moved to regular projects
+  {
+    title: "AI Dash Hub",
+    description: "AI-powered analytics dashboard with predictive capabilities",
+    previewUrl: "https://preview--ai-dash-hub.lovable.app/",
+    githubUrl: "https://github.com/VatoAI/ai-dash-hub.git",
+    category: "analytics",
     hasSupabase: true
   },
   
@@ -78,7 +78,7 @@ const projects: (ProjectProps & { isFeatured?: boolean })[] = [
     hasSupabase: true
   },
   
-  // Analytics Projects (without AI Dash Hub which is now featured)
+  // Analytics Projects
   {
     title: "Norsk Crypto Insight",
     description: "Cryptocurrency analytics platform with Norwegian market focus",
@@ -140,7 +140,7 @@ const CategorySection = ({ title, category }: CategorySectionProps) => {
   
   return (
     <div className="mb-12">
-      <h2 className="text-cybergold-400 text-2xl font-bold mb-4 border-b border-cybergold-500/30 pb-2">{title}</h2>
+      <h2 className="text-cyberblue-400 text-2xl font-bold mb-4 border-b border-cyberblue-500/30 pb-2">{title}</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {categoryProjects.map((project) => (
           <ProjectCard key={project.previewUrl} {...project} />
@@ -159,17 +159,15 @@ const FeaturedProject = () => {
   if (!featuredProject) return null;
   
   // Function to refresh the preview image
-  const refreshPreview = () => {
+  const refreshPreview = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setRefreshKey(prev => prev + 1);
   };
   
-  // Special handling for SnakkaZ Guardian Chat - redirect to chat page
-  const handleSpecialRedirect = (projectUrl: string) => {
-    if (projectUrl.includes('snakkaz-guardian-chat')) {
-      navigate('/chat');
-      return true;
-    }
-    return false;
+  const handleChatRedirect = (e: React.MouseEvent) => {
+    e.preventDefault();
+    navigate('/chat');
   };
   
   return (
@@ -182,7 +180,7 @@ const FeaturedProject = () => {
           <div className="flex gap-4">
             <Button 
               className="bg-cyberblue-500 hover:bg-cyberblue-600 text-white" 
-              onClick={() => window.open('/chat', '_self')}
+              onClick={handleChatRedirect}
             >
               Try Chat Now
             </Button>
@@ -217,8 +215,17 @@ const FeaturedProject = () => {
                   (e.target as HTMLImageElement).src = "/placeholder.svg";
                 }}
               />
+              <div 
+                className="absolute inset-0 bg-cyberdark-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300 cursor-pointer"
+                onClick={handleChatRedirect}
+              >
+                <span className="text-cyberblue-400 flex items-center">
+                  <ExternalLink size={20} className="mr-2" />
+                  Open Chat
+                </span>
+              </div>
               <button 
-                className="absolute top-2 right-2 bg-cyberdark-900/80 p-1 rounded-full text-cyberblue-400 hover:text-cyberblue-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute top-2 right-2 bg-cyberdark-900/80 p-1 rounded-full text-cyberblue-400 hover:text-cyberblue-300 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                 onClick={refreshPreview}
                 title="Refresh preview"
               >
@@ -248,7 +255,7 @@ export const ProjectGrid = () => {
     <div className="w-full max-w-7xl mx-auto px-4">
       <FeaturedProject />
       
-      <h1 className="text-3xl font-bold text-center text-cybergold-500 mb-8">Lovable Prosjekter</h1>
+      <h1 className="text-3xl font-bold text-center text-cyberblue-500 mb-8">Lovable Prosjekter</h1>
       
       <CategorySection title="Kommunikasjon" category="chat" />
       <CategorySection title="Forretningsverktøy" category="business" />
@@ -258,7 +265,7 @@ export const ProjectGrid = () => {
       <div className="mt-10 text-center">
         <a 
           href="/chat"
-          className="inline-block bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-950 px-6 py-3 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+          className="inline-block bg-cyberblue-500 hover:bg-cyberblue-600 text-cyberdark-950 px-6 py-3 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
         >
           Lokal chat versjon
         </a>

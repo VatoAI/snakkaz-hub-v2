@@ -24,7 +24,7 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
       case 'chat':
         return 'border-cyberblue-500';
       case 'business':
-        return 'border-cybergold-500';
+        return 'border-cyberblue-500';
       case 'analytics':
         return 'border-green-500';
       case 'infrastructure':
@@ -41,11 +41,14 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
     setRefreshKey(prev => prev + 1);
   };
   
-  // Special handling for SnakkaZ Guardian Chat - redirect to chat page
-  const handlePreviewClick = (e: React.MouseEvent) => {
+  // Handle card click - for SnakkaZ Guardian Chat navigate to chat page, others open in new tab
+  const handleCardClick = (e: React.MouseEvent, url: string) => {
+    e.preventDefault();
+    
     if (title === "SnakkaZ Guardian Chat") {
-      e.preventDefault();
       navigate('/chat');
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -53,9 +56,9 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
   const thumbnailUrl = `${previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}`;
 
   return (
-    <Card className={`h-full bg-cyberdark-900 border-2 ${getCategoryColor(category)} hover:shadow-neon-gold transition-all duration-300`}>
+    <Card className={`h-full bg-cyberdark-900 border-2 ${getCategoryColor(category)} hover:shadow-neon-blue transition-all duration-300`}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-cybergold-400 text-xl flex items-center justify-between">
+        <CardTitle className="text-cyberblue-400 text-xl flex items-center justify-between">
           {title}
           {hasSupabase && (
             <Badge variant="outline" className="ml-2 bg-cyberblue-900 text-cyberblue-300 border-cyberblue-500 flex items-center gap-1 px-2">
@@ -70,15 +73,13 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
         <div className="overflow-hidden rounded-md border border-cyberdark-800 bg-cyberdark-800 relative group">
           <AspectRatio ratio={16/9} className="bg-cyberdark-800">
             <a 
-              href={previewUrl} 
-              target="_blank" 
-              rel="noopener noreferrer" 
+              href={previewUrl}
+              onClick={(e) => handleCardClick(e, previewUrl)}
               className="block w-full h-full relative group"
-              onClick={handlePreviewClick}
             >
               <img 
                 key={refreshKey} // Use key to force reload of image when refreshed
-                src={thumbnailUrl} 
+                src={`${thumbnailUrl}&cache=${new Date().getTime()}`} // Added extra cache busting
                 alt={`Preview of ${title}`}
                 className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                 onError={(e) => {
@@ -108,8 +109,7 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
       <CardFooter className="flex justify-between mt-auto pt-4">
         <a
           href={title === "SnakkaZ Guardian Chat" ? "/chat" : previewUrl}
-          target={title === "SnakkaZ Guardian Chat" ? "_self" : "_blank"}
-          rel="noopener noreferrer"
+          onClick={(e) => title === "SnakkaZ Guardian Chat" ? navigate('/chat') : window.open(previewUrl, '_blank', 'noopener,noreferrer')}
           className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
         >
           <ExternalLink size={16} className="mr-1" />
@@ -119,9 +119,11 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
         {githubUrl ? (
           <a
             href={githubUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center text-cybergold-400 hover:text-cybergold-300 text-sm transition-colors"
+            onClick={(e) => {
+              e.preventDefault();
+              window.open(githubUrl, '_blank', 'noopener,noreferrer');
+            }}
+            className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
           >
             <GithubIcon size={16} className="mr-1" />
             GitHub
