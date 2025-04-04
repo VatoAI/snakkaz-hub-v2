@@ -7,18 +7,21 @@ export const Header = () => {
   return (
     <div className="text-center mb-12">
       <div className="relative">
-        {/* Logo with glow effect */}
-        <div className="w-48 h-48 mx-auto rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cyberblue-400 flex items-center justify-center mb-6 shadow-[0_0_25px_rgba(26,157,255,0.3)] hover:shadow-[0_0_35px_rgba(26,157,255,0.5)] transition-all duration-300">
+        {/* Logo with enhanced glow effect */}
+        <div className="w-48 h-48 mx-auto rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cyberblue-400 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(26,157,255,0.4)] hover:shadow-[0_0_40px_rgba(26,157,255,0.6)] transition-all duration-300">
           <img
             src="/snakkaz-logo.png" 
             alt="SnakkaZ Logo"
             className="rounded-full w-40 h-40 object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/placeholder.svg";
+            }}
           />
         </div>
         
-        {/* Decorative elements */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 rounded-full border-2 border-cyberblue-400/30 animate-pulse-slow -z-10"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full border border-cyberblue-400/20 -z-10"></div>
+        {/* Decorative elements with blue glow instead of gold */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 rounded-full border-2 border-cyberblue-400/40 animate-pulse-slow -z-10"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full border border-cyberblue-400/30 -z-10"></div>
       </div>
 
       {/* Hub title with enhanced animation */}

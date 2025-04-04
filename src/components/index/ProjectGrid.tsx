@@ -1,3 +1,4 @@
+
 import { ProjectCard, ProjectProps } from "./ProjectCard";
 import { Button } from "@/components/ui/button";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
@@ -18,7 +19,7 @@ const projects: (ProjectProps & { isFeatured?: boolean })[] = [
     isFeatured: true
   },
   
-  // AI Dash Hub moved to regular projects
+  // Regular projects
   {
     title: "AI Dash Hub",
     description: "AI-powered analytics dashboard with predictive capabilities",
@@ -170,6 +171,9 @@ const FeaturedProject = () => {
     navigate('/chat');
   };
   
+  // Thumbnail URL with cache busting
+  const thumbnailUrl = `${featuredProject.previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
+  
   return (
     <div className="mb-12 bg-gradient-to-r from-cyberdark-800 to-cyberdark-900 border-2 border-cyberblue-500 rounded-lg p-6 shadow-neon-blue">
       <div className="flex flex-col md:flex-row gap-6">
@@ -188,7 +192,10 @@ const FeaturedProject = () => {
             <Button 
               variant="outline" 
               className="border-cyberblue-500 text-cyberblue-400 hover:bg-cyberblue-900/50"
-              onClick={() => window.open(featuredProject.previewUrl, '_blank')}
+              onClick={(e) => {
+                e.preventDefault();
+                window.open(featuredProject.previewUrl, '_blank');
+              }}
             >
               <ExternalLink size={16} className="mr-2" />
               Preview Site
@@ -196,9 +203,11 @@ const FeaturedProject = () => {
           </div>
           
           {featuredProject.hasSupabase && (
-            <div className="mt-4 flex items-center text-cyberblue-300">
-              <Database size={16} className="mr-2" />
-              Supabase Integration
+            <div className="mt-4 flex items-center text-green-300">
+              <Database size={16} className="mr-2 text-green-400 animate-pulse" />
+              <span className="bg-green-900/40 text-green-300 border border-green-500/30 px-2 py-1 rounded-md text-xs shadow-[0_0_8px_rgba(34,197,94,0.3)]">
+                Supabase Integration
+              </span>
             </div>
           )}
         </div>
@@ -208,11 +217,12 @@ const FeaturedProject = () => {
             <AspectRatio ratio={16/9} className="bg-cyberdark-800">
               <img 
                 key={refreshKey} // Use key to force reload of image when refreshed
-                src={`${featuredProject.previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${new Date().getTime()}`}
+                src={thumbnailUrl}
                 alt={`Preview of ${featuredProject.title}`}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/placeholder.svg";
+                  // If image fails to load, use SnakkaZ logo as fallback
+                  (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
                 }}
               />
               <div 

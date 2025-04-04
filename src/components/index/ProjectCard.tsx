@@ -53,7 +53,7 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
   };
 
   // Determine the thumbnail URL based on the previewUrl with a cache-busting parameter
-  const thumbnailUrl = `${previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}`;
+  const thumbnailUrl = `${previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
 
   return (
     <Card className={`h-full bg-cyberdark-900 border-2 ${getCategoryColor(category)} hover:shadow-neon-blue transition-all duration-300`}>
@@ -61,8 +61,8 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
         <CardTitle className="text-cyberblue-400 text-xl flex items-center justify-between">
           {title}
           {hasSupabase && (
-            <Badge variant="outline" className="ml-2 bg-cyberblue-900 text-cyberblue-300 border-cyberblue-500 flex items-center gap-1 px-2">
-              <Database size={14} />
+            <Badge variant="outline" className="ml-2 bg-green-900/40 text-green-300 border-green-500/30 flex items-center gap-1 px-2 shadow-[0_0_8px_rgba(34,197,94,0.3)]">
+              <Database size={14} className="text-green-400 animate-pulse" />
               Supabase
             </Badge>
           )}
@@ -79,11 +79,12 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
             >
               <img 
                 key={refreshKey} // Use key to force reload of image when refreshed
-                src={`${thumbnailUrl}&cache=${new Date().getTime()}`} // Added extra cache busting
+                src={thumbnailUrl}
                 alt={`Preview of ${title}`}
                 className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/placeholder.svg";
+                  // Use SnakkaZ logo as fallback for failed images
+                  (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
                 }}
               />
               <div className="absolute inset-0 bg-cyberdark-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
@@ -109,7 +110,14 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
       <CardFooter className="flex justify-between mt-auto pt-4">
         <a
           href={title === "SnakkaZ Guardian Chat" ? "/chat" : previewUrl}
-          onClick={(e) => title === "SnakkaZ Guardian Chat" ? navigate('/chat') : window.open(previewUrl, '_blank', 'noopener,noreferrer')}
+          onClick={(e) => {
+            e.preventDefault();
+            if (title === "SnakkaZ Guardian Chat") {
+              navigate('/chat');
+            } else {
+              window.open(previewUrl, '_blank', 'noopener,noreferrer');
+            }
+          }}
           className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
         >
           <ExternalLink size={16} className="mr-1" />
