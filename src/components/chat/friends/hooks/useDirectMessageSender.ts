@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { encryptMessage } from "@/utils/encryption";
 import { DecryptedMessage } from "@/types/message";
@@ -8,23 +8,24 @@ import { useToast } from "@/components/ui/use-toast";
 export const useDirectMessageSender = (
   currentUserId: string,
   friendId: string | undefined,
-  // Remove webRTCManager and usingServerFallback parameters
   onNewMessage: (message: DecryptedMessage) => void
 ) => {
   const [isLoading, setIsLoading] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const { toast } = useToast();
   const errorResetTimeout = useRef<NodeJS.Timeout | null>(null);
+  const messageQueue = useRef<string[]>([]);
+  const processingQueue = useRef<boolean>(false);
 
-  const clearSendError = () => {
+  const clearSendError = useCallback(() => {
     setSendError(null);
     if (errorResetTimeout.current) {
       clearTimeout(errorResetTimeout.current);
       errorResetTimeout.current = null;
     }
-  };
+  }, []);
 
-  const sendMessageViaServer = async (message: string): Promise<boolean> => {
+  const sendMessageViaServer = useCallback(async (message: string): Promise<boolean> => {
     if (!currentUserId || !friendId) {
       console.log('Server message failed: Missing currentUserId or friendId', { currentUserId, friendId });
       return false;
@@ -35,7 +36,7 @@ export const useDirectMessageSender = (
       const { encryptedContent, key, iv } = await encryptMessage(message.trim());
       
       console.log('Sending message via server...');
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from('messages')
         .insert({
           sender_id: currentUserId,
@@ -46,23 +47,72 @@ export const useDirectMessageSender = (
           is_encrypted: true,
           read_at: null,
           is_deleted: false,
-        })
-        .select();
+        });
       
       if (error) {
         console.error('Error from server when sending message:', error);
         throw error;
       }
       
-      console.log('Message sent via server with end-to-end encryption', data);
+      console.log('Message sent via server with end-to-end encryption');
       return true;
     } catch (error) {
       console.error('Server message failed:', error);
-      return false;
+      throw error;
     }
-  };
+  }, [currentUserId, friendId]);
 
-  const handleSendMessage = async (e: React.FormEvent, message: string) => {
+  // Process the message queue
+  const processMessageQueue = useCallback(async () => {
+    if (processingQueue.current || messageQueue.current.length === 0) {
+      return;
+    }
+    
+    processingQueue.current = true;
+    
+    try {
+      while (messageQueue.current.length > 0) {
+        const message = messageQueue.current[0];
+        const success = await sendMessageViaServer(message);
+        
+        if (success) {
+          // Remove the message from the queue if sent successfully
+          messageQueue.current.shift();
+          
+          // Create a local message representation for UI update
+          const timestamp = new Date().toISOString();
+          const localMessage: DecryptedMessage = {
+            id: `local-${Date.now()}`,
+            content: message,
+            sender: {
+              id: currentUserId,
+              username: null,
+              full_name: null
+            },
+            receiver_id: friendId,
+            created_at: timestamp,
+            encryption_key: '',
+            iv: '',
+            is_encrypted: true,
+            is_deleted: false,
+            deleted_at: null
+          };
+          
+          // Update UI with the local message
+          onNewMessage(localMessage);
+        } else {
+          // Leave message in queue for retry
+          break;
+        }
+      }
+    } catch (error) {
+      console.error('Error processing message queue:', error);
+    } finally {
+      processingQueue.current = false;
+    }
+  }, [currentUserId, friendId, sendMessageViaServer, onNewMessage]);
+
+  const handleSendMessage = useCallback(async (e: React.FormEvent, message: string) => {
     e.preventDefault();
     if (!message.trim() || !friendId || !currentUserId) {
       console.log('Message sending aborted: empty message or missing IDs', { 
@@ -78,37 +128,13 @@ export const useDirectMessageSender = (
     clearSendError();
     
     try {
-      let messageDelivered = false;
+      // Add message to queue
+      messageQueue.current.push(message);
       
-      const timestamp = new Date().toISOString();
-      const localMessage: DecryptedMessage = {
-        id: `local-${Date.now()}`,
-        content: message,
-        sender: {
-          id: currentUserId,
-          username: null,
-          full_name: null
-        },
-        receiver_id: friendId,
-        created_at: timestamp,
-        encryption_key: '',
-        iv: '',
-        is_encrypted: true,
-        is_deleted: false,
-        deleted_at: null
-      };
+      // Start processing the queue if not already processing
+      await processMessageQueue();
       
-      // Send via server only
-      console.log('Sending message via server...');
-      messageDelivered = await sendMessageViaServer(message);
-      
-      if (messageDelivered) {
-        console.log('Message delivered successfully, updating UI');
-        onNewMessage(localMessage);
-        return true;
-      } else {
-        throw new Error('Message delivery failed');
-      }
+      return true;
     } catch (error) {
       console.error('Error sending message:', error);
       setSendError('Kunne ikke sende melding. Prøv igjen senere.');
@@ -128,7 +154,7 @@ export const useDirectMessageSender = (
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentUserId, friendId, clearSendError, processMessageQueue, toast]);
 
   return {
     isLoading,
@@ -136,4 +162,4 @@ export const useDirectMessageSender = (
     handleSendMessage,
     clearSendError
   };
-};
+}, []);

@@ -1,3 +1,4 @@
+
 import { PeerManager } from './peer-manager';
 import { ConnectionRetryManager } from './connection-retry-manager';
 import { ConnectionTimeoutManager } from './connection-timeout-manager';
@@ -13,7 +14,8 @@ export class ConnectionManager {
     private secureConnections: Map<string, CryptoKey>,
     private localKeyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey } | null
   ) {
-    this.retryManager = new ConnectionRetryManager();
+    // Use more conservative retry settings
+    this.retryManager = new ConnectionRetryManager(3, 5000); // Max 3 attempts, 5 second reset
     this.timeoutManager = new ConnectionTimeoutManager();
     this.secureConnectionManager = new SecureConnectionManager(secureConnections);
   }
@@ -24,9 +26,8 @@ export class ConnectionManager {
     }
 
     try {
-      // Reduce max connection attempts
       if (this.retryManager.hasReachedMaxAttempts(peerId)) {
-        console.log(`Max connection attempts reached for peer ${peerId}`);
+        console.log(`Max connection attempts reached for peer ${peerId}, using server fallback`);
         return null;
       }
       
@@ -35,6 +36,8 @@ export class ConnectionManager {
       const isConnected = this.peerManager.isConnected(peerId);
       if (isConnected) {
         console.log(`Already connected to peer ${peerId}`);
+        // Reset attempt counter on successful connection
+        this.retryManager.resetAttempts(peerId);
         return this.peerManager.getPeerConnection(peerId);
       }
 
@@ -49,17 +52,18 @@ export class ConnectionManager {
         try {
           connection = await this.peerManager.createPeer(peerId);
           
-          // Reduced timeout from 5s to 3s for faster fallback
+          // Very fast timeout - 2s for quicker fallback
           this.timeoutManager.setTimeout(peerId, () => {
             const currentConnection = this.peerManager.getPeerConnection(peerId);
             if (currentConnection && 
                 (currentConnection.connection.connectionState === 'failed' || 
                  currentConnection.connection.connectionState === 'closed' || 
-                 currentConnection.connection.connectionState === 'disconnected')) {
+                 currentConnection.connection.connectionState === 'disconnected' ||
+                 currentConnection.connection.connectionState === 'new')) {
               console.log(`Connection to peer ${peerId} failed, attempting reconnect`);
               this.connectToPeer(peerId, peerPublicKey);
             }
-          }, 3000);
+          }, 2000);
         } catch (createError) {
           console.error(`Error creating peer connection to ${peerId}:`, createError);
           throw createError;
@@ -75,8 +79,13 @@ export class ConnectionManager {
         );
       }
 
-      // Schedule retry reset after 5s instead of previous longer timeout
-      this.retryManager.scheduleRetryReset(peerId);
+      // Schedule retry reset after a successful connection
+      if (connection && connection.connection.connectionState === 'connected') {
+        this.retryManager.resetAttempts(peerId);
+      } else {
+        // Only schedule reset if connection not already established
+        this.retryManager.scheduleRetryReset(peerId);
+      }
 
       return connection;
     } catch (error) {
@@ -132,17 +141,17 @@ export class ConnectionManager {
     // Clean up existing connection
     this.peerManager.disconnect(peerId);
     
-    // Attempt new connection with exponential backoff
+    // Attempt new connection with reduced retries
     let attempt = 0;
-    const maxRetries = 3;
+    const maxRetries = 2; // Reduced max retries for faster feedback
     let success = false;
     
     while (attempt < maxRetries && !success) {
       try {
         const connection = await this.connectToPeer(peerId, publicKey);
         
-        // Wait for the connection to establish
-        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+        // Wait for the connection to establish, but with shorter timeout
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
         const connectionState = this.getConnectionState(peerId);
         const dataChannelState = this.getDataChannelState(peerId);
@@ -159,15 +168,15 @@ export class ConnectionManager {
       }
       
       attempt++;
-      // Exponential backoff
+      // Short fixed backoff instead of exponential
       if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
     
     if (!success) {
-      console.log(`All reconnection attempts to peer ${peerId} failed`);
-      throw new Error(`Failed to reconnect to peer ${peerId} after ${maxRetries} attempts`);
+      console.log(`All reconnection attempts to peer ${peerId} failed, falling back to server`);
+      throw new Error(`Failed to reconnect to peer ${peerId}`);
     }
     
     return this.peerManager.getPeerConnection(peerId);

@@ -25,11 +25,15 @@ export const UserList = ({
 }: UserListProps) => {
   const [showAllUsers, setShowAllUsers] = useState(false);
   const [allUsers, setAllUsers] = useState<{id: string, username: string | null}[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   // Fetch all users to show offline users too
   useEffect(() => {
     const fetchAllUsers = async () => {
+      if (!showAllUsers) return;
+      
+      setIsLoading(true);
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -45,12 +49,12 @@ export const UserList = ({
           description: "Kunne ikke hente brukerlisten",
           variant: "destructive",
         });
+      } finally {
+        setIsLoading(false);
       }
     };
     
-    if (showAllUsers) {
-      fetchAllUsers();
-    }
+    fetchAllUsers();
   }, [showAllUsers, currentUserId, toast]);
 
   const toggleShowAllUsers = () => {
@@ -60,7 +64,8 @@ export const UserList = ({
   const getUsersToDisplay = () => {
     if (showAllUsers) {
       return allUsers.map(user => {
-        const isOnline = userPresence[user.id] !== undefined;
+        // Check if user is online by looking for their presence
+        const isOnline = Boolean(userPresence[user.id]);
         const status = isOnline ? userPresence[user.id].status : null;
         const isFriend = friends.includes(user.id);
         const displayName = userProfiles[user.id]?.username || user.username || user.id.substring(0, 8);
@@ -74,6 +79,7 @@ export const UserList = ({
         };
       });
     } else {
+      // Only show users with presence data (online users)
       return Object.entries(userPresence)
         .filter(([userId]) => userId !== currentUserId)
         .map(([userId, presence]) => {
@@ -94,6 +100,7 @@ export const UserList = ({
   };
 
   const usersToDisplay = getUsersToDisplay();
+  const onlineCount = Object.keys(userPresence).length - (userPresence[currentUserId || ''] ? 1 : 0);
 
   return (
     <div className="relative">
@@ -102,14 +109,22 @@ export const UserList = ({
         size="sm"
         onClick={toggleShowAllUsers}
         className="w-full bg-cyberdark-800 border-cybergold-500/30 text-cybergold-400 hover:bg-cyberdark-700 mb-2"
+        disabled={isLoading}
       >
-        {showAllUsers ? "Vis bare påloggede" : "Vis alle brukere"}
+        {isLoading ? 'Laster...' : (showAllUsers ? "Vis bare påloggede" : "Vis alle brukere")}
       </Button>
+      
+      {/* Show accurate online count */}
+      <div className="text-xs text-cybergold-500 mb-2">
+        {onlineCount === 1 ? '1 bruker pålogget' : `${onlineCount} brukere pålogget`}
+      </div>
       
       <div className="max-h-[200px] overflow-y-auto space-y-1 pr-1">
         {usersToDisplay.length === 0 ? (
           <div className="text-center text-cybergold-500 py-2 text-sm">
-            {showAllUsers ? "Ingen andre brukere funnet" : "Ingen påloggede brukere"}
+            {isLoading ? 
+              "Laster brukere..." : 
+              (showAllUsers ? "Ingen andre brukere funnet" : "Ingen påloggede brukere")}
           </div>
         ) : (
           usersToDisplay.map(user => (

@@ -49,10 +49,17 @@ export const DirectMessageHeader = ({
         color: 'text-yellow-500',
         secure: true
       };
+    } else if (connectionState === 'connecting' || connectionState === 'new') {
+      return {
+        icon: <ShieldAlert className="h-4 w-4 text-yellow-500 animate-pulse" />,
+        label: 'Etablerer sikker tilkobling...',
+        color: 'text-yellow-500',
+        secure: false
+      };
     } else {
       return {
         icon: <ShieldAlert className="h-4 w-4 text-red-500" />,
-        label: 'Etablerer sikker tilkobling...',
+        label: 'Ikke sikker tilkobling',
         color: 'text-red-500',
         secure: false
       };
@@ -121,11 +128,11 @@ export const DirectMessageHeader = ({
                       variant="ghost"
                       size="sm"
                       onClick={onReconnect}
-                      disabled={connectionAttempts > 5}
+                      disabled={connectionAttempts > 5 || connectionState === 'connecting'}
                       className="text-xs text-cybergold-400 hover:text-cybergold-300 p-1"
                     >
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      Koble til på nytt
+                      <RefreshCw className={`h-3 w-3 mr-1 ${connectionState === 'connecting' ? 'animate-spin' : ''}`} />
+                      {connectionState === 'connecting' ? 'Kobler til...' : 'Koble til på nytt'}
                     </Button>
                   )}
                 </div>
@@ -133,15 +140,16 @@ export const DirectMessageHeader = ({
               <TooltipContent>
                 {isConnected ? "Direkte tilkobling (P2P)" : 
                  usingServerFallback ? "Server-modus (E2EE)" : 
-                 "Kobler til..."}
+                 connectionState === 'connecting' ? "Etablerer tilkobling..." :
+                 "Ikke tilkoblet"}
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
       </div>
       
-      {/* Security status banner */}
-      {!securityStatus.secure && (
+      {/* Security status banner - only show if not secure and not server fallback */}
+      {!securityStatus.secure && !usingServerFallback && (
         <div className="px-4 py-2 bg-red-900/30 text-red-200 text-xs text-center font-medium">
           Venter på sikker tilkobling. Du kan ikke sende meldinger før tilkoblingen er sikker.
         </div>
