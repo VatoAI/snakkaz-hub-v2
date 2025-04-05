@@ -31,7 +31,7 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
   };
   
   // Thumbnail URL with cache busting
-  const thumbnailUrl = `${project.previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
+  const thumbnailUrl = `${project.previewUrl.replace('https://', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
   
   return (
     <div className="mb-12 bg-gradient-to-r from-cyberdark-800 to-cyberdark-900 border-2 border-cyberblue-500 rounded-lg p-6 shadow-neon-blue">
@@ -92,7 +92,7 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
                   console.log("Image failed to load, using SnakkaZ logo as fallback");
-                  (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
+                  (e.target as HTMLImageElement).src = "/lovable-uploads/4f5881eb-28e3-4dd4-98b6-506a21513baa.png";
                 }}
               />
               <div 
@@ -116,7 +116,7 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
           
           <div className="mt-4 flex justify-center items-center">
             <img 
-              src="/snakkaz-logo.png" 
+              src="/lovable-uploads/4f5881eb-28e3-4dd4-98b6-506a21513baa.png" 
               alt="SnakkaZ Logo" 
               className="h-16 object-contain" 
               onError={(e) => {

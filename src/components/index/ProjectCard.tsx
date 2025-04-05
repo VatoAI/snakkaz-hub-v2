@@ -54,8 +54,8 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
     }
   };
 
-  // Determine the thumbnail URL based on the previewUrl with a cache-busting parameter
-  const thumbnailUrl = `${previewUrl.replace('https://preview--', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
+  // Determine the thumbnail URL based on the previewUrl
+  const thumbnailUrl = `${previewUrl.replace('https://', 'https://thumbnail--').replace('.lovable.app', '.lovable.app')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
 
   return (
     <Card className={`h-full bg-cyberdark-900 border-2 ${getCategoryColor(category)} hover:shadow-neon-blue transition-all duration-300`}>
@@ -88,13 +88,13 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
                   onError={(e) => {
                     console.log(`Image failed to load for ${title}, using SnakkaZ logo as fallback`);
                     setImageError(true);
-                    (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
+                    (e.target as HTMLImageElement).src = "/lovable-uploads/4f5881eb-28e3-4dd4-98b6-506a21513baa.png";
                   }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-cyberdark-950">
                   <img 
-                    src="/snakkaz-logo.png" 
+                    src="/lovable-uploads/4f5881eb-28e3-4dd4-98b6-506a21513baa.png" 
                     alt="SnakkaZ Logo" 
                     className="h-12 object-contain" 
                     onError={(e) => {

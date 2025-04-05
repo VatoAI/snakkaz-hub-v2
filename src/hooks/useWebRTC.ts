@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
@@ -82,6 +83,32 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
     }
   }, []);
 
+  const closePeerConnection = useCallback(() => {
+    console.log('Closing peer connection');
+    
+    if (peerTimeout.current) {
+      clearTimeout(peerTimeout.current);
+      peerTimeout.current = null;
+    }
+
+    if (sendChannel.current) {
+      sendChannel.current.close();
+      sendChannel.current = null;
+    }
+
+    if (peerConnection.current) {
+      peerConnection.current.close();
+      peerConnection.current = null;
+    }
+
+    if (peerChannel.current) {
+      peerChannel.current.unsubscribe();
+      peerChannel.current = null;
+    }
+
+    setPeerState({ connected: false, connecting: false, error: null, stream: null });
+  }, []);
+
   const handlePeerChannelError = useCallback(() => {
     console.error('Peer channel error occurred');
     setPeerState(prevState => ({ ...prevState, connected: false, connecting: false, error: 'Peer channel error' }));
@@ -90,39 +117,40 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
     if (connectionAttempts < maxConnectionAttempts) {
       const reconnectDelay = Math.min(Math.pow(2, connectionAttempts) * 1000, 30000);
       console.log(`Attempting to reconnect in ${reconnectDelay}ms`);
-      setTimeout(startPeerConnection, reconnectDelay);
+      setTimeout(() => startPeerConnection(), reconnectDelay);
     } else {
       console.error(`Max connection attempts reached (${maxConnectionAttempts}). Giving up.`);
     }
-  }, [connectionAttempts, maxConnectionAttempts, closePeerConnection, startPeerConnection]);
+  }, [connectionAttempts, maxConnectionAttempts, closePeerConnection]);
 
   const handleIceCandidate = useCallback(async (event: RTCPeerConnectionIceEvent) => {
     if (event.candidate) {
       console.log('Sending ICE candidate to peer:', event.candidate);
       
-      if (peerChannel.current?.state !== 'SUBSCRIBED') {
+      if (peerChannel.current?.state === 'SUBSCRIBED') {
+        try {
+          const { error } = await supabase
+            .from('signaling')
+            .insert({
+              sender_id: userId,
+              receiver_id: friendId,
+              signal_data: JSON.stringify({
+                type: 'ice-candidate',
+                candidate: event.candidate
+              })
+            });
+          
+          if (error) {
+            console.error('Error sending ICE candidate:', error);
+          } else {
+            console.log('ICE candidate sent successfully');
+          }
+        } catch (error) {
+          console.error('Failed to send ICE candidate:', error);
+        }
+      } else {
         iceCandidateQueue.current.push(event.candidate);
         console.log('ICE candidate queued, channel not ready yet');
-        return;
-      }
-      
-      try {
-        const { error } = await supabase
-          .from('webrtc_signals')
-          .insert({
-            sender_id: userId,
-            receiver_id: friendId,
-            signal_type: 'ice-candidate',
-            signal_data: event.candidate,
-          });
-        
-        if (error) {
-          console.error('Error sending ICE candidate:', error);
-        } else {
-          console.log('ICE candidate sent successfully');
-        }
-      } catch (error) {
-        console.error('Failed to send ICE candidate:', error);
       }
     } else {
       console.log('ICE gathering complete');
@@ -200,12 +228,14 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
       console.log('Offer created and set as local description');
 
       const { error: offerError } = await supabase
-        .from('webrtc_signals')
+        .from('signaling')
         .insert({
           sender_id: userId,
           receiver_id: friendId,
-          signal_type: 'offer',
-          signal_data: offer,
+          signal_data: JSON.stringify({
+            type: 'offer',
+            sdp: offer
+          })
         });
 
       if (offerError) {
@@ -278,33 +308,7 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
       console.error('Error during peer connection setup:', error);
       handlePeerError(error);
     }
-  }, [userId, friendId, handlePeerError, handleIceCandidate, handleTrack, handleIceCandidateError, handleIceGatheringStateChange, handleIceConnectionStateChange, handlePeerConnectionStateChange]);
-
-  const closePeerConnection = useCallback(() => {
-    console.log('Closing peer connection');
-    
-    if (peerTimeout.current) {
-      clearTimeout(peerTimeout.current);
-      peerTimeout.current = null;
-    }
-
-    if (sendChannel.current) {
-      sendChannel.current.close();
-      sendChannel.current = null;
-    }
-
-    if (peerConnection.current) {
-      peerConnection.current.close();
-      peerConnection.current = null;
-    }
-
-    if (peerChannel.current) {
-      peerChannel.current.unsubscribe();
-      peerChannel.current = null;
-    }
-
-    setPeerState({ connected: false, connecting: false, error: null, stream: null });
-  }, []);
+  }, [userId, friendId, handlePeerError, handleIceCandidate, handleTrack, handleIceCandidateError, handleIceGatheringStateChange, handleIceConnectionStateChange, handlePeerConnectionStateChange, connectionAttempts, maxConnectionAttempts, handlePeerChannelError, peerState.connected, peerState.connecting]);
 
   useEffect(() => {
     if (!userId || !friendId) {
@@ -365,12 +369,14 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
             console.log('Answer created and set as local description');
 
             const { error: answerError } = await supabase
-              .from('webrtc_signals')
+              .from('signaling')
               .insert({
                 sender_id: userId,
                 receiver_id: friendId,
-                signal_type: 'answer',
-                signal_data: answer,
+                signal_data: JSON.stringify({
+                  type: 'answer',
+                  sdp: answer
+                })
               });
 
             if (answerError) {
