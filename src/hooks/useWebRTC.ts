@@ -28,9 +28,8 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
   const peerChannel = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const peerTimeout = useRef<NodeJS.Timeout | null>(null);
   const iceCandidateQueue = useRef<RTCIceCandidate[]>([]);
-  const isIce кандидатеAddеd = useRef(false);
+  const isIceCandidateAdded = useRef(false);
 
-  // Configuration for the peer connection
   const peerConfig: RTCConfiguration = {
     iceServers: [
       {
@@ -45,39 +44,33 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
     ],
   };
 
-  // Function to handle errors during peer connection setup
   const handlePeerError = useCallback((error: any) => {
     console.error('Peer connection error:', error);
     setPeerState(prevState => ({ ...prevState, error: 'Failed to establish peer connection', connecting: false }));
   }, []);
 
-  // Function to handle ICE candidate errors
   const handleIceCandidateError = useCallback((event: RTCPeerConnectionIceErrorEvent) => {
     console.error('ICE candidate error:', event);
   }, []);
 
-  // Function to handle ICE gathering state changes
   const handleIceGatheringStateChange = useCallback(() => {
     if (peerConnection.current) {
       console.log(`ICE gathering state changed: ${peerConnection.current.iceGatheringState}`);
     }
   }, []);
 
-  // Function to handle ICE connection state changes
   const handleIceConnectionStateChange = useCallback(() => {
     if (peerConnection.current) {
       console.log(`ICE connection state changed: ${peerConnection.current.iceConnectionState}`);
     }
   }, []);
 
-  // Function to handle peer connection state changes
   const handlePeerConnectionStateChange = useCallback(() => {
     if (peerConnection.current) {
       console.log(`Peer connection state changed: ${peerConnection.current.connectionState}`);
     }
   }, []);
 
-  // Function to handle track events (incoming media streams)
   const handleTrack = useCallback((event: RTCTrackEvent) => {
     console.log('Track event received:', event);
     if (event.streams && event.streams[0]) {
@@ -89,15 +82,13 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
     }
   }, []);
 
-  // Function to handle the peer channel error
   const handlePeerChannelError = useCallback(() => {
     console.error('Peer channel error occurred');
     setPeerState(prevState => ({ ...prevState, connected: false, connecting: false, error: 'Peer channel error' }));
     closePeerConnection();
     
-    // Attempt to reconnect if max attempts not reached
     if (connectionAttempts < maxConnectionAttempts) {
-      const reconnectDelay = Math.min(Math.pow(2, connectionAttempts) * 1000, 30000); // Capped at 30 seconds
+      const reconnectDelay = Math.min(Math.pow(2, connectionAttempts) * 1000, 30000);
       console.log(`Attempting to reconnect in ${reconnectDelay}ms`);
       setTimeout(startPeerConnection, reconnectDelay);
     } else {
@@ -105,19 +96,16 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
     }
   }, [connectionAttempts, maxConnectionAttempts, closePeerConnection, startPeerConnection]);
 
-  // Function to handle ICE candidates
   const handleIceCandidate = useCallback(async (event: RTCPeerConnectionIceEvent) => {
     if (event.candidate) {
       console.log('Sending ICE candidate to peer:', event.candidate);
       
-      // Queue the ICE candidate if the channel is not yet ready
       if (peerChannel.current?.state !== 'SUBSCRIBED') {
         iceCandidateQueue.current.push(event.candidate);
         console.log('ICE candidate queued, channel not ready yet');
         return;
       }
       
-      // Send the ICE candidate immediately if the channel is ready
       try {
         const { error } = await supabase
           .from('webrtc_signals')
@@ -141,7 +129,6 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
     }
   }, [userId, friendId]);
 
-  // Function to start the peer connection
   const startPeerConnection = useCallback(async () => {
     if (!userId || !friendId) {
       console.error('User or friend ID is missing');
@@ -154,7 +141,6 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
       return;
     }
 
-    // Check if we've exceeded the max connection attempts
     if (connectionAttempts >= maxConnectionAttempts) {
       console.error(`Max connection attempts reached (${maxConnectionAttempts}). Giving up.`);
       setPeerState(prevState => ({ ...prevState, connecting: false, error: 'Max connection attempts reached' }));
@@ -165,23 +151,19 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
     setConnectionAttempts(prevAttempts => prevAttempts + 1);
     console.log(`Starting peer connection attempt ${connectionAttempts + 1} of ${maxConnectionAttempts}`);
 
-    // Clear any existing timeout
     if (peerTimeout.current) {
       clearTimeout(peerTimeout.current);
     }
 
-    // Set a timeout to handle connection failure
     peerTimeout.current = setTimeout(() => {
       console.error('Peer connection timed out');
       handlePeerChannelError();
-    }, 15000); // 15 seconds
+    }, 15000);
 
     try {
-      // Create a new peer connection
       peerConnection.current = new RTCPeerConnection(peerConfig);
       console.log('Peer connection created');
 
-      // Register event listeners
       peerConnection.current.addEventListener('icecandidateerror', handleIceCandidateError);
       peerConnection.current.addEventListener('icegatheringstatechange', handleIceGatheringStateChange);
       peerConnection.current.addEventListener('iceconnectionstatechange', handleIceConnectionStateChange);
@@ -190,7 +172,6 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
       peerConnection.current.addEventListener('icecandidate', handleIceCandidate);
       console.log('Event listeners registered');
 
-      // Create a data channel
       sendChannel.current = peerConnection.current.createDataChannel('sendDataChannel');
       console.log('Data channel created');
 
@@ -206,22 +187,18 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
         console.log('Data channel received:', event.channel);
       };
 
-      // Get user media
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       console.log('User media obtained');
 
-      // Add tracks to the peer connection
       stream.getTracks().forEach(track => {
         peerConnection.current?.addTrack(track, stream);
       });
       console.log('Tracks added to peer connection');
 
-      // Create offer
       const offer = await peerConnection.current.createOffer();
       await peerConnection.current.setLocalDescription(offer);
       console.log('Offer created and set as local description');
 
-      // Send offer to peer
       const { error: offerError } = await supabase
         .from('webrtc_signals')
         .insert({
@@ -238,7 +215,6 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
       }
       console.log('Offer sent to peer');
 
-      // Set up Supabase channel for signaling
       peerChannel.current = supabase.channel(`peer_stream:${userId}:${friendId}`, {
         config: {
           broadcast: {
@@ -278,71 +254,58 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
             }
           }
         })
-        // Subscribe to the channel and handle subscription status
-      .subscribe(async (status) => {
-        console.log('Subscription status:', status);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to peer stream!');
+        .subscribe(async (status) => {
+          console.log('Subscription status:', status);
           
-          // Set connection status to 'connected'
-          setPeerState(prevState => ({ ...prevState, connected: true, connecting: false }));
+          if (status === 'SUBSCRIBED') {
+            console.log('Successfully subscribed to peer stream!');
+            
+            setPeerState(prevState => ({ ...prevState, connected: true, connecting: false }));
+            setConnectionAttempts(0);
+          }
           
-          // Reset connection attempts on successful subscription
-          setConnectionAttempts(0);
-        }
-        
-        // Check for subscription errors using the enum values correctly
-        if (
-          status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT ||
-          status === REALTIME_SUBSCRIBE_STATES.CLOSED ||
-          status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR
-        ) {
-          console.error('Subscription failed:', status);
-          
-          // Handle reconnection similar to our presence connection
-          handlePeerChannelError();
-        }
-      });
+          if (
+            status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT ||
+            status === REALTIME_SUBSCRIBE_STATES.CLOSED ||
+            status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR
+          ) {
+            console.error('Subscription failed:', status);
+            
+            handlePeerChannelError();
+          }
+        });
     } catch (error: any) {
       console.error('Error during peer connection setup:', error);
       handlePeerError(error);
     }
-  }, [userId, friendId, handlePeerError, handleIceCandidate, handleTrack, handleIceCandidateError, handleIceGatheringStateChange, handleIceConnectionStateChange, handlePeerConnectionStateChange, handlePeerChannelError, connectionAttempts, maxConnectionAttempts]);
+  }, [userId, friendId, handlePeerError, handleIceCandidate, handleTrack, handleIceCandidateError, handleIceGatheringStateChange, handleIceConnectionStateChange, handlePeerConnectionStateChange]);
 
-  // Function to close the peer connection
   const closePeerConnection = useCallback(() => {
     console.log('Closing peer connection');
     
-    // Clear the timeout
     if (peerTimeout.current) {
       clearTimeout(peerTimeout.current);
       peerTimeout.current = null;
     }
 
-    // Close the data channel
     if (sendChannel.current) {
       sendChannel.current.close();
       sendChannel.current = null;
     }
 
-    // Close the peer connection
     if (peerConnection.current) {
       peerConnection.current.close();
       peerConnection.current = null;
     }
 
-    // Unsubscribe from the Supabase channel
     if (peerChannel.current) {
       peerChannel.current.unsubscribe();
       peerChannel.current = null;
     }
 
-    // Reset the peer state
     setPeerState({ connected: false, connecting: false, error: null, stream: null });
   }, []);
 
-  // Effect to handle incoming signals and start the connection
   useEffect(() => {
     if (!userId || !friendId) {
       return;
@@ -367,13 +330,11 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
         console.log(`Received ${type} from peer`);
 
         if (type === 'offer') {
-          // Clear the timeout when offer is received
           if (peerTimeout.current) {
             clearTimeout(peerTimeout.current);
             peerTimeout.current = null;
           }
           
-          // Create a new peer connection if one doesn't exist
           if (!peerConnection.current) {
             peerConnection.current = new RTCPeerConnection(peerConfig);
 
@@ -426,7 +387,6 @@ export const useWebRTC = (userId: string | undefined, friendId: string | undefin
       })
       .subscribe();
 
-    // Clean up on unmount
     return () => {
       console.log('Unsubscribing from webrtc_signals channel');
       webrtcChannel.unsubscribe();
