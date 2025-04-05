@@ -92,7 +92,7 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
                   console.log("Image failed to load, using SnakkaZ logo as fallback");
-                  (e.target as HTMLImageElement).src = "/lovable-uploads/4f5881eb-28e3-4dd4-98b6-506a21513baa.png";
+                  (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
                 }}
               />
               <div 
