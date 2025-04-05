@@ -116,12 +116,12 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
           
           <div className="mt-4 flex justify-center items-center">
             <img 
-              src="/lovable-uploads/4f5881eb-28e3-4dd4-98b6-506a21513baa.png" 
+              src="/snakkaz-logo.png" 
               alt="SnakkaZ Logo" 
               className="h-16 object-contain" 
               onError={(e) => {
                 console.log("Logo failed to load, using placeholder");
-                (e.target as HTMLImageElement).src = "/placeholder.svg";
+                (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
               }}
             />
           </div>
