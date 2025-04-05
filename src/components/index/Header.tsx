@@ -25,9 +25,15 @@ export const Header = () => {
       </div>
 
       {/* Hub title with enhanced animation */}
-      <h1 className="text-5xl md:text-6xl font-bold text-white mb-4">
+      <h1
+  className="text-5xl md:text-6xl font-bold text-transparent bg-gradient-to-r from-cyberblue-300 via-cyberblue-200 to-cyberblue-300 bg-clip-text mb-4"
+  style={{
+    textShadow: '0 0 5px #00bfff, 0 0 10px #00bfff, 0 0 15px #00bfff, 0 0 20px #00bfff',
+  }}
+>
   SnakkaZ Hub
 </h1>
+
 
       
       {/* Subtitle with button */}
