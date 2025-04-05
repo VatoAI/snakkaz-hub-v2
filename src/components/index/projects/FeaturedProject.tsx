@@ -3,8 +3,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import { ExternalLink, Database, RefreshCw } from "lucide-react";
+import { ExternalLink, Database, RefreshCw, HelpCircle } from "lucide-react";
 import { ProjectProps } from "../ProjectCard";
+import { HelpDeskDialog } from "./HelpDeskDialog";
 
 interface FeaturedProjectProps {
   project: (ProjectProps & { isFeatured?: boolean }) | undefined;
@@ -12,6 +13,7 @@ interface FeaturedProjectProps {
 
 export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
   const [refreshKey, setRefreshKey] = useState(0); // State to force image refresh
+  const [showHelpDesk, setShowHelpDesk] = useState(false);
   const navigate = useNavigate();
   
   if (!project) return null;
@@ -35,7 +37,18 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
     <div className="mb-12 bg-gradient-to-r from-cyberdark-800 to-cyberdark-900 border-2 border-cyberblue-500 rounded-lg p-6 shadow-neon-blue">
       <div className="flex flex-col md:flex-row gap-6">
         <div className="md:w-1/2">
-          <h2 className="text-3xl font-bold text-cyberblue-400 mb-4">Featured Project: {project.title}</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-3xl font-bold text-cyberblue-400">Featured Project: {project.title}</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-cyberblue-500 text-cyberblue-400 hover:bg-cyberblue-900/50"
+              onClick={() => setShowHelpDesk(true)}
+            >
+              <HelpCircle size={16} className="mr-2" />
+              Help
+            </Button>
+          </div>
           <p className="text-gray-300 mb-6">{project.description}</p>
           
           <div className="flex gap-4">
@@ -51,7 +64,7 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
               className="border-cyberblue-500 text-cyberblue-400 hover:bg-cyberblue-900/50"
               onClick={(e) => {
                 e.preventDefault();
-                window.open(project.previewUrl, '_blank');
+                window.open(project.previewUrl, '_blank', 'noopener,noreferrer');
               }}
             >
               <ExternalLink size={16} className="mr-2" />
@@ -78,7 +91,7 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
                 alt={`Preview of ${project.title}`}
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
-                  // If image fails to load, use SnakkaZ logo as fallback
+                  console.log("Image failed to load, using SnakkaZ logo as fallback");
                   (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
                 }}
               />
@@ -107,12 +120,15 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
               alt="SnakkaZ Logo" 
               className="h-16 object-contain" 
               onError={(e) => {
+                console.log("Logo failed to load, using placeholder");
                 (e.target as HTMLImageElement).src = "/placeholder.svg";
               }}
             />
           </div>
         </div>
       </div>
+      
+      <HelpDeskDialog open={showHelpDesk} onOpenChange={setShowHelpDesk} />
     </div>
   );
 };

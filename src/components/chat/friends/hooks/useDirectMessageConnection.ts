@@ -1,115 +1,181 @@
 
-import { useRef, useEffect, useCallback } from "react";
-import { WebRTCManager } from "@/utils/webrtc";
-import { useConnectionState, setupConnectionTimeout } from "../utils/directMessage-connection-utils";
-import { useToast } from "@/components/ui/use-toast";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 
-export const useDirectMessageConnection = (
-  webRTCManager: WebRTCManager | null,
-  friendId: string | undefined,
-  connectionState: string, 
-  setConnectionState: (state: string) => void,
-  dataChannelState: string, 
-  setDataChannelState: (state: string) => void,
-  usingServerFallback: boolean,
-  setUsingServerFallback: (value: boolean) => void,
-  connectionAttempts: number,
-  setConnectionAttempts: (value: number) => void
-) => {
-  const { toast } = useToast();
-  const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
+export const useDirectMessageConnection = (userId: string | undefined, friendId: string | undefined) => {
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const maxConnectionAttempts = 5;
   const connectionTimeout = useRef<NodeJS.Timeout | null>(null);
-  const reconnectionInProgress = useRef<boolean>(false);
-
-  const { updateConnectionStatus, attemptReconnect } = useConnectionState(webRTCManager, friendId, toast);
-
-  // Update connection status more frequently
-  useEffect(() => {
-    if (!webRTCManager || !friendId) return;
-
-    // Initial update of connection status
-    const { connState, dataState } = updateConnectionStatus();
-    setConnectionState(connState);
-    setDataChannelState(dataState);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  
+  const disconnect = useCallback(() => {
+    console.log('Disconnecting from direct message channel');
     
-    // Set up interval to check connection status - check more frequently
-    statusCheckInterval.current = setInterval(() => {
-      const { connState, dataState } = updateConnectionStatus();
-      setConnectionState(connState);
-      setDataChannelState(dataState);
+    if (channelRef.current) {
+      channelRef.current.unsubscribe();
+      channelRef.current = null;
+    }
+    
+    if (connectionTimeout.current) {
+      clearTimeout(connectionTimeout.current);
+      connectionTimeout.current = null;
+    }
+    
+    setConnectionStatus('disconnected');
+  }, []);
+
+  const connect = useCallback(() => {
+    if (!userId || !friendId || connectionStatus === 'connecting') {
+      console.log('Connection attempt aborted: missing user ID or friend ID, or already connecting', { 
+        userId, friendId, connectionStatus 
+      });
+      return;
+    }
+
+    // Check if we've exceeded the max connection attempts
+    if (connectionAttempts >= maxConnectionAttempts) {
+      console.error(`Max connection attempts reached (${maxConnectionAttempts}). Giving up.`);
+      setConnectionStatus('disconnected');
+      return;
+    }
+
+    setConnectionStatus('connecting');
+    console.log(`Connection attempt ${connectionAttempts + 1} of ${maxConnectionAttempts}`);
+
+    // Set up timeout to detect connection failure
+    if (connectionTimeout.current) {
+      clearTimeout(connectionTimeout.current);
+    }
+
+    connectionTimeout.current = setTimeout(() => {
+      console.error('Connection timed out');
       
-      if (connState === 'connected' && dataState === 'open') {
-        setUsingServerFallback(false);
+      // Clean up the current channel attempt
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+      
+      // Increment connection attempts and try again
+      setConnectionAttempts((prevAttempts) => prevAttempts + 1);
+      setConnectionStatus('disconnected');
+      
+      // Try to reconnect after delay (exponential backoff)
+      const reconnectDelay = Math.min(Math.pow(2, connectionAttempts) * 1000, 30000); // Capped at 30 seconds
+      console.log(`Will attempt to reconnect in ${reconnectDelay}ms`);
+      
+      setTimeout(connect, reconnectDelay);
+    }, 10000); // 10 second timeout
+
+    // Create a channel for presence
+    const channel = supabase.channel(`direct_messages:${userId}:${friendId}`, {
+      config: {
+        broadcast: {
+          self: false,
+        },
+        presence: {
+          key: userId,
+        },
+      },
+    });
+
+    // Listen for connection status changes
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        console.log('Presence synced');
+        
+        // Clear connection timeout
         if (connectionTimeout.current) {
           clearTimeout(connectionTimeout.current);
           connectionTimeout.current = null;
         }
-      }
-    }, 500); // Even more frequent checks - reduced to 500ms
-
-    // Faster fallback to server
-    connectionTimeout.current = setupConnectionTimeout(
-      webRTCManager, 
-      friendId, 
-      setUsingServerFallback, 
-      toast,
-      2000 // Reduced timeout further to 2000ms for faster fallback
-    );
-
-    return () => {
-      if (statusCheckInterval.current) {
-        clearInterval(statusCheckInterval.current);
-      }
-      if (connectionTimeout.current) {
-        clearTimeout(connectionTimeout.current);
-      }
-    };
-  }, [webRTCManager, friendId, toast, setConnectionState, setDataChannelState, setUsingServerFallback, updateConnectionStatus]);
-
-  // Improved reconnection handler with debouncing
-  const handleReconnect = useCallback(async () => {
-    if (!webRTCManager || !friendId || reconnectionInProgress.current) return;
-    
-    try {
-      reconnectionInProgress.current = true;
-      
-      // Increment connection attempts
-      setConnectionAttempts(prevAttempts => prevAttempts + 1);
-      
-      // Toast to inform user
-      toast({
-        title: "Kobler til på nytt...",
-        description: "Etablerer sikker tilkobling",
+        
+        setConnectionStatus('connected');
+        setConnectionAttempts(0); // Reset connection attempts on successful connection
+      })
+      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+        console.log('User joined', { key, newPresences });
+      })
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+        console.log('User left', { key, leftPresences });
+      })
+      .on('system', { event: 'disconnect' }, () => {
+        console.error('Disconnected from system');
+        setConnectionStatus('disconnected');
+      })
+      .on('system', { event: 'error' }, (err) => {
+        console.error('Connection error:', err);
+        setConnectionStatus('disconnected');
+      })
+      .subscribe(async (status) => {
+        console.log('Subscription status:', status);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to channel!');
+          setConnectionStatus('connected');
+          
+          // Clear connection timeout
+          if (connectionTimeout.current) {
+            clearTimeout(connectionTimeout.current);
+            connectionTimeout.current = null;
+          }
+          
+          // Reset connection attempts on successful connection
+          setConnectionAttempts(0);
+        }
+        
+        if (
+          status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT ||
+          status === REALTIME_SUBSCRIBE_STATES.CLOSED ||
+          status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR
+        ) {
+          console.error('Subscription failed:', status);
+          
+          // Clean up the current channel
+          if (channelRef.current) {
+            channelRef.current.unsubscribe();
+            channelRef.current = null;
+          }
+          
+          // Increment connection attempts
+          setConnectionAttempts((prevAttempts) => prevAttempts + 1);
+          setConnectionStatus('disconnected');
+          
+          // Try to reconnect after delay if we haven't exceeded max attempts
+          if (connectionAttempts < maxConnectionAttempts) {
+            const reconnectDelay = Math.min(Math.pow(2, connectionAttempts) * 1000, 30000); // Capped at 30 seconds
+            console.log(`Will attempt to reconnect in ${reconnectDelay}ms`);
+            
+            setTimeout(connect, reconnectDelay);
+          } else {
+            console.error(`Max connection attempts reached (${maxConnectionAttempts}). Giving up.`);
+          }
+        }
       });
-      
-      const success = await attemptReconnect(usingServerFallback, setUsingServerFallback);
-      
-      if (success && connectionTimeout.current) {
-        clearTimeout(connectionTimeout.current);
-        connectionTimeout.current = setupConnectionTimeout(
-          webRTCManager, 
-          friendId, 
-          setUsingServerFallback, 
-          toast, 
-          2000 // Faster timeout for quicker fallback decision
-        );
-      } else if (!success && !usingServerFallback) {
-        // If reconnect fails and not already using server, switch to server fallback
-        setUsingServerFallback(true);
-        toast({
-          title: "Server modus",
-          description: "Bruker nå kryptert servermodus for meldinger",
-        });
-      }
-    } finally {
-      // Reset reconnection flag after a delay
-      setTimeout(() => {
-        reconnectionInProgress.current = false;
-      }, 3000);
+
+    // Store the channel reference
+    channelRef.current = channel;
+  }, [userId, friendId, connectionStatus, connectionAttempts, maxConnectionAttempts]);
+
+  // Auto-connect when user and friend IDs are available
+  useEffect(() => {
+    if (userId && friendId && connectionStatus === 'disconnected') {
+      connect();
     }
-  }, [webRTCManager, friendId, toast, setConnectionAttempts, attemptReconnect, usingServerFallback, setUsingServerFallback]);
+    
+    // Cleanup on unmount or when IDs change
+    return () => {
+      disconnect();
+    };
+  }, [userId, friendId, connectionStatus, connect, disconnect]);
 
   return {
-    handleReconnect
+    connectionStatus,
+    connect,
+    disconnect,
+    connectionAttempts,
+    maxConnectionAttempts
   };
 };

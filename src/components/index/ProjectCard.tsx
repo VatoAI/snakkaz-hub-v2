@@ -17,6 +17,7 @@ export interface ProjectProps {
 
 export const ProjectCard = ({ title, description, previewUrl, githubUrl, category, hasSupabase }: ProjectProps) => {
   const [refreshKey, setRefreshKey] = useState(0); // State to force image refresh
+  const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
   
   const getCategoryColor = (category: string) => {
@@ -38,6 +39,7 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
   const refreshPreview = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    setImageError(false);
     setRefreshKey(prev => prev + 1);
   };
   
@@ -77,16 +79,30 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
               onClick={(e) => handleCardClick(e, previewUrl)}
               className="block w-full h-full relative group"
             >
-              <img 
-                key={refreshKey} // Use key to force reload of image when refreshed
-                src={thumbnailUrl}
-                alt={`Preview of ${title}`}
-                className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
-                onError={(e) => {
-                  // Use SnakkaZ logo as fallback for failed images
-                  (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
-                }}
-              />
+              {!imageError ? (
+                <img 
+                  key={refreshKey} // Use key to force reload of image when refreshed
+                  src={thumbnailUrl}
+                  alt={`Preview of ${title}`}
+                  className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                  onError={(e) => {
+                    console.log(`Image failed to load for ${title}, using SnakkaZ logo as fallback`);
+                    setImageError(true);
+                    (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
+                  }}
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-cyberdark-950">
+                  <img 
+                    src="/snakkaz-logo.png" 
+                    alt="SnakkaZ Logo" 
+                    className="h-12 object-contain" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "/placeholder.svg";
+                    }}
+                  />
+                </div>
+              )}
               <div className="absolute inset-0 bg-cyberdark-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
                 <span className="text-cyberblue-400 flex items-center">
                   <ExternalLink size={20} className="mr-2" />

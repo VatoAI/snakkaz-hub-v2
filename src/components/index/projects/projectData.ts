@@ -2,24 +2,24 @@ import { ProjectProps } from "../ProjectCard";
 
 // Project data
 export const projects: (ProjectProps & { isFeatured?: boolean })[] = [
-  // SnakkaZ Guardian Chat as featured project
+  // AI Dash Hub as featured project
+  {
+    title: "AI Dash Hub",
+    description: "AI-powered analytics dashboard with predictive capabilities - The main hub for SnakkaZ.com",
+    previewUrl: "https://preview--ai-dash-hub.lovable.app/",
+    githubUrl: "https://github.com/VatoAI/ai-dash-hub.git",
+    category: "analytics",
+    hasSupabase: true,
+    isFeatured: true
+  },
+  
+  // SnakkaZ Guardian Chat - no longer featured
   {
     title: "SnakkaZ Guardian Chat",
     description: "Secure chat application with advanced encryption and privacy features",
     previewUrl: "https://preview--snakkaz-guardian-chat.lovable.app/",
     githubUrl: "https://github.com/VatoAI/snakkaz-guardian-chat.git",
     category: "chat",
-    hasSupabase: true,
-    isFeatured: true
-  },
-  
-  // Regular projects
-  {
-    title: "AI Dash Hub",
-    description: "AI-powered analytics dashboard with predictive capabilities",
-    previewUrl: "https://preview--ai-dash-hub.lovable.app/",
-    githubUrl: "https://github.com/VatoAI/ai-dash-hub.git",
-    category: "analytics",
     hasSupabase: true
   },
   
