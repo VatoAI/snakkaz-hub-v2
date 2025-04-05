@@ -14,7 +14,7 @@ export const Header = () => {
             alt="SnakkaZ Logo"
             className="rounded-full w-40 h-40 object-cover"
             onError={(e) => {
-              (e.target as HTMLImageElement).src = "/placeholder.svg";
+              (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
             }}
           />
         </div>
