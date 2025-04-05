@@ -88,17 +88,17 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
                   onError={(e) => {
                     console.log(`Image failed to load for ${title}, using SnakkaZ logo as fallback`);
                     setImageError(true);
-                    (e.target as HTMLImageElement).src = "/lovable-uploads/4f5881eb-28e3-4dd4-98b6-506a21513baa.png";
+                    (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
                   }}
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-cyberdark-950">
                   <img 
-                    src="/lovable-uploads/4f5881eb-28e3-4dd4-98b6-506a21513baa.png" 
+                    src="/snakkaz-logo.png" 
                     alt="SnakkaZ Logo" 
                     className="h-12 object-contain" 
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/placeholder.svg";
+                      (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
                     }}
                   />
                 </div>
