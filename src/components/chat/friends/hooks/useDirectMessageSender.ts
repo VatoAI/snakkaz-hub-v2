@@ -162,4 +162,4 @@ export const useDirectMessageSender = (
     handleSendMessage,
     clearSendError
   };
-}, []);
+};
