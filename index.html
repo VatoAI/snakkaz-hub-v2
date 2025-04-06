@@ -19,7 +19,54 @@
 
     <!-- App-scripts -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
-    <script type="module" src="/src/main.tsx"></script>
+    <script typ<!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>SnakkaZ Hub</title>
+      
+          <!-- SEO -->
+          <meta name="description" content="SnakkaZ - Den Sikreste Chatten i Verden" />
+          <meta name="author" content="SnakkaZ" />
+          <meta property="og:image" content="/og-image.png" />
+      
+          <!-- PWA Manifest -->
+          <link rel="manifest" href="/manifest.json" />
+      
+          <!-- Ikoner -->
+          <link rel="icon" href="/icons/snakkaz-icon-192.png" />
+          <link rel="apple-touch-icon" href="/icons/snakkaz-icon-192.png" />
+      
+          <!-- Tema for nettleser + installasjon -->
+          <meta name="theme-color" content="#d62828" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        </head>
+      
+        <body>
+          <div id="root"></div>
+      
+          <!-- App-scripts -->
+          <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+          <script type="module" src="/src/main.tsx"></script>
+      
+          <!-- Service Worker -->
+          <script>
+            if ("serviceWorker" in navigator) {
+              navigator.serviceWorker
+                .register("/service-worker.js")
+                .then((registration) => {
+                  console.log("Service Worker registrert:", registration.scope);
+                })
+                .catch((error) => {
+                  console.error("Service Worker feilet:", error);
+                });
+            }
+          </script>
+        </body>
+      </html>
+      e="module" src="/src/main.tsx"></script>
 
     <!-- Service Worker -->
     <script>
