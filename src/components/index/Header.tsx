@@ -27,25 +27,32 @@ export const Header = () => {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full border border-cyberblue-400/30 -z-10"></div>
       </div>
 
-      {/* Hub title with enhanced animation */}
-      <h1
-        className={`${isMobile ? 'text-4xl' : 'text-5xl md:text-6xl'} font-bold text-transparent bg-gradient-to-r from-cyberblue-300 via-cyberblue-200 to-cyberblue-300 bg-clip-text mb-4`}
-        style={{
-          textShadow: '0 0 5px #00bfff, 0 0 10px #00bfff, 0 0 15px #00bfff, 0 0 20px #00bfff',
-        }}
-      >
-        SnakkaZ Hub
-      </h1>
+      {/* Hub title with enhanced visibility */}
+      <div className="relative mb-4">
+        <h1
+          className={`${isMobile ? 'text-4xl' : 'text-5xl md:text-6xl'} font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyberblue-300 via-white to-cyberblue-300`}
+          style={{
+            textShadow: '0 0 8px #00bfff, 0 0 15px #00bfff, 0 0 20px #00bfff',
+            WebkitBackgroundClip: 'text',
+            filter: 'drop-shadow(0 0 5px rgba(26,157,255,0.6))'
+          }}
+        >
+          SnakkaZ Hub
+        </h1>
+        
+        {/* Add backlight effect to improve text visibility */}
+        <div className="absolute inset-0 bg-cyberblue-500/10 filter blur-xl rounded-full -z-10"></div>
+      </div>
       
       {/* Subtitle with button */}
       <div className="flex flex-col items-center">
-        <p className="text-lg md:text-2xl text-cyberblue-400 mb-4">
+        <p className="text-lg md:text-2xl text-cyberblue-400 mb-6 font-medium">
           Velg hvilken versjon du vil bruke
         </p>
         
         <button 
           onClick={() => navigate('/chat')}
-          className="px-6 py-3 bg-gradient-to-r from-cyberblue-500 to-cyberblue-600 text-cyberdark-950 rounded-lg font-medium hover:shadow-[0_0_15px_rgba(26,157,255,0.4)] transition-all duration-300"
+          className="px-8 py-4 bg-gradient-to-r from-cyberblue-500 to-cyberblue-600 text-white rounded-lg font-medium text-lg hover:shadow-[0_0_15px_rgba(26,157,255,0.6)] transition-all duration-300 transform hover:scale-105"
         >
           Prøv Chat Nå
         </button>

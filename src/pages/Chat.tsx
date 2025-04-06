@@ -5,32 +5,108 @@ import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatTabs } from "@/components/chat/ChatTabs";
 import { useAuthState } from "@/hooks/useAuthState";
 import { useWebRTC } from "@/hooks/useWebRTC";
+import { useToast } from "@/components/ui/use-toast";
 
 const Chat = () => {
-  const { user } = useAuthState();
+  const { userId, checkAuth } = useAuthState();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { manager: webRTCManager, setupWebRTC, status } = useWebRTC();
   const [isReady, setIsReady] = useState(false);
+  const [activeTab, setActiveTab] = useState("global");
+  const [selectedFriend, setSelectedFriend] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [ttl, setTtl] = useState(null);
+  const [directMessages, setDirectMessages] = useState([]);
+  const [editingMessage, setEditingMessage] = useState(null);
+  const [userProfiles, setUserProfiles] = useState({});
+  const [userPresence, setUserPresence] = useState({});
+  const [currentStatus, setCurrentStatus] = useState('online');
 
-  // Redirect to login if not authenticated
+  // Check authentication when component mounts
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    }
-  }, [user, navigate]);
+    const verifyAuth = async () => {
+      const currentUserId = await checkAuth();
+      if (!currentUserId) {
+        navigate('/login');
+      }
+    };
+    
+    verifyAuth();
+  }, [checkAuth, navigate]);
 
-  // Set up WebRTC when component mounts
+  // Set up WebRTC when component mounts and user is authenticated
   useEffect(() => {
-    if (user && !isReady) {
-      setupWebRTC(user.id, () => {
+    if (userId && !isReady) {
+      setupWebRTC(userId, () => {
         console.log("WebRTC setup complete");
         setIsReady(true);
       });
     }
-  }, [user, setupWebRTC, isReady]);
+  }, [userId, setupWebRTC, isReady]);
+
+  const handleCloseDirectChat = () => {
+    setSelectedFriend(null);
+    setActiveTab("global");
+  };
+
+  const onStartChat = (friendId) => {
+    // This would actually find and set the friend object
+    setSelectedFriend({ user_id: friendId });
+    setActiveTab("direct");
+  };
+
+  const handleMessageExpired = (messageId) => {
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+  };
+
+  const handleNewMessage = (message) => {
+    setDirectMessages(prev => [...prev, message]);
+  };
+
+  const handleMessageEdit = (message) => {
+    setEditingMessage(message);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+  };
+
+  const handleDeleteMessage = (messageId) => {
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim()) return;
+    
+    setIsLoading(true);
+    try {
+      // Placeholder for actual message sending logic
+      const newMsg = {
+        id: Date.now().toString(),
+        content: newMessage,
+        sender_id: userId,
+        created_at: new Date().toISOString(),
+      };
+      
+      setMessages(prev => [...prev, newMsg]);
+      setNewMessage('');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Could not send message",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Show loading until authentication and WebRTC are ready
-  if (!user || !isReady) {
+  if (!userId || !isReady) {
     return (
       <div className="min-h-screen bg-cyberdark-950 text-white flex items-center justify-center">
         <div className="text-center">
@@ -43,9 +119,41 @@ const Chat = () => {
   
   return (
     <div className="h-screen bg-cyberdark-950 text-white flex flex-col">
-      <ChatHeader />
+      <ChatHeader 
+        userPresence={userPresence}
+        currentUserId={userId}
+        currentStatus={currentStatus}
+        onStatusChange={setCurrentStatus}
+        webRTCManager={webRTCManager}
+        directMessages={directMessages}
+        onNewMessage={handleNewMessage}
+        onStartChat={onStartChat}
+        userProfiles={userProfiles}
+      />
       <div className="flex-1 overflow-hidden">
-        <ChatTabs webRTCManager={webRTCManager} />
+        <ChatTabs 
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          selectedFriend={selectedFriend}
+          messages={messages}
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          isLoading={isLoading}
+          ttl={ttl}
+          setTtl={setTtl}
+          onMessageExpired={handleMessageExpired}
+          onSubmit={handleSubmit}
+          currentUserId={userId}
+          editingMessage={editingMessage}
+          onEditMessage={handleMessageEdit}
+          onCancelEdit={handleCancelEdit}
+          onDeleteMessage={handleDeleteMessage}
+          directMessages={directMessages}
+          onNewMessage={handleNewMessage}
+          webRTCManager={webRTCManager}
+          userProfiles={userProfiles}
+          handleCloseDirectChat={handleCloseDirectChat}
+        />
       </div>
     </div>
   );

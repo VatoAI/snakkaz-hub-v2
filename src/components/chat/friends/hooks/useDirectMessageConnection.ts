@@ -74,7 +74,8 @@ export const useDirectMessageConnection = (
   const handleReconnect = async () => {
     if (!webRTCManager || !friendId) return;
     
-    setConnectionAttempts(prev => prev + 1);
+    // Fix the type error - set a number directly instead of using a function
+    setConnectionAttempts(connectionAttempts + 1);
     setUsingServerFallback(false);
     
     toast({
