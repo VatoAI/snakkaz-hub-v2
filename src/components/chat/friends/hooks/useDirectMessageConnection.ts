@@ -1,181 +1,115 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
+import { WebRTCManager } from "@/utils/webrtc";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useToast } from "@/components/ui/use-toast";
 
-export const useDirectMessageConnection = (userId: string | undefined, friendId: string | undefined) => {
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
-  const [connectionAttempts, setConnectionAttempts] = useState(0);
-  const maxConnectionAttempts = 5;
+export const useDirectMessageConnection = (
+  webRTCManager: WebRTCManager | null,
+  friendId: string | undefined,
+  connectionState: string,
+  setConnectionState: (state: string) => void,
+  dataChannelState: string,
+  setDataChannelState: (state: string) => void,
+  usingServerFallback: boolean,
+  setUsingServerFallback: (value: boolean) => void,
+  connectionAttempts: number,
+  setConnectionAttempts: (value: number) => void
+) => {
+  const statusCheckInterval = useRef<NodeJS.Timeout | null>(null);
   const connectionTimeout = useRef<NodeJS.Timeout | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  
-  const disconnect = useCallback(() => {
-    console.log('Disconnecting from direct message channel');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!webRTCManager || !friendId) return;
+
+    updateConnectionStatus();
     
-    if (channelRef.current) {
-      channelRef.current.unsubscribe();
-      channelRef.current = null;
-    }
-    
-    if (connectionTimeout.current) {
-      clearTimeout(connectionTimeout.current);
-      connectionTimeout.current = null;
-    }
-    
-    setConnectionStatus('disconnected');
-  }, []);
-
-  const connect = useCallback(() => {
-    if (!userId || !friendId || connectionStatus === 'connecting') {
-      console.log('Connection attempt aborted: missing user ID or friend ID, or already connecting', { 
-        userId, friendId, connectionStatus 
-      });
-      return;
-    }
-
-    // Check if we've exceeded the max connection attempts
-    if (connectionAttempts >= maxConnectionAttempts) {
-      console.error(`Max connection attempts reached (${maxConnectionAttempts}). Giving up.`);
-      setConnectionStatus('disconnected');
-      return;
-    }
-
-    setConnectionStatus('connecting');
-    console.log(`Connection attempt ${connectionAttempts + 1} of ${maxConnectionAttempts}`);
-
-    // Set up timeout to detect connection failure
-    if (connectionTimeout.current) {
-      clearTimeout(connectionTimeout.current);
-    }
+    statusCheckInterval.current = setInterval(() => {
+      updateConnectionStatus();
+    }, 2000);
 
     connectionTimeout.current = setTimeout(() => {
-      console.error('Connection timed out');
+      const connState = webRTCManager.getConnectionState(friendId);
+      const dataState = webRTCManager.getDataChannelState(friendId);
       
-      // Clean up the current channel attempt
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-        channelRef.current = null;
+      if (connState !== 'connected' || dataState !== 'open') {
+        console.log('Falling back to server for message delivery');
+        setUsingServerFallback(true);
+        toast({
+          title: "Direkte tilkobling mislyktes",
+          description: "Meldinger sendes via server med ende-til-ende-kryptering.",
+          variant: "default",
+        });
+      }
+    }, 10000);
+
+    return () => {
+      if (statusCheckInterval.current) {
+        clearInterval(statusCheckInterval.current);
+      }
+      if (connectionTimeout.current) {
+        clearTimeout(connectionTimeout.current);
+      }
+    };
+  }, [webRTCManager, friendId, setUsingServerFallback, toast]);
+
+  const updateConnectionStatus = () => {
+    if (!webRTCManager || !friendId) return;
+    
+    const connState = webRTCManager.getConnectionState(friendId);
+    const dataState = webRTCManager.getDataChannelState(friendId);
+    
+    setConnectionState(connState);
+    setDataChannelState(dataState);
+    
+    if (connState === 'connected' && dataState === 'open') {
+      setUsingServerFallback(false);
+      if (connectionTimeout.current) {
+        clearTimeout(connectionTimeout.current);
+        connectionTimeout.current = null;
+      }
+    }
+  };
+
+  const handleReconnect = async () => {
+    if (!webRTCManager || !friendId) return;
+    
+    setConnectionAttempts(prev => prev + 1);
+    setUsingServerFallback(false);
+    
+    toast({
+      title: "Kobler til...",
+      description: "Forsøker å etablere direkte tilkobling.",
+    });
+    
+    try {
+      await webRTCManager.attemptReconnect(friendId);
+      
+      if (connectionTimeout.current) {
+        clearTimeout(connectionTimeout.current);
       }
       
-      // Increment connection attempts and try again
-      setConnectionAttempts((prevAttempts) => prevAttempts + 1);
-      setConnectionStatus('disconnected');
-      
-      // Try to reconnect after delay (exponential backoff)
-      const reconnectDelay = Math.min(Math.pow(2, connectionAttempts) * 1000, 30000); // Capped at 30 seconds
-      console.log(`Will attempt to reconnect in ${reconnectDelay}ms`);
-      
-      setTimeout(connect, reconnectDelay);
-    }, 10000); // 10 second timeout
-
-    // Create a channel for presence
-    const channel = supabase.channel(`direct_messages:${userId}:${friendId}`, {
-      config: {
-        broadcast: {
-          self: false,
-        },
-        presence: {
-          key: userId,
-        },
-      },
-    });
-
-    // Listen for connection status changes
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        console.log('Presence synced');
+      connectionTimeout.current = setTimeout(() => {
+        const connState = webRTCManager.getConnectionState(friendId);
+        const dataState = webRTCManager.getDataChannelState(friendId);
         
-        // Clear connection timeout
-        if (connectionTimeout.current) {
-          clearTimeout(connectionTimeout.current);
-          connectionTimeout.current = null;
+        if (connState !== 'connected' || dataState !== 'open') {
+          setUsingServerFallback(true);
+          toast({
+            title: "Direkte tilkobling mislyktes",
+            description: "Meldinger sendes via server med ende-til-ende-kryptering.",
+          });
         }
-        
-        setConnectionStatus('connected');
-        setConnectionAttempts(0); // Reset connection attempts on successful connection
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined', { key, newPresences });
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left', { key, leftPresences });
-      })
-      .on('system', { event: 'disconnect' }, () => {
-        console.error('Disconnected from system');
-        setConnectionStatus('disconnected');
-      })
-      .on('system', { event: 'error' }, (err) => {
-        console.error('Connection error:', err);
-        setConnectionStatus('disconnected');
-      })
-      .subscribe(async (status) => {
-        console.log('Subscription status:', status);
-        
-        if (status === 'SUBSCRIBED') {
-          console.log('Successfully subscribed to channel!');
-          setConnectionStatus('connected');
-          
-          // Clear connection timeout
-          if (connectionTimeout.current) {
-            clearTimeout(connectionTimeout.current);
-            connectionTimeout.current = null;
-          }
-          
-          // Reset connection attempts on successful connection
-          setConnectionAttempts(0);
-        }
-        
-        if (
-          status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT ||
-          status === REALTIME_SUBSCRIBE_STATES.CLOSED ||
-          status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR
-        ) {
-          console.error('Subscription failed:', status);
-          
-          // Clean up the current channel
-          if (channelRef.current) {
-            channelRef.current.unsubscribe();
-            channelRef.current = null;
-          }
-          
-          // Increment connection attempts
-          setConnectionAttempts((prevAttempts) => prevAttempts + 1);
-          setConnectionStatus('disconnected');
-          
-          // Try to reconnect after delay if we haven't exceeded max attempts
-          if (connectionAttempts < maxConnectionAttempts) {
-            const reconnectDelay = Math.min(Math.pow(2, connectionAttempts) * 1000, 30000); // Capped at 30 seconds
-            console.log(`Will attempt to reconnect in ${reconnectDelay}ms`);
-            
-            setTimeout(connect, reconnectDelay);
-          } else {
-            console.error(`Max connection attempts reached (${maxConnectionAttempts}). Giving up.`);
-          }
-        }
-      });
-
-    // Store the channel reference
-    channelRef.current = channel;
-  }, [userId, friendId, connectionStatus, connectionAttempts, maxConnectionAttempts]);
-
-  // Auto-connect when user and friend IDs are available
-  useEffect(() => {
-    if (userId && friendId && connectionStatus === 'disconnected') {
-      connect();
+      }, 5000);
+    } catch (error) {
+      console.error('Error reconnecting:', error);
+      setUsingServerFallback(true);
     }
-    
-    // Cleanup on unmount or when IDs change
-    return () => {
-      disconnect();
-    };
-  }, [userId, friendId, connectionStatus, connect, disconnect]);
+  };
 
   return {
-    connectionStatus,
-    connect,
-    disconnect,
-    connectionAttempts,
-    maxConnectionAttempts
+    connectionStatus: connectionState,
+    handleReconnect,
+    connectionAttempts
   };
 };

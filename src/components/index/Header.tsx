@@ -1,20 +1,23 @@
 
 import { useNavigate } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export const Header = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   
   return (
-    <div className="text-center mb-12">
+    <div className="text-center mb-8 md:mb-12">
       <div className="relative">
         {/* Logo with enhanced glow effect */}
-        <div className="w-48 h-48 mx-auto rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cyberblue-400 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(26,157,255,0.4)] hover:shadow-[0_0_40px_rgba(26,157,255,0.6)] transition-all duration-300">
+        <div className={`${isMobile ? 'w-32 h-32' : 'w-48 h-48'} mx-auto rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cyberblue-400 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(26,157,255,0.4)] hover:shadow-[0_0_40px_rgba(26,157,255,0.6)] transition-all duration-300`}>
           <img
             src="/snakkaz-logo.png" 
             alt="SnakkaZ Logo"
-            className="rounded-full w-40 h-40 object-cover"
+            className={`rounded-full ${isMobile ? 'w-24 h-24' : 'w-40 h-40'} object-cover`}
             onError={(e) => {
-              (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
+              console.log("Logo failed to load, using fallback");
+              (e.target as HTMLImageElement).src = "/placeholder.svg";
             }}
           />
         </div>
@@ -26,19 +29,17 @@ export const Header = () => {
 
       {/* Hub title with enhanced animation */}
       <h1
-  className="text-5xl md:text-6xl font-bold text-transparent bg-gradient-to-r from-cyberblue-300 via-cyberblue-200 to-cyberblue-300 bg-clip-text mb-4"
-  style={{
-    textShadow: '0 0 5px #00bfff, 0 0 10px #00bfff, 0 0 15px #00bfff, 0 0 20px #00bfff',
-  }}
->
-  SnakkaZ Hub
-</h1>
-
-
+        className={`${isMobile ? 'text-4xl' : 'text-5xl md:text-6xl'} font-bold text-transparent bg-gradient-to-r from-cyberblue-300 via-cyberblue-200 to-cyberblue-300 bg-clip-text mb-4`}
+        style={{
+          textShadow: '0 0 5px #00bfff, 0 0 10px #00bfff, 0 0 15px #00bfff, 0 0 20px #00bfff',
+        }}
+      >
+        SnakkaZ Hub
+      </h1>
       
       {/* Subtitle with button */}
       <div className="flex flex-col items-center">
-        <p className="text-xl md:text-2xl text-cyberblue-400 mb-4">
+        <p className="text-lg md:text-2xl text-cyberblue-400 mb-4">
           Velg hvilken versjon du vil bruke
         </p>
         

@@ -1,15 +1,17 @@
 
-import { useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Friend } from "../types";
 import { WebRTCManager } from "@/utils/webrtc";
 import { DecryptedMessage } from "@/types/message";
+import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
-import { useDirectMessageState } from "./useDirectMessageState";
+import { encryptMessage } from "@/utils/encryption";
 import { useDirectMessageConnection } from "./useDirectMessageConnection";
-import { useDirectMessageSubmit } from "./useDirectMessageSubmit";
-import { useDirectMessageSender } from "./useDirectMessageSender";
+import { useDirectMessageState } from "./useDirectMessageState";
 import { useTypingIndicator } from "@/hooks/message/useTypingIndicator";
 import { useReadReceipts } from "@/hooks/message/useReadReceipts";
+import { useDirectMessageSubmit } from "./useDirectMessageSubmit";
+import { useDirectMessageSender } from "./useDirectMessageSender";
 
 export const useDirectMessage = (
   friend: Friend,
@@ -64,7 +66,7 @@ export const useDirectMessage = (
     markMessagesAsRead();
   }, [markMessagesAsRead, messages]);
 
-  // Message sending functionality - fix by removing unnecessary arguments
+  // Message sending functionality
   const { 
     sendError, 
     handleSendMessage: handleSendDirectMessage

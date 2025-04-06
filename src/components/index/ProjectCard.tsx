@@ -16,7 +16,7 @@ export interface ProjectProps {
 }
 
 export const ProjectCard = ({ title, description, previewUrl, githubUrl, category, hasSupabase }: ProjectProps) => {
-  const [refreshKey, setRefreshKey] = useState(0); // State to force image refresh
+  const [refreshKey, setRefreshKey] = useState(0);
   const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
   
@@ -35,7 +35,6 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
     }
   };
 
-  // Function to refresh the preview image
   const refreshPreview = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -43,22 +42,24 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
     setRefreshKey(prev => prev + 1);
   };
   
-  // Handle card click - for SnakkaZ Guardian Chat navigate to chat page, others open in new tab
-  const handleCardClick = (e: React.MouseEvent, url: string) => {
-    e.preventDefault();
-    
+  const handleCardClick = () => {
     if (title === "SnakkaZ Guardian Chat") {
       navigate('/chat');
-    } else {
-      window.open(url, '_blank', 'noopener,noreferrer');
+    } else if (previewUrl) {
+      window.open(previewUrl, '_blank', 'noopener,noreferrer');
     }
   };
 
-  // Determine the thumbnail URL based on the previewUrl
-  const thumbnailUrl = `${previewUrl.replace('https://', 'https://thumbnail--').replace('.lovable.app', '.lovable.app')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
+  const failbackUrl = "/snakkaz-logo.png";
+  const thumbnailUrl = imageError 
+    ? failbackUrl
+    : `${previewUrl.replace('https://', 'https://thumbnail--').replace('.lovable.app', '.lovable.app')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
 
   return (
-    <Card className={`h-full bg-cyberdark-900 border-2 ${getCategoryColor(category)} hover:shadow-neon-blue transition-all duration-300`}>
+    <Card 
+      className={`h-full bg-cyberdark-900 border-2 ${getCategoryColor(category)} hover:shadow-neon-blue transition-all duration-300 cursor-pointer`}
+      onClick={handleCardClick}
+    >
       <CardHeader className="pb-2">
         <CardTitle className="text-cyberblue-400 text-xl flex items-center justify-between">
           {title}
@@ -74,42 +75,25 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
       <CardContent className="text-gray-300 text-sm space-y-4">
         <div className="overflow-hidden rounded-md border border-cyberdark-800 bg-cyberdark-800 relative group">
           <AspectRatio ratio={16/9} className="bg-cyberdark-800">
-            <a 
-              href={previewUrl}
-              onClick={(e) => handleCardClick(e, previewUrl)}
-              className="block w-full h-full relative group"
-            >
-              {!imageError ? (
-                <img 
-                  key={refreshKey} // Use key to force reload of image when refreshed
-                  src={thumbnailUrl}
-                  alt={`Preview of ${title}`}
-                  className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
-                  onError={(e) => {
-                    console.log(`Image failed to load for ${title}, using SnakkaZ logo as fallback`);
-                    setImageError(true);
-                    (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
-                  }}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-cyberdark-950">
-                  <img 
-                    src="/snakkaz-logo.png" 
-                    alt="SnakkaZ Logo" 
-                    className="h-12 object-contain" 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
-                    }}
-                  />
-                </div>
-              )}
+            <div className="block w-full h-full relative group">
+              <img 
+                key={refreshKey}
+                src={thumbnailUrl}
+                alt={`Preview of ${title}`}
+                className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105"
+                onError={(e) => {
+                  console.log(`Image failed to load for ${title}, using SnakkaZ logo as fallback`);
+                  setImageError(true);
+                  (e.target as HTMLImageElement).src = failbackUrl;
+                }}
+              />
               <div className="absolute inset-0 bg-cyberdark-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
                 <span className="text-cyberblue-400 flex items-center">
                   <ExternalLink size={20} className="mr-2" />
                   {title === "SnakkaZ Guardian Chat" ? "Open Chat" : "Preview Site"}
                 </span>
               </div>
-            </a>
+            </div>
           </AspectRatio>
           <button 
             className="absolute top-2 right-2 bg-cyberdark-900/80 p-1 rounded-full text-cyberblue-400 hover:text-cyberblue-300 opacity-0 group-hover:opacity-100 transition-opacity z-10"
@@ -120,38 +104,36 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
           </button>
         </div>
         
-        <p>{description}</p>
+        <p className="line-clamp-3">{description}</p>
       </CardContent>
       
       <CardFooter className="flex justify-between mt-auto pt-4">
-        <a
-          href={title === "SnakkaZ Guardian Chat" ? "/chat" : previewUrl}
+        <button
+          className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
           onClick={(e) => {
-            e.preventDefault();
+            e.stopPropagation();
             if (title === "SnakkaZ Guardian Chat") {
               navigate('/chat');
             } else {
               window.open(previewUrl, '_blank', 'noopener,noreferrer');
             }
           }}
-          className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
         >
           <ExternalLink size={16} className="mr-1" />
           {title === "SnakkaZ Guardian Chat" ? "Open Chat" : "Preview"}
-        </a>
+        </button>
         
         {githubUrl ? (
-          <a
-            href={githubUrl}
+          <button
+            className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
             onClick={(e) => {
-              e.preventDefault();
+              e.stopPropagation();
               window.open(githubUrl, '_blank', 'noopener,noreferrer');
             }}
-            className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
           >
             <GithubIcon size={16} className="mr-1" />
             GitHub
-          </a>
+          </button>
         ) : (
           <span className="text-gray-500 text-sm italic">Private Repo</span>
         )}
