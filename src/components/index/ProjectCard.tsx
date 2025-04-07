@@ -5,6 +5,7 @@ import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Progress } from "@/components/ui/progress";
 
 export interface ProjectProps {
   title: string;
@@ -13,9 +14,10 @@ export interface ProjectProps {
   githubUrl?: string;
   category: 'chat' | 'business' | 'analytics' | 'infrastructure';
   hasSupabase?: boolean;
+  progress?: number;
 }
 
-export const ProjectCard = ({ title, description, previewUrl, githubUrl, category, hasSupabase }: ProjectProps) => {
+export const ProjectCard = ({ title, description, previewUrl, githubUrl, category, hasSupabase, progress = 0 }: ProjectProps) => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [imageError, setImageError] = useState(false);
   const navigate = useNavigate();
@@ -113,6 +115,13 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
         </div>
         
         <p className="line-clamp-3">{description}</p>
+
+        {/* Add progress indicator */}
+        {progress > 0 && (
+          <div className="w-full">
+            <Progress value={progress} className="h-1.5" />
+          </div>
+        )}
       </CardContent>
       
       <CardFooter className="flex justify-between mt-auto pt-4">

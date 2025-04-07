@@ -1,7 +1,7 @@
 
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, MessageSquare, Shield, Lock, Globe } from "lucide-react";
+import { ChevronLeft, MessageSquare, Shield, Lock, Globe, Home } from "lucide-react";
 
 const Info = () => {
   const navigate = useNavigate();
@@ -29,6 +29,15 @@ const Info = () => {
           >
             Om SnakkaZ
           </h1>
+          
+          <Button 
+            variant="outline"
+            className="ml-auto border-cyberblue-500/70 text-cyberblue-400 hover:bg-cyberblue-900/50"
+            onClick={() => navigate("/")}
+          >
+            <Home className="mr-2" size={18} />
+            Hjem
+          </Button>
         </div>
 
         <div className="max-w-3xl mx-auto">
