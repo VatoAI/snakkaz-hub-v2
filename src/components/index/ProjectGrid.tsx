@@ -22,9 +22,14 @@ export const ProjectGrid = () => {
       <div className="mt-10 text-center">
         <a 
           href="/chat"
-          className="inline-block bg-cyberblue-500 hover:bg-cyberblue-600 text-cyberdark-950 px-6 py-3 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+          className="inline-block px-6 py-3 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
+          style={{
+            background: 'linear-gradient(90deg, #1a9dff 0%, #3b82f6 50%, #d62828 100%)',
+            color: 'white',
+            boxShadow: '0 0 15px rgba(26,157,255,0.4), 0 0 15px rgba(214,40,40,0.4)'
+          }}
         >
-          Lokal chat versjon
+          Start Chatten
         </a>
       </div>
     </div>

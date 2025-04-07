@@ -1,6 +1,5 @@
 
 import { Header } from "@/components/index/Header";
-import { Links } from "@/components/index/Links";
 import { Footer } from "@/components/index/Footer";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProjectGrid } from "@/components/index/ProjectGrid";
@@ -23,7 +22,6 @@ const Index = () => {
         <div className="container mx-auto px-2 md:px-4 relative z-10 flex-grow">
           <Header />
           <ProjectGrid />
-          <Links />
         </div>
       </div>
 
