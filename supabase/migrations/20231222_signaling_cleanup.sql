@@ -1,5 +1,3 @@
--- Add automatic cleanup for signaling table to prevent buildup of stale records
-
 -- Drop the existing function if it exists
 DROP FUNCTION IF EXISTS public.cleanup_old_signaling_records;
 
@@ -18,10 +16,10 @@ END;
 $$;
 
 -- Drop the existing function if it exists
-DROP FUNCTION IF EXISTS clean_stale_presence;
+DROP FUNCTION IF EXISTS public.clean_stale_presence;
 
 -- Function to clean up stale presence records (older than 5 minutes)
-CREATE OR REPLACE FUNCTION clean_stale_presence()
+CREATE OR REPLACE FUNCTION public.clean_stale_presence()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
@@ -33,9 +31,16 @@ BEGIN
 END;
 $$;
 
--- Add a trigger to run cleanup periodically
+-- Add a trigger to run cleanup periodically for signaling
 DROP TRIGGER IF EXISTS trigger_cleanup_signaling ON public.signaling;
 CREATE TRIGGER trigger_cleanup_signaling
   AFTER INSERT ON public.signaling
   FOR EACH STATEMENT
   EXECUTE FUNCTION public.cleanup_old_signaling_records();
+
+-- Add a trigger to run cleanup periodically for user presence
+DROP TRIGGER IF EXISTS trigger_cleanup_presence ON public.user_presence;
+CREATE TRIGGER trigger_cleanup_presence
+  AFTER INSERT ON public.user_presence
+  FOR EACH STATEMENT
+  EXECUTE FUNCTION public.clean_stale_presence();
