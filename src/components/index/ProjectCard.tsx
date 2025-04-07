@@ -23,13 +23,13 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'chat':
-        return 'border-cyberblue-500';
+        return 'border-l-cyberblue-500 border-t-cyberblue-500 border-r-red-500 border-b-red-500';
       case 'business':
-        return 'border-cyberblue-500';
+        return 'border-l-red-500 border-t-red-500 border-r-cyberblue-500 border-b-cyberblue-500';
       case 'analytics':
-        return 'border-green-500';
+        return 'border-l-green-500 border-t-green-500 border-r-cyberblue-500 border-b-cyberblue-500';
       case 'infrastructure':
-        return 'border-purple-500';
+        return 'border-l-cyberblue-500 border-t-cyberblue-500 border-r-purple-500 border-b-purple-500';
       default:
         return 'border-gray-500';
     }
@@ -57,11 +57,19 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
 
   return (
     <Card 
-      className={`h-full bg-cyberdark-900 border-2 ${getCategoryColor(category)} hover:shadow-neon-blue transition-all duration-300 cursor-pointer`}
+      className={`h-full bg-cyberdark-900 border-2 ${getCategoryColor(category)} hover:shadow-[0_0_20px_rgba(26,157,255,0.3)_,_0_0_20px_rgba(214,40,40,0.3)] transition-all duration-300 cursor-pointer`}
       onClick={handleCardClick}
     >
       <CardHeader className="pb-2">
-        <CardTitle className="text-cyberblue-400 text-xl flex items-center justify-between">
+        <CardTitle 
+          className="text-xl flex items-center justify-between"
+          style={{
+            background: 'linear-gradient(90deg, #1a9dff, #ffffff)',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+          }}
+        >
           {title}
           {hasSupabase && (
             <Badge variant="outline" className="ml-2 bg-green-900/40 text-green-300 border-green-500/30 flex items-center gap-1 px-2 shadow-[0_0_8px_rgba(34,197,94,0.3)]">
@@ -73,7 +81,7 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
       </CardHeader>
       
       <CardContent className="text-gray-300 text-sm space-y-4">
-        <div className="overflow-hidden rounded-md border border-cyberdark-800 bg-cyberdark-800 relative group">
+        <div className="overflow-hidden rounded-md bg-cyberdark-800 relative group">
           <AspectRatio ratio={16/9} className="bg-cyberdark-800">
             <div className="block w-full h-full relative group">
               <img 
@@ -87,11 +95,11 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
                   (e.target as HTMLImageElement).src = failbackUrl;
                 }}
               />
-              <div className="absolute inset-0 bg-cyberdark-950/70 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
-                <span className="text-cyberblue-400 flex items-center">
-                  <ExternalLink size={20} className="mr-2" />
-                  {title === "SnakkaZ Guardian Chat" ? "Open Chat" : "Preview Site"}
-                </span>
+              <div className="absolute inset-0 bg-gradient-to-r from-cyberdark-950/70 to-transparent opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
+                <div className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyberblue-500/80 to-red-500/80 text-white flex items-center">
+                  <ExternalLink size={16} className="mr-2" />
+                  {title === "SnakkaZ Guardian Chat" ? "Åpne Chat" : "Se Preview"}
+                </div>
               </div>
             </div>
           </AspectRatio>
@@ -120,7 +128,7 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
           }}
         >
           <ExternalLink size={16} className="mr-1" />
-          {title === "SnakkaZ Guardian Chat" ? "Open Chat" : "Preview"}
+          {title === "SnakkaZ Guardian Chat" ? "Åpne Chat" : "Preview"}
         </button>
         
         {githubUrl ? (

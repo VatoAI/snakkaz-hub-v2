@@ -34,12 +34,25 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
   const thumbnailUrl = `${project.previewUrl.replace('https://', 'https://thumbnail--')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
   
   return (
-    <div className="mb-12 bg-gradient-to-r from-cyberdark-800/90 to-cyberdark-900/90 backdrop-blur-sm border-2 border-cyberblue-500/60 rounded-xl p-6 sm:p-8 shadow-[0_0_30px_rgba(26,157,255,0.15)]">
+    <div 
+      className="mb-12 bg-gradient-to-r from-cyberdark-800/90 to-cyberdark-900/90 backdrop-blur-sm rounded-xl p-6 sm:p-8 shadow-[0_0_30px_rgba(26,157,255,0.15)]"
+      style={{
+        borderImage: 'linear-gradient(90deg, #1a9dff, #d62828) 1',
+        border: '2px solid',
+      }}
+    >
       <div className="flex flex-col md:flex-row gap-6 lg:gap-10">
         <div className="md:w-1/2">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl sm:text-3xl font-bold text-cyberblue-300 flex items-center">
-              <span className="bg-cyberblue-500/20 p-1.5 rounded-lg mr-3">
+            <h2 className="text-2xl sm:text-3xl font-bold flex items-center"
+              style={{
+                background: 'linear-gradient(90deg, #1a9dff, #ffffff)',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                color: 'transparent',
+              }}
+            >
+              <span className="bg-gradient-to-r from-cyberblue-500/20 to-cyberdark-900 p-1.5 rounded-lg mr-3">
                 <MessageSquare size={24} className="text-cyberblue-400" />
               </span>
               {project.title}
@@ -58,11 +71,15 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
           
           <div className="flex flex-wrap gap-4">
             <Button 
-              className="bg-cyberblue-500 hover:bg-cyberblue-600 text-white font-medium px-6 py-5 h-auto text-base"
+              className="text-white font-medium px-6 py-5 h-auto text-base"
               onClick={handleChatRedirect}
+              style={{
+                background: 'linear-gradient(90deg, #1a9dff 0%, #3b82f6 50%, #d62828 100%)',
+                boxShadow: '0 0 15px rgba(26,157,255,0.4), 0 0 15px rgba(214,40,40,0.4)'
+              }}
             >
               <MessageSquare size={18} className="mr-2" />
-              Prøv Chat Nå
+              Start SnakkaZ
             </Button>
             
             <Button 
@@ -89,7 +106,13 @@ export const FeaturedProject = ({ project }: FeaturedProjectProps) => {
         </div>
         
         <div className="md:w-1/2">
-          <div className="overflow-hidden rounded-lg border-2 border-cyberblue-500/60 shadow-lg relative group bg-cyberdark-950/50">
+          <div 
+            className="overflow-hidden rounded-lg bg-cyberdark-950/50 relative group"
+            style={{
+              borderImage: 'linear-gradient(90deg, #d62828, #1a9dff) 1',
+              border: '2px solid',
+            }}
+          >
             <AspectRatio ratio={16/9}>
               <img 
                 key={refreshKey} // Use key to force reload of image when refreshed

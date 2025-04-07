@@ -9,8 +9,8 @@ export const Header = () => {
   return (
     <div className="text-center mb-8 md:mb-12">
       <div className="relative">
-        {/* Logo with enhanced glow effect */}
-        <div className={`${isMobile ? 'w-32 h-32' : 'w-48 h-48'} mx-auto rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cyberblue-400 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(26,157,255,0.4)] hover:shadow-[0_0_40px_rgba(26,157,255,0.6)] transition-all duration-300`}>
+        {/* Logo with enhanced red/blue glow effect */}
+        <div className={`${isMobile ? 'w-32 h-32' : 'w-48 h-48'} mx-auto rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-red-400 border-l-red-400 border-t-red-400 border-r-cyberblue-400 border-b-cyberblue-400 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(26,157,255,0.4)_,_0_0_30px_rgba(214,40,40,0.4)] hover:shadow-[0_0_40px_rgba(26,157,255,0.6)_,_0_0_40px_rgba(214,40,40,0.6)] transition-all duration-300`}>
           <img
             src="/snakkaz-logo.png" 
             alt="SnakkaZ Logo"
@@ -22,9 +22,9 @@ export const Header = () => {
           />
         </div>
         
-        {/* Decorative elements with blue glow instead of gold */}
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 rounded-full border-2 border-cyberblue-400/40 animate-pulse-slow -z-10"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full border border-cyberblue-400/30 -z-10"></div>
+        {/* Decorative elements with split red/blue glow */}
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-60 h-60 rounded-full border-2 border-l-cyberblue-400/40 border-t-cyberblue-400/40 border-r-red-400/40 border-b-red-400/40 animate-pulse-slow -z-10"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-72 h-72 rounded-full border border-l-cyberblue-400/30 border-t-cyberblue-400/30 border-r-red-400/30 border-b-red-400/30 -z-10"></div>
       </div>
 
       {/* Hub title with enhanced red/blue styling */}
@@ -57,7 +57,7 @@ export const Header = () => {
             boxShadow: '0 0 15px rgba(26,157,255,0.4), 0 0 15px rgba(214,40,40,0.4)'
           }}
         >
-          Start Chatten
+          Start SnakkaZ
         </button>
       </div>
     </div>
