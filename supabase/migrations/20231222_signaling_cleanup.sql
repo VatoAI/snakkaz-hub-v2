@@ -17,6 +17,22 @@ BEGIN
 END;
 $$;
 
+-- Drop the existing function if it exists
+DROP FUNCTION IF EXISTS clean_stale_presence;
+
+-- Function to clean up stale presence records (older than 5 minutes)
+CREATE OR REPLACE FUNCTION clean_stale_presence()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  DELETE FROM public.user_presence
+  WHERE last_seen < NOW() - INTERVAL '5 minutes';
+
+  RETURN NULL; -- Triggers must return a trigger type, NULL is acceptable here
+END;
+$$;
+
 -- Add a trigger to run cleanup periodically
 DROP TRIGGER IF EXISTS trigger_cleanup_signaling ON public.signaling;
 CREATE TRIGGER trigger_cleanup_signaling
