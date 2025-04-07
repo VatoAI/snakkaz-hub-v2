@@ -1,5 +1,8 @@
 -- Add automatic cleanup for signaling table to prevent buildup of stale records
 
+-- Drop the existing function if it exists
+DROP FUNCTION IF EXISTS public.cleanup_old_signaling_records;
+
 -- Function to clean up old signaling records
 CREATE OR REPLACE FUNCTION public.cleanup_old_signaling_records()
 RETURNS trigger
