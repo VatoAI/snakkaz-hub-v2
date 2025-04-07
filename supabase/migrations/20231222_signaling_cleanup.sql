@@ -1,15 +1,16 @@
-
 -- Add automatic cleanup for signaling table to prevent buildup of stale records
 
 -- Function to clean up old signaling records
 CREATE OR REPLACE FUNCTION public.cleanup_old_signaling_records()
-RETURNS void
+RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
   -- Delete records older than 5 minutes
   DELETE FROM public.signaling
   WHERE created_at < NOW() - INTERVAL '5 minutes';
+
+  RETURN NULL; -- Triggers must return a trigger type, NULL is acceptable here
 END;
 $$;
 
