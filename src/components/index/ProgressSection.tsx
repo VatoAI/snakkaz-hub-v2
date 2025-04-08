@@ -1,21 +1,25 @@
 
-import { useState, useEffect } from "react";
-import { Slider } from "@/components/ui/slider";
-import { Progress } from "@/components/ui/progress";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Lock } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { useProgressState } from "@/hooks/useProgressState";
 
 export const ProgressSection = () => {
-  const [progressValue, setProgressValue] = useState<number>(50);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const navigate = useNavigate();
+  const { progressValue, isLoading } = useProgressState();
   
   // Simple check to see if we're in admin mode
   // In a real app, this would use authentication
   useEffect(() => {
     const path = window.location.pathname;
     setIsAdmin(path === '/admin');
+    
+    // Check if admin is authenticated
+    const isAuthenticated = localStorage.getItem("adminAuthenticated") === "true";
+    setIsAdmin(isAuthenticated || path === '/admin');
   }, []);
   
   const handleAdminAccess = () => {
@@ -41,25 +45,13 @@ export const ProgressSection = () => {
       <div className="mb-6">
         <div className="flex justify-between mb-2">
           <span className="text-cyberblue-400">Progresjon</span>
-          <span className="text-white font-semibold">{progressValue}%</span>
+          <span className="text-white font-semibold">{isLoading ? "Laster..." : `${progressValue}%`}</span>
         </div>
         
-        <Progress value={progressValue} />
+        <Progress value={isLoading ? 0 : progressValue} />
       </div>
       
-      {isAdmin ? (
-        <div className="mb-4">
-          <p className="text-gray-400 mb-3">Juster prosent (1-99%):</p>
-          <Slider 
-            defaultValue={[progressValue]} 
-            min={1} 
-            max={99} 
-            step={1} 
-            onValueChange={(values) => setProgressValue(values[0])}
-            className="py-4"
-          />
-        </div>
-      ) : (
+      {!isAdmin && (
         <div className="text-center mt-6">
           <Button 
             onClick={handleAdminAccess}

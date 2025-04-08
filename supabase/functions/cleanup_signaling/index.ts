@@ -30,38 +30,58 @@ Deno.serve(async (req) => {
         id: '38d75fee-16f2-4b42-a084-93567e21e3a7',
         status: 'edge_function_running', 
         last_checked: new Date().toISOString() 
-      });
+      })
+      .match({ id: '38d75fee-16f2-4b42-a084-93567e21e3a7' });
 
     // Delete signaling entries older than 5 minutes
-    const { data, error } = await supabaseClient
+    const { data: signalingData, error: signalingError } = await supabaseClient
       .from('signaling')
       .delete()
       .lt('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
       .select('id');
     
-    if (error) {
-      console.error("Error cleaning up signaling entries:", error);
-      throw error;
+    if (signalingError) {
+      console.error("Error cleaning up signaling entries:", signalingError);
+      throw signalingError;
     }
     
-    const deletedCount = data?.length || 0;
-    console.log(`Successfully cleaned up ${deletedCount} stale signaling entries`);
+    const deletedSignalingCount = signalingData?.length || 0;
+    console.log(`Successfully cleaned up ${deletedSignalingCount} stale signaling entries`);
     
-    // Also clean up stale presence data to ensure consistency
-    const { error: presenceError } = await supabaseClient
+    // Clean up stale presence data to ensure consistency
+    const { data: presenceData, error: presenceError } = await supabaseClient
       .from('user_presence')
       .delete()
-      .lt('last_seen', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+      .lt('last_seen', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+      .select('id');
     
     if (presenceError) {
       console.error("Error cleaning up presence entries:", presenceError);
     }
     
+    const deletedPresenceCount = presenceData?.length || 0;
+    console.log(`Successfully cleaned up ${deletedPresenceCount} stale presence entries`);
+    
+    // Update health table with success information
+    await supabaseClient
+      .from('health')
+      .upsert({ 
+        id: '38d75fee-16f2-4b42-a084-93567e21e3a7',
+        status: 'cleanup_success', 
+        last_checked: new Date().toISOString() 
+      })
+      .match({ id: '38d75fee-16f2-4b42-a084-93567e21e3a7' });
+    
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Stale entries cleaned up',
-        deletedCount,
+        signaling: {
+          deletedCount: deletedSignalingCount,
+        },
+        presence: {
+          deletedCount: deletedPresenceCount,
+        },
         timestamp: new Date().toISOString()
       }),
       { 
@@ -71,6 +91,26 @@ Deno.serve(async (req) => {
     )
   } catch (error) {
     console.error("Cleanup function error:", error);
+    
+    // Update health table with error information
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    )
+    
+    try {
+      await supabaseClient
+        .from('health')
+        .upsert({ 
+          id: '38d75fee-16f2-4b42-a084-93567e21e3a7',
+          status: 'cleanup_error', 
+          last_checked: new Date().toISOString() 
+        })
+        .match({ id: '38d75fee-16f2-4b42-a084-93567e21e3a7' });
+    } catch (healthError) {
+      console.error("Failed to update health record:", healthError);
+    }
+    
     return new Response(
       JSON.stringify({ 
         success: false, 
