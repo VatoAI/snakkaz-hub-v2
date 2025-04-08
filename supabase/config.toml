@@ -8,11 +8,14 @@ schemas = ["public", "storage", "graphql_public"]
 
 [db]
 port = 54322
-# migrations_dir = "supabase/migrations"
 
 [studio]
 enabled = true
 port = 54323
 
+[functions]
 [functions.cleanup_signaling]
+verify_jwt = false
+
+[functions.send_direct_message]
 verify_jwt = false
