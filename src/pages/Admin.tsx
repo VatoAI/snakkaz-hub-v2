@@ -69,11 +69,15 @@ const Admin = () => {
   const triggerCleanup = async () => {
     try {
       const baseUrl = "https://wqpoozpbceucynsojmbk.supabase.co";
+      // Get the current session
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token || '';
+      
       const response = await fetch(`${baseUrl}/functions/v1/cleanup_signaling`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.auth.session()?.access_token || ''}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
       });
       
