@@ -3,11 +3,28 @@ import { ProjectProps } from "../ProjectCard";
 
 export const projects: (ProjectProps & { isFeatured?: boolean })[] = [
   {
+    title: "ChatCipher Assistant",
+    description: "Sikker samtalekryptering med avansert AI-assistent. Chat med ende-til-ende-kryptering og intelligente svar.",
+    previewUrl: "https://chatcipher-assistant.lovable.app",
+    category: "chat",
+    isFeatured: true,
+    hasSupabase: true,
+    progress: 98
+  },
+  {
+    title: "AI Dash Hub",
+    description: "Interaktivt dashboard for AI-basert datavisualisering og analyse. Integrer flere datakilder og få innsikt i sanntid.",
+    previewUrl: "https://ai-dash-hub.lovable.app",
+    githubUrl: "https://github.com/snakkaz/ai-dash-hub",
+    category: "analytics",
+    hasSupabase: true,
+    progress: 92
+  },
+  {
     title: "SnakkaZ Guardian Chat",
     description: "En sikker chat-plattform med ende-til-ende-kryptering. Del meldinger, bilder og filer med full sikkerhet.",
     previewUrl: "https://snakkaz-chat.lovable.app",
     category: "chat",
-    isFeatured: true,
     hasSupabase: true,
     progress: 95
   },
@@ -34,20 +51,5 @@ export const projects: (ProjectProps & { isFeatured?: boolean })[] = [
     githubUrl: "https://github.com/snakkaz/analytics-hub",
     category: "analytics",
     progress: 82
-  },
-  {
-    title: "SnakkaZ Cloud Gateway",
-    description: "Infrastrukturløsning som forener skybaserte tjenester med lokale ressurser. Sikkerhetsoptimalisert design.",
-    previewUrl: "https://cloud-gateway.lovable.app",
-    category: "infrastructure",
-    progress: 60
-  },
-  {
-    title: "SnakkaZ Trend Detector",
-    description: "Identifiser trender i store datasett med maskinlæring. Forutsi fremtidige utviklinger basert på historiske data.",
-    previewUrl: "https://trend-detector.lovable.app",
-    githubUrl: "https://github.com/snakkaz/trend-detector",
-    category: "analytics",
-    progress: 38
   }
 ];
