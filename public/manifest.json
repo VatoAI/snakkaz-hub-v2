@@ -57,6 +57,19 @@
       ]
     }
   ],
-  "related_applications": [],
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "url": "https://snakkaz.app"
+    },
+    {
+      "platform": "windows",
+      "url": "https://snakkaz.app/download/windows"
+    },
+    {
+      "platform": "itunes",
+      "url": "https://snakkaz.app/download/ios"
+    }
+  ],
   "prefer_related_applications": false
 }

@@ -1,12 +1,13 @@
-
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
-import { Image } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Image, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export const AdminLogoSection = () => {
   const [logoSize, setLogoSize] = useState(() => {
@@ -22,20 +23,120 @@ export const AdminLogoSection = () => {
   const [previewUrl, setPreviewUrl] = useState(() => {
     return localStorage.getItem("logoUrl") || "/snakkaz-logo.png";
   });
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  const previousPreviewRef = useRef<string | null>(null);
 
   const { toast } = useToast();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    return () => {
+      if (previousPreviewRef.current && previousPreviewRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(previousPreviewRef.current);
+      }
+    };
+  }, []);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      const imageUrl = URL.createObjectURL(file);
-      setPreviewUrl(imageUrl);
-      localStorage.setItem("logoUrl", imageUrl);
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Ugyldig filtype",
+        description: "Vennligst last opp et bilde (JPG, PNG, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({
+        title: "Filen er for stor",
+        description: "Maksimal størrelse er 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (previousPreviewRef.current && previousPreviewRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(previousPreviewRef.current);
+    }
+
+    setSelectedFile(file);
+    const imageUrl = URL.createObjectURL(file);
+    previousPreviewRef.current = imageUrl;
+    setPreviewUrl(imageUrl);
+    
+    await uploadLogoToStorage(file);
+  };
+
+  const uploadLogoToStorage = async (file: File) => {
+    try {
+      setIsUploading(true);
+      setUploadStatus('uploading');
+      setUploadProgress(0);
+      
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          const newProgress = prev + (Math.random() * 15);
+          return newProgress >= 95 ? 95 : newProgress;
+        });
+      }, 300);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id || 'anonymous';
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `logo-${userId}-${Date.now()}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from('app-assets')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+      
+      clearInterval(progressInterval);
+      
+      if (error) {
+        throw error;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('app-assets')
+        .getPublicUrl(fileName);
+      
+      localStorage.setItem("logoUrl", publicUrl);
+      setPreviewUrl(publicUrl);
+      setUploadProgress(100);
+      setUploadStatus('success');
+      
       toast({
         title: "Bilde lastet opp",
-        description: "Nytt bilde er klart til bruk",
+        description: "Logoen er nå lagret og tilgjengelig",
       });
+      
+      setTimeout(() => {
+        setUploadProgress(0);
+        setUploadStatus('idle');
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      setUploadStatus('error');
+      
+      toast({
+        title: "Opplastingsfeil",
+        description: "Kunne ikke laste opp bilde. Prøv igjen senere.",
+        variant: "destructive",
+      });
+      
+      localStorage.setItem("logoUrl", previewUrl);
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -55,12 +156,19 @@ export const AdminLogoSection = () => {
   };
 
   const handleRemoveLogo = () => {
-    setPreviewUrl("/placeholder.svg");
+    const oldUrl = previewUrl;
+    
+    setPreviewUrl("/snakkaz-logo.png");
     setSelectedFile(null);
-    localStorage.setItem("logoUrl", "/placeholder.svg");
+    localStorage.setItem("logoUrl", "/snakkaz-logo.png");
+    
+    if (oldUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(oldUrl);
+    }
+    
     toast({
       title: "Bilde fjernet",
-      description: "Standard plassholder bilde vises nå",
+      description: "Standard SnakkaZ logo vises nå",
     });
   };
 
@@ -86,6 +194,10 @@ export const AdminLogoSection = () => {
             src={previewUrl}
             alt="Logo"
             className="w-full h-full object-cover"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = "/snakkaz-logo.png";
+              localStorage.setItem("logoUrl", "/snakkaz-logo.png");
+            }}
           />
         </div>
       </div>
@@ -101,7 +213,27 @@ export const AdminLogoSection = () => {
             accept="image/*"
             onChange={handleFileChange}
             className="bg-cyberdark-950 border-red-500/30"
+            disabled={isUploading}
           />
+          
+          {uploadStatus !== 'idle' && (
+            <div className="mt-2 space-y-2">
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>
+                  {uploadStatus === 'uploading' ? 'Laster opp...' : 
+                   uploadStatus === 'success' ? 'Opplasting fullført' : 
+                   'Opplasting feilet'}
+                </span>
+                <span>{Math.round(uploadProgress)}%</span>
+              </div>
+              <Progress value={uploadProgress} className="h-1" />
+              <div className="flex items-center justify-center mt-1">
+                {uploadStatus === 'uploading' && <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
+                {uploadStatus === 'success' && <CheckCircle2 className="w-4 h-4 text-green-400" />}
+                {uploadStatus === 'error' && <AlertCircle className="w-4 h-4 text-red-400" />}
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="space-y-2">
@@ -160,6 +292,7 @@ export const AdminLogoSection = () => {
           variant="destructive"
           onClick={handleRemoveLogo}
           className="w-full"
+          disabled={isUploading}
         >
           Fjern Logo
         </Button>

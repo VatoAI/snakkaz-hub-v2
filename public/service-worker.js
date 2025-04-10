@@ -1,12 +1,15 @@
 
-const CACHE_NAME = 'snakkaz-cache-v2';
+const CACHE_NAME = 'snakkaz-cache-v3';
 const urlsToCache = [
   '/',
   '/index.html',
   '/icons/snakkaz-icon-192.png',
   '/icons/snakkaz-icon-512.png',
   '/manifest.json',
-  '/snakkaz-logo.png'
+  '/snakkaz-logo.png',
+  '/chat',
+  '/profil',
+  '/register'
 ];
 
 // Install Service Worker and cache essential resources
@@ -16,12 +19,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Service Worker: Caching app shell');
+        console.log('Service Worker: Caching app shell and content');
         return cache.addAll(urlsToCache);
       })
       .then(() => {
         console.log('Service Worker: Installation completed');
         return self.skipWaiting();
+      })
+      .catch(error => {
+        console.error('Service Worker: Installation failed:', error);
       })
   );
 });
@@ -47,6 +53,9 @@ self.addEventListener('activate', (event) => {
       console.log('Service Worker: Now active, controlling all clients');
       return self.clients.claim();
     })
+    .catch(error => {
+      console.error('Service Worker: Activation failed:', error);
+    })
   );
 });
 
@@ -62,6 +71,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // For HTML files, always try network first
+  if (event.request.headers.get('Accept').includes('text/html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseClone);
+          });
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request)
+            .then(response => {
+              return response || caches.match('/');
+            });
+        })
+    );
+    return;
+  }
+
+  // For other requests
   event.respondWith(
     fetch(event.request)
       .then((response) => {
@@ -102,7 +133,13 @@ self.addEventListener('push', (event) => {
       vibrate: [100, 50, 100],
       data: {
         url: data.url || '/'
-      }
+      },
+      actions: [
+        {
+          action: 'open',
+          title: 'Åpne'
+        }
+      ]
     };
     
     event.waitUntil(
@@ -120,22 +157,42 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   
-  event.waitUntil(
-    clients.matchAll({type: 'window'})
-      .then((clientList) => {
-        const url = event.notification.data.url || '/';
-        
-        // Check if a window is already open
-        for (const client of clientList) {
-          if (client.url === url && 'focus' in client) {
-            return client.focus();
+  if (event.action === 'open' || !event.action) {
+    event.waitUntil(
+      clients.matchAll({type: 'window'})
+        .then((clientList) => {
+          const url = event.notification.data.url || '/';
+          
+          // Check if a window is already open
+          for (const client of clientList) {
+            if (client.url === url && 'focus' in client) {
+              return client.focus();
+            }
           }
-        }
-        
-        // If no window is open, open a new one
-        if (clients.openWindow) {
-          return clients.openWindow(url);
-        }
-      })
-  );
+          
+          // If no window is open, open a new one
+          if (clients.openWindow) {
+            return clients.openWindow(url);
+          }
+        })
+    );
+  }
+});
+
+// Periodic sync for background updates (if supported)
+self.addEventListener('periodicsync', (event) => {
+  if (event.tag === 'update-messages') {
+    event.waitUntil(
+      fetch('/api/sync-messages')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to sync messages');
+          }
+          return response.json();
+        })
+        .catch(error => {
+          console.error('Periodic sync failed:', error);
+        })
+    );
+  }
 });

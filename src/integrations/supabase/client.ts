@@ -17,6 +17,43 @@ export const supabase = createClient<Database>(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    },
+    global: {
+      headers: {
+        'x-application-name': 'snakkaz-hub',
+        'x-application-version': '1.0.0'
+      }
     }
   }
 );
+
+// Function to check connection health
+export async function checkSupabaseHealth() {
+  try {
+    const { data, error } = await supabase
+      .from('health')
+      .select('id, status, last_checked')
+      .eq('id', '38d75fee-16f2-4b42-a084-93567e21e3a7')
+      .single();
+    
+    if (error) throw error;
+    
+    return {
+      status: 'healthy',
+      lastChecked: data?.last_checked,
+      details: data
+    };
+  } catch (error) {
+    console.error('Supabase health check failed:', error);
+    return {
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
+  }
+}
