@@ -1,4 +1,3 @@
-
 import { Header } from "@/components/index/Header";
 import { Footer } from "@/components/index/Footer";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -7,8 +6,9 @@ import { ProgressSection } from "@/components/index/ProgressSection";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, X, Info, Smartphone, Laptop } from "lucide-react";
+import { Download, X, Info, Smartphone, Laptop, CheckCircle, ExternalLink, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -16,6 +16,7 @@ const Index = () => {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
   const [showInstallTip, setShowInstallTip] = useState(false);
+  const [installationComplete, setInstallationComplete] = useState(false);
   const { toast } = useToast();
 
   // Handle PWA install events
@@ -62,6 +63,7 @@ const Index = () => {
             description: "Takk for at du installerer SnakkaZ Hub!",
           });
           setIsPWAInstalled(true);
+          setInstallationComplete(true);
         }
         
         // Reset the installPrompt - it can only be used once
@@ -74,13 +76,17 @@ const Index = () => {
           variant: "destructive",
         });
       }
+    } else {
+      setShowDownloadDialog(false);
     }
-    
-    setShowDownloadDialog(false);
   };
   
   // iOS Safari-specific instructions
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const isWindows = /Windows/.test(navigator.userAgent);
+  const isMac = /Mac/.test(navigator.userAgent) && !isIOS;
+  const isLinux = /Linux/.test(navigator.userAgent) && !isAndroid;
 
   return (
     <div className="min-h-screen bg-cyberdark-950 overflow-x-hidden">
@@ -154,7 +160,7 @@ const Index = () => {
 
       {/* Download App Dialog */}
       <Dialog open={showDownloadDialog} onOpenChange={setShowDownloadDialog}>
-        <DialogContent className="bg-cyberdark-900 border-2 sm:max-w-md"
+        <DialogContent className="bg-cyberdark-900 border-2 sm:max-w-md overflow-y-auto max-h-[90vh]"
           style={{ borderImage: "linear-gradient(90deg, #1a9dff, #d62828) 1" }}
         >
           <DialogHeader>
@@ -174,53 +180,169 @@ const Index = () => {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="grid gap-6 py-4">
-            <div className="flex items-center justify-center">
-              <img 
-                src="/snakkaz-logo.png" 
-                alt="SnakkaZ Logo" 
-                className="h-24 w-24 rounded-full border-2 p-1"
-                style={{ borderImage: "linear-gradient(90deg, #1a9dff, #d62828) 1" }}
-              />
-            </div>
-            
-            {installPrompt ? (
+          {installationComplete ? (
+            <div className="py-8 text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="bg-green-900/30 p-4 rounded-full">
+                  <CheckCircle className="h-16 w-16 text-green-500" />
+                </div>
+              </div>
+              <h3 className="text-lg font-medium text-white">Installasjon Fullført!</h3>
+              <p className="text-gray-400">SnakkaZ er nå installert på enheten din</p>
               <Button 
-                className="w-full bg-gradient-to-r from-cyberblue-500 to-cyberblue-700 hover:from-cyberblue-600 hover:to-cyberblue-800 py-6"
-                onClick={handleInstallClick}
+                className="mt-4 bg-gradient-to-r from-cyberblue-500 to-cyberblue-700"
+                onClick={() => setShowDownloadDialog(false)}
               >
-                <Laptop className="mr-2" size={18} /> Installer på Denne Enheten
+                Lukk
               </Button>
-            ) : (
-              <div className="space-y-4">
-                {isIOS ? (
-                  <div className="space-y-4">
-                    <div className="bg-cyberdark-800 p-4 rounded-md text-sm text-gray-300 space-y-2">
-                      <p className="font-semibold text-white flex items-center">
-                        <Smartphone className="mr-2" size={16} /> For iOS:
+            </div>
+          ) : (
+            <div className="grid gap-6 py-4">
+              <div className="flex items-center justify-center">
+                <img 
+                  src="/snakkaz-logo.png" 
+                  alt="SnakkaZ Logo" 
+                  className="h-24 w-24 rounded-full border-2 p-1"
+                  style={{ borderImage: "linear-gradient(90deg, #1a9dff, #d62828) 1" }}
+                />
+              </div>
+              
+              <Tabs defaultValue={isIOS ? "ios" : isAndroid ? "android" : "desktop"} className="w-full">
+                <TabsList className="grid grid-cols-3 mb-4">
+                  <TabsTrigger value="desktop" className="flex items-center">
+                    <Laptop className="mr-2 h-4 w-4" /> Desktop
+                  </TabsTrigger>
+                  <TabsTrigger value="ios" className="flex items-center">
+                    <Smartphone className="mr-2 h-4 w-4" /> iOS
+                  </TabsTrigger>
+                  <TabsTrigger value="android" className="flex items-center">
+                    <Smartphone className="mr-2 h-4 w-4" /> Android
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="desktop" className="space-y-4">
+                  {installPrompt ? (
+                    <Button 
+                      className="w-full bg-gradient-to-r from-cyberblue-500 to-cyberblue-700 hover:from-cyberblue-600 hover:to-cyberblue-800 py-6"
+                      onClick={handleInstallClick}
+                    >
+                      <Laptop className="mr-2" size={18} /> Installer på Denne Enheten
+                    </Button>
+                  ) : (
+                    <div className="bg-cyberdark-800 p-4 rounded-md text-sm text-gray-300 space-y-4">
+                      <p className="flex items-center text-white font-semibold">
+                        <Info className="mr-2" size={16} /> Installasjon på {
+                          isWindows ? "Windows" : isMac ? "macOS" : isLinux ? "Linux" : "Desktop"
+                        }:
                       </p>
+                      
                       <ol className="list-decimal pl-5 space-y-2 text-xs">
-                        <li>Trykk på Del-ikonet (firkant med pil opp)</li>
-                        <li>Scroll ned og trykk <span className="font-semibold">Legg til på Hjem-skjerm</span></li>
-                        <li>Trykk <span className="font-semibold">Legg til</span> i øvre høyre hjørne</li>
+                        <li>Klikk på menyknappen (⋮) i nettleseren</li>
+                        <li>Velg "Installer app" eller "Legg til på startskjermen"</li>
+                        <li>Følg instruksjonene for å fullføre installasjonen</li>
                       </ol>
+                      
+                      <div className="pt-2">
+                        <Button
+                          variant="outline" 
+                          size="sm"
+                          className="w-full border-cyberblue-500/50 text-cyberblue-400"
+                          onClick={() => window.location.reload()}
+                        >
+                          <RefreshCw size={14} className="mr-2" /> Oppdater siden for å aktivere installasjon
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="ios" className="space-y-4">
+                  <div className="bg-cyberdark-800 p-4 rounded-md text-sm text-gray-300 space-y-3">
+                    <p className="font-semibold text-white flex items-center">
+                      <Smartphone className="mr-2" size={16} /> For iOS:
+                    </p>
+                    <ol className="list-decimal pl-5 space-y-2 text-xs">
+                      <li>Trykk på Del-ikonet (firkant med pil opp) i Safari</li>
+                      <li>Scroll ned og trykk <span className="font-semibold">Legg til på Hjem-skjerm</span></li>
+                      <li>Trykk <span className="font-semibold">Legg til</span> i øvre høyre hjørne</li>
+                      <li>SnakkaZ-appen vil nå vises på din hjemskjerm</li>
+                    </ol>
+                    
+                    <div className="mt-3 flex justify-center">
+                      <img 
+                        src="/ios-install-guide.png" 
+                        alt="iOS Installation Guide" 
+                        className="max-w-full h-auto rounded-md border border-gray-700"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
                     </div>
                   </div>
-                ) : (
-                  <div className="bg-cyberdark-800 p-4 rounded-md text-sm text-gray-300 space-y-2">
-                    <p className="flex items-center text-white font-semibold mb-2">
-                      <Info className="mr-2" size={16} /> Installasjonsmuligheter:
+                </TabsContent>
+                
+                <TabsContent value="android" className="space-y-4">
+                  <div className="bg-cyberdark-800 p-4 rounded-md text-sm text-gray-300 space-y-3">
+                    <p className="font-semibold text-white flex items-center">
+                      <Smartphone className="mr-2" size={16} /> For Android:
                     </p>
-                    <p>For å installere appen i nettleseren din, trykk på menyknappen (⋮) og velg "Installer app" eller "Legg til på startskjermen".</p>
+                    <ol className="list-decimal pl-5 space-y-2 text-xs">
+                      <li>Trykk på menyknappen (⋮) i Chrome</li>
+                      <li>Velg <span className="font-semibold">Installer app</span> eller <span className="font-semibold">Legg til på startskjerm</span></li>
+                      <li>Trykk <span className="font-semibold">Installer</span> i dialogen som vises</li>
+                      <li>SnakkaZ vil nå vises i din app-skuff</li>
+                    </ol>
+                    
+                    {installPrompt && (
+                      <div className="pt-3">
+                        <Button 
+                          className="w-full bg-gradient-to-r from-cyberblue-500 to-cyberblue-700 hover:from-cyberblue-600 hover:to-cyberblue-800"
+                          onClick={handleInstallClick}
+                        >
+                          <Download className="mr-2" size={16} /> Installer SnakkaZ på Android
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </TabsContent>
+              </Tabs>
+              
+              <div className="mt-4 space-y-4">
+                <div className="text-center">
+                  <h4 className="text-sm font-medium text-white mb-2">Fordeler med app-installasjon:</h4>
+                  <ul className="text-xs text-gray-400 space-y-1">
+                    <li className="flex items-center">
+                      <CheckCircle size={12} className="text-green-500 mr-2" />
+                      Full-skjerm opplevelse uten nettleser-elementer
+                    </li>
+                    <li className="flex items-center">
+                      <CheckCircle size={12} className="text-green-500 mr-2" />
+                      Raskere lastehastighet og offline-tilgang
+                    </li>
+                    <li className="flex items-center">
+                      <CheckCircle size={12} className="text-green-500 mr-2" />
+                      Bedre ytelse og batterieffektivitet
+                    </li>
+                    <li className="flex items-center">
+                      <CheckCircle size={12} className="text-green-500 mr-2" />
+                      Push-varsler for nye meldinger og hendelser
+                    </li>
+                  </ul>
+                </div>
+                
+                <div className="text-center">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-xs border-gray-700 text-gray-400 hover:text-white"
+                    onClick={() => setShowDownloadDialog(false)}
+                  >
+                    Avbryt
+                  </Button>
+                </div>
               </div>
-            )}
-            
-            <p className="text-xs text-center text-gray-500 mt-2">
-              Installer appen for en bedre brukeropplevelse og påminnelser
-            </p>
-          </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

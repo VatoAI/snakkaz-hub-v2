@@ -1,4 +1,5 @@
-const CACHE_NAME = 'snakkaz-cache-v4';
+
+const CACHE_NAME = 'snakkaz-cache-v5';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -9,8 +10,9 @@ const urlsToCache = [
   '/chat',
   '/profil',
   '/register',
-  'https://chatcipher-assistant.lovable.app/thumbnail.png',
-  'https://ai-dash-hub.lovable.app/thumbnail.png'
+  '/login',
+  '/info',
+  '/favicon.ico'
 ];
 
 // Install Service Worker and cache essential resources
@@ -72,8 +74,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For HTML files, always try network first
-  if (event.request.headers.get('Accept').includes('text/html')) {
+  // For HTML and app route requests (like /chat, /profil, etc.)
+  if (event.request.headers.get('Accept')?.includes('text/html') || 
+      event.request.url.match(/\/(chat|login|register|profil|info|admin)$/)) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
@@ -114,10 +117,24 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Handle messages from clients
+// Handle link check failures by serving a fallback
 self.addEventListener('message', (event) => {
   if (event.data.action === 'skipWaiting') {
     self.skipWaiting();
+  }
+  
+  if (event.data.action === 'checkLink') {
+    const url = event.data.url;
+    
+    fetch(url, { method: 'HEAD', mode: 'no-cors' })
+      .then(() => {
+        // Link is available
+        event.ports[0].postMessage({ status: 'available', url });
+      })
+      .catch(() => {
+        // Link is not available, suggest fallback
+        event.ports[0].postMessage({ status: 'unavailable', url });
+      });
   }
 });
 
@@ -175,24 +192,6 @@ self.addEventListener('notificationclick', (event) => {
           if (clients.openWindow) {
             return clients.openWindow(url);
           }
-        })
-    );
-  }
-});
-
-// Periodic sync for background updates (if supported)
-self.addEventListener('periodicsync', (event) => {
-  if (event.tag === 'update-messages') {
-    event.waitUntil(
-      fetch('/api/sync-messages')
-        .then(response => {
-          if (!response.ok) {
-            throw new Error('Failed to sync messages');
-          }
-          return response.json();
-        })
-        .catch(error => {
-          console.error('Periodic sync failed:', error);
         })
     );
   }

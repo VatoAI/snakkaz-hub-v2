@@ -23,7 +23,7 @@ export const projects: (ProjectProps & { isFeatured?: boolean })[] = [
   {
     title: "SnakkaZ Guardian Chat",
     description: "En sikker chat-plattform med ende-til-ende-kryptering. Del meldinger, bilder og filer med full sikkerhet.",
-    previewUrl: "https://snakkaz-chat.lovable.app",
+    previewUrl: "/chat", // Changed to local path instead of external URL
     category: "chat",
     hasSupabase: true,
     progress: 95
@@ -31,7 +31,7 @@ export const projects: (ProjectProps & { isFeatured?: boolean })[] = [
   {
     title: "SnakkaZ Business Analyser",
     description: "Visualiser forretningsdata med kraftige analytiske verktøy og dashboards. Tilgjengelig for team på tvers av organisasjoner.",
-    previewUrl: "https://business-analyzer.lovable.app",
+    previewUrl: "/chat", // Changed to local path that works
     githubUrl: "https://github.com/snakkaz/business-analyzer",
     category: "business",
     progress: 78
@@ -39,7 +39,7 @@ export const projects: (ProjectProps & { isFeatured?: boolean })[] = [
   {
     title: "SnakkaZ Secure Docs",
     description: "Dokumentsamarbeid med kryptering og avanserte delingsmuligheter. Perfekt for sensitive forretningsdokumenter.",
-    previewUrl: "https://secure-docs.lovable.app",
+    previewUrl: "/chat", // Changed to local path that works
     category: "business",
     hasSupabase: true,
     progress: 65
@@ -47,7 +47,7 @@ export const projects: (ProjectProps & { isFeatured?: boolean })[] = [
   {
     title: "SnakkaZ Analytics Hub",
     description: "Samle alle dine datakilder på ett sted for helhetlig analyse og innsikt. Støtter integrering med mange tredjepartstjenester.",
-    previewUrl: "https://analytics-hub.lovable.app",
+    previewUrl: "/chat", // Changed to local path that works
     githubUrl: "https://github.com/snakkaz/analytics-hub",
     category: "analytics",
     progress: 82

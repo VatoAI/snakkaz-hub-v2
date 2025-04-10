@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { GithubIcon, ExternalLink, Database, RefreshCw, Activity, CheckCircle, AlertTriangle } from "lucide-react";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
@@ -24,16 +23,40 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
   const [projectStatus, setProjectStatus] = useState<'online' | 'offline' | 'loading'>('loading');
   const navigate = useNavigate();
   
-  // Fetch project status
+  const isExternalUrl = previewUrl.startsWith('http');
+  
   useEffect(() => {
+    if (!isExternalUrl) {
+      setProjectStatus('online');
+      return;
+    }
+    
     const checkProjectStatus = async () => {
       try {
-        const response = await fetch(`${previewUrl}/ping`, { 
-          method: 'HEAD',
-          mode: 'no-cors',
-          cache: 'no-store'
-        });
-        setProjectStatus('online');
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          const messageChannel = new MessageChannel();
+          
+          const statusPromise = new Promise<{status: string, url: string}>((resolve) => {
+            messageChannel.port1.onmessage = (event) => {
+              resolve(event.data);
+            };
+          });
+          
+          navigator.serviceWorker.controller.postMessage({
+            action: 'checkLink',
+            url: `${previewUrl}/ping`
+          }, [messageChannel.port2]);
+          
+          const response = await statusPromise;
+          setProjectStatus(response.status === 'available' ? 'online' : 'offline');
+        } else {
+          const response = await fetch(`${previewUrl}/ping`, { 
+            method: 'HEAD',
+            mode: 'no-cors',
+            cache: 'no-store'
+          });
+          setProjectStatus('online');
+        }
       } catch (error) {
         console.log(`Could not connect to ${title}`);
         setProjectStatus('offline');
@@ -41,11 +64,10 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
     };
     
     checkProjectStatus();
-    // Check status every 60 seconds
     const interval = setInterval(checkProjectStatus, 60000);
     
     return () => clearInterval(interval);
-  }, [previewUrl, title]);
+  }, [previewUrl, title, isExternalUrl]);
   
   const getCategoryColor = (category: string) => {
     switch (category) {
@@ -71,10 +93,16 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
   };
   
   const handleCardClick = () => {
-    if (title === "SnakkaZ Guardian Chat" || title === "ChatCipher Assistant") {
-      navigate('/chat');
-    } else if (previewUrl) {
-      window.open(previewUrl, '_blank', 'noopener,noreferrer');
+    if (isExternalUrl) {
+      if (projectStatus !== 'offline') {
+        window.open(previewUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        if (title.toLowerCase().includes('chat')) {
+          navigate('/chat');
+        }
+      }
+    } else {
+      navigate(previewUrl);
     }
   };
 
@@ -89,10 +117,11 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
     }
   };
 
-  const failbackUrl = "/snakkaz-logo.png";
-  const thumbnailUrl = imageError 
-    ? failbackUrl
-    : `${previewUrl.replace('https://', 'https://thumbnail--').replace('.lovable.app', '.lovable.app')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
+  let thumbnailUrl = '/snakkaz-logo.png';
+  
+  if (isExternalUrl && !imageError) {
+    thumbnailUrl = `${previewUrl.replace('https://', 'https://thumbnail--').replace('.lovable.app', '.lovable.app')}/thumbnail.png?t=${refreshKey}&cache=${new Date().getTime()}`;
+  }
 
   return (
     <Card 
@@ -114,7 +143,9 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
             <Badge variant="outline" className="ml-2 bg-cyberdark-800/40 text-gray-300 border-gray-500/30 flex items-center gap-1 px-2">
               {getStatusIcon()}
               <span className="text-xs ml-1">
-                {projectStatus === 'online' ? 'Live' : projectStatus === 'offline' ? 'Offline' : 'Sjekker...'}
+                {isExternalUrl ? 
+                  (projectStatus === 'online' ? 'Live' : projectStatus === 'offline' ? 'Offline' : 'Sjekker...') : 
+                  'Lokal App'}
               </span>
             </Badge>
           </div>
@@ -146,29 +177,30 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
                   console.log(`Image failed to load for ${title}, using SnakkaZ logo as fallback`);
                   setImageError(true);
                   setImageLoading(false);
-                  (e.target as HTMLImageElement).src = failbackUrl;
+                  (e.target as HTMLImageElement).src = '/snakkaz-logo.png';
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-r from-cyberdark-950/70 to-transparent opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
                 <div className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyberblue-500/80 to-red-500/80 text-white flex items-center">
                   <ExternalLink size={16} className="mr-2" />
-                  {title === "SnakkaZ Guardian Chat" || title === "ChatCipher Assistant" ? "Åpne Chat" : "Se Preview"}
+                  {isExternalUrl ? "Se Preview" : "Åpne App"}
                 </div>
               </div>
             </div>
           </AspectRatio>
-          <button 
-            className="absolute top-2 right-2 bg-cyberdark-900/80 p-1 rounded-full text-cyberblue-400 hover:text-cyberblue-300 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-            onClick={refreshPreview}
-            title="Oppdater forhåndsvisning"
-          >
-            <RefreshCw size={14} />
-          </button>
+          {isExternalUrl && (
+            <button 
+              className="absolute top-2 right-2 bg-cyberdark-900/80 p-1 rounded-full text-cyberblue-400 hover:text-cyberblue-300 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+              onClick={refreshPreview}
+              title="Oppdater forhåndsvisning"
+            >
+              <RefreshCw size={14} />
+            </button>
+          )}
         </div>
         
         <p className="line-clamp-3">{description}</p>
 
-        {/* Progress indicator */}
         {progress > 0 && (
           <div className="w-full">
             <div className="flex justify-between text-xs mb-1">
@@ -185,15 +217,19 @@ export const ProjectCard = ({ title, description, previewUrl, githubUrl, categor
           className="flex items-center text-cyberblue-400 hover:text-cyberblue-300 text-sm transition-colors"
           onClick={(e) => {
             e.stopPropagation();
-            if (title === "SnakkaZ Guardian Chat" || title === "ChatCipher Assistant") {
-              navigate('/chat');
+            if (isExternalUrl) {
+              if (projectStatus !== 'offline') {
+                window.open(previewUrl, '_blank', 'noopener,noreferrer');
+              } else if (title.toLowerCase().includes('chat')) {
+                navigate('/chat');
+              }
             } else {
-              window.open(previewUrl, '_blank', 'noopener,noreferrer');
+              navigate(previewUrl);
             }
           }}
         >
           <ExternalLink size={16} className="mr-1" />
-          {title === "SnakkaZ Guardian Chat" || title === "ChatCipher Assistant" ? "Åpne Chat" : "Preview"}
+          {isExternalUrl ? "Preview" : "Åpne"}
         </button>
         
         {githubUrl ? (
