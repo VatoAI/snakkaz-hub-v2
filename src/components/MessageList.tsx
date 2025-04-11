@@ -1,138 +1,130 @@
 
+import { useRef, useEffect, useMemo } from "react";
 import { DecryptedMessage } from "@/types/message";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState, useEffect, useRef } from "react";
-import { useToast } from "@/components/ui/use-toast";
-import { DeleteMessageDialog } from "./message/DeleteMessageDialog";
 import { MessageGroups } from "./message/MessageGroups";
-import { MessageListHeader } from "./message/MessageListHeader";
-import { ScrollToBottomButton } from "./message/ScrollToBottomButton";
-import { groupMessages } from "@/utils/message-grouping";
+import { Button } from "@/components/ui/button";
+import { ArrowDown } from "lucide-react";
 
 interface MessageListProps {
   messages: DecryptedMessage[];
-  onMessageExpired?: (messageId: string) => void;
-  currentUserId?: string | null;
-  onEditMessage?: (message: DecryptedMessage) => void;
-  onDeleteMessage?: (messageId: string) => void;
+  onMessageExpired: (messageId: string) => void;
+  currentUserId: string | null;
+  onEditMessage: (message: { id: string; content: string }) => void;
+  onDeleteMessage: (messageId: string) => void;
 }
 
-export const MessageList = ({ 
-  messages: initialMessages, 
+export const MessageList = ({
+  messages,
   onMessageExpired,
   currentUserId,
   onEditMessage,
-  onDeleteMessage
+  onDeleteMessage,
 }: MessageListProps) => {
-  const [messages, setMessages] = useState(initialMessages);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
 
-  useEffect(() => {
-    setMessages(initialMessages);
-    
-    // Auto-scroll to bottom when new messages come
-    if (autoScroll && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [initialMessages, autoScroll]);
+  // Group messages by sender and within 5 minutes
+  const messageGroups = useMemo(() => {
+    const groups: DecryptedMessage[][] = [];
+    let currentGroup: DecryptedMessage[] = [];
+    let currentSenderId: string | null = null;
+    let lastMessageTime: number | null = null;
 
-  // Check if user has scrolled up (disable auto-scroll)
-  const handleScroll = () => {
-    if (!scrollAreaRef.current) return;
-    
-    const { scrollTop, scrollHeight, clientHeight } = scrollAreaRef.current;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50; // 50px margin
-    
-    setAutoScroll(isAtBottom);
-  };
+    messages.forEach((message) => {
+      const messageTime = new Date(message.created_at).getTime();
+      const isSameUser = message.sender.id === currentSenderId;
+      const isWithinTimeWindow = lastMessageTime && messageTime - lastMessageTime < 5 * 60 * 1000;
 
-  const handleMessageExpired = (messageId: string) => {
-    setMessages(prev => prev.filter(msg => msg.id !== messageId));
-    if (onMessageExpired) {
-      onMessageExpired(messageId);
-    }
-  };
-
-  const handleEdit = (message: DecryptedMessage) => {
-    if (onEditMessage) {
-      console.log("Editing message in MessageList:", message.id);
-      onEditMessage(message);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (confirmDelete && onDeleteMessage) {
-      console.log("Confirming deletion of message:", confirmDelete);
-      try {
-        await onDeleteMessage(confirmDelete);
-        
-        // After successful deletion, update local state to reflect the change immediately
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.id === confirmDelete 
-              ? {...msg, is_deleted: true, deleted_at: new Date().toISOString()} 
-              : msg
-          )
-        );
-        
-        toast({
-          title: "Melding slettet",
-          description: "Meldingen ble slettet",
-        });
-      } catch (error) {
-        console.error("Error deleting message:", error);
-        toast({
-          title: "Feil",
-          description: "Kunne ikke slette meldingen",
-          variant: "destructive",
-        });
+      if (isSameUser && isWithinTimeWindow) {
+        currentGroup.push(message);
+      } else {
+        if (currentGroup.length > 0) {
+          groups.push([...currentGroup]);
+        }
+        currentGroup = [message];
+        currentSenderId = message.sender.id;
       }
-      setConfirmDelete(null);
+
+      lastMessageTime = messageTime;
+    });
+
+    if (currentGroup.length > 0) {
+      groups.push([...currentGroup]);
     }
+
+    return groups;
+  }, [messages]);
+
+  // Scroll to bottom when messages change, if auto-scroll is enabled
+  useEffect(() => {
+    if (isAutoScrollEnabled && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isAutoScrollEnabled]);
+
+  // Handle scroll events to show/hide scroll button
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+      
+      setShowScrollButton(!isNearBottom);
+      setIsAutoScrollEnabled(isNearBottom);
+    };
+
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setIsAutoScrollEnabled(true);
   };
 
+  // Check if message is from current user
   const isUserMessage = (message: DecryptedMessage) => {
     return message.sender.id === currentUserId;
   };
 
-  const handleScrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    setAutoScroll(true);
-  };
-
-  const messageGroups = groupMessages(messages);
-
   return (
-    <ScrollArea 
-      className="h-full px-2 sm:px-4 py-2 sm:py-4"
-      onScrollCapture={handleScroll}
-      ref={scrollAreaRef}
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-cybergold-500/30 scrollbar-track-cyberdark-800 bg-gradient-to-b from-cyberdark-950 to-cyberdark-900"
     >
-      <MessageListHeader />
-      
-      <MessageGroups 
+      {messageGroups.length === 0 && (
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center p-6 bg-cyberdark-800/50 rounded-lg border border-cybergold-500/20 max-w-md">
+            <h3 className="text-xl font-bold text-cybergold-300 mb-2">Ingen meldinger ennå</h3>
+            <p className="text-cyberblue-300">
+              Start samtalen ved å sende den første meldingen!
+            </p>
+          </div>
+        </div>
+      )}
+
+      <MessageGroups
         messageGroups={messageGroups}
         isUserMessage={isUserMessage}
-        onMessageExpired={handleMessageExpired}
-        onEdit={handleEdit}
-        onDelete={setConfirmDelete}
+        onMessageExpired={onMessageExpired}
+        onEdit={onEditMessage}
+        onDelete={onDeleteMessage}
         messagesEndRef={messagesEndRef}
       />
-      
-      <ScrollToBottomButton 
-        show={!autoScroll}
-        onClick={handleScrollToBottom}
-      />
-      
-      <DeleteMessageDialog
-        isOpen={!!confirmDelete}
-        onClose={() => setConfirmDelete(null)}
-        onConfirm={handleDelete}
-      />
-    </ScrollArea>
+
+      {showScrollButton && (
+        <Button
+          onClick={scrollToBottom}
+          className="absolute bottom-24 right-6 rounded-full h-10 w-10 p-0 bg-cyberblue-800 hover:bg-cyberblue-700 text-white shadow-lg"
+          aria-label="Scroll to bottom"
+        >
+          <ArrowDown className="h-5 w-5" />
+        </Button>
+      )}
+    </div>
   );
 };

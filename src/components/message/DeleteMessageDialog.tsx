@@ -1,13 +1,14 @@
 
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface DeleteMessageDialogProps {
   isOpen: boolean;
@@ -15,33 +16,32 @@ interface DeleteMessageDialogProps {
   onConfirm: () => void;
 }
 
-export const DeleteMessageDialog = ({ isOpen, onClose, onConfirm }: DeleteMessageDialogProps) => {
+export const DeleteMessageDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
+}: DeleteMessageDialogProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="bg-cyberdark-900 border-cybergold-500/30">
-        <DialogHeader>
-          <DialogTitle className="text-cybergold-300">Slett melding</DialogTitle>
-          <DialogDescription className="text-cyberdark-300">
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent className="bg-cyberdark-900 border border-cybergold-500/30">
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-cybergold-100">Slett melding</AlertDialogTitle>
+          <AlertDialogDescription className="text-cyberblue-300">
             Er du sikker på at du vil slette denne meldingen? Dette kan ikke angres.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="border-cybergold-500/30 text-cybergold-300"
-          >
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel className="bg-cyberdark-800 text-cybergold-200 hover:bg-cyberdark-700">
             Avbryt
-          </Button>
-          <Button
-            variant="destructive"
+          </AlertDialogCancel>
+          <AlertDialogAction 
             onClick={onConfirm}
-            className="bg-red-900 hover:bg-red-800 text-white border-none"
+            className="bg-red-900 hover:bg-red-800 text-white"
           >
             Slett
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };

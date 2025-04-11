@@ -1,15 +1,14 @@
 
-import { Edit, Trash2, MoreVertical, Clock } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
+import { MoreVertical, Pencil, Trash } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuLabel
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { DecryptedMessage } from "@/types/message";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MessageActionsProps {
   message: DecryptedMessage;
@@ -18,63 +17,43 @@ interface MessageActionsProps {
 }
 
 export const MessageActions = ({ message, onEdit, onDelete }: MessageActionsProps) => {
-  if (message.is_deleted) {
-    return null;
-  }
-
-  // Always allow editing and deletion (24-hour auto-delete still applies)
-  const isEditingDisabled = false;
-  const isDeletionDisabled = false;
-
-  const handleEdit = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("Editing message:", message.id);
-    onEdit(message);
-  };
-
-  const handleDelete = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log("Deleting message:", message.id);
-    onDelete(message.id);
-  };
+  const [open, setOpen] = useState(false);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="icon"
-          className="h-7 w-7 ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-cyberdark-400 hover:text-cyberdark-300"
+          className="h-6 w-6 text-cyberdark-400 opacity-0 group-hover:opacity-100 transition-opacity"
         >
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52 bg-cyberdark-800 border-cybergold-500/30">
-        <DropdownMenuLabel className="text-xs text-cyberdark-400">
-          Meldinger slettes automatisk etter 24 timer
-        </DropdownMenuLabel>
-        <>
-          {!isEditingDisabled && (
-            <DropdownMenuItem 
-              className="text-cybergold-300 cursor-pointer flex items-center"
-              onClick={handleEdit}
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              <span>Rediger</span>
-            </DropdownMenuItem>
-          )}
-          {!isDeletionDisabled && (
-            <DropdownMenuItem 
-              className="text-red-400 cursor-pointer flex items-center"
-              onClick={handleDelete}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              <span>Slett</span>
-            </DropdownMenuItem>
-          )}
-        </>
+      <DropdownMenuContent
+        align="end"
+        className="w-40 bg-cyberdark-900 border-cybergold-500/30"
+      >
+        <DropdownMenuItem
+          onClick={() => {
+            onEdit(message);
+            setOpen(false);
+          }}
+          className="flex items-center gap-2 text-cybergold-200 hover:text-white cursor-pointer"
+        >
+          <Pencil className="h-4 w-4" />
+          <span>Rediger</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            onDelete(message.id);
+            setOpen(false);
+          }}
+          className="flex items-center gap-2 text-red-400 hover:text-red-300 cursor-pointer"
+        >
+          <Trash className="h-4 w-4" />
+          <span>Slett</span>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

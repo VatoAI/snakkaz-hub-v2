@@ -1,84 +1,69 @@
 
-import { useCallback, useEffect, useState } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { DecryptedMessage } from "@/types/message";
 
 export const useReadReceipts = (
-  currentUserId: string | null, 
-  friendId: string | null,
-  messages: DecryptedMessage[] = []
+  currentUserId: string, 
+  friendId: string | undefined,
+  messages: DecryptedMessage[]
 ) => {
-  const [readMessageIds, setReadMessageIds] = useState<Set<string>>(new Set());
-
-  // Setup real-time subscription to track when messages are read
-  useEffect(() => {
-    if (!currentUserId || !friendId) return;
-
-    // Setup channel subscription for read receipt updates
-    const channel = supabase
-      .channel('read-receipts-channel')
-      .on('postgres_changes', 
-        { 
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'messages',
-          filter: `sender_id=eq.${currentUserId}`
-        }, 
-        (payload) => {
-          const updatedMessage = payload.new as any;
-          if (updatedMessage.read_at) {
-            setReadMessageIds(prev => new Set([...prev, updatedMessage.id]));
-          }
-        }
-      )
-      .subscribe();
-
-    // Initialize with already read messages
-    const initialReadIds = new Set(
-      messages
-        .filter(msg => 
-          msg.sender.id === currentUserId && 
-          msg.read_at !== null
-        )
-        .map(msg => msg.id)
-    );
-    setReadMessageIds(initialReadIds);
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [currentUserId, friendId, messages]);
-
-  // Function to check if a specific message has been read
-  const isMessageRead = useCallback((messageId: string) => {
-    return readMessageIds.has(messageId);
-  }, [readMessageIds]);
-
-  // Function to mark messages from the friend as read
+  const [readMessages, setReadMessages] = useState<Set<string>>(new Set());
+  const processingRef = useRef<boolean>(false);
+  
+  // Mark messages as read
   const markMessagesAsRead = useCallback(async () => {
-    if (!currentUserId || !friendId) return;
+    if (!currentUserId || !friendId || processingRef.current) return;
     
-    // Find unread messages from this friend
+    // Mark unread messages from the friend as read
     const unreadMessages = messages.filter(msg => 
-      msg.sender.id === friendId && 
-      !msg.read_at && 
-      !msg.is_deleted
+      msg.sender.id === friendId && // Message is from friend
+      msg.receiver_id === currentUserId && // Message is for current user
+      !msg.read_at // Message isn't already marked as read
     );
     
     if (unreadMessages.length === 0) return;
     
-    // Mark messages as read in batches to avoid too many requests
+    processingRef.current = true;
+    
     try {
-      // Call the server function to mark messages as read
-      await Promise.all(unreadMessages.map(async (msg) => {
-        await supabase.rpc('mark_message_as_read', { message_id: msg.id });
-      }));
-      
-      console.log(`Marked ${unreadMessages.length} messages as read`);
+      // Update messages in database to mark as read
+      for (const message of unreadMessages) {
+        await supabase.rpc('mark_message_as_read', { message_id: message.id });
+        
+        // Add to local read messages set
+        setReadMessages(prev => {
+          const updated = new Set(prev);
+          updated.add(message.id);
+          return updated;
+        });
+      }
     } catch (error) {
       console.error('Error marking messages as read:', error);
+    } finally {
+      processingRef.current = false;
     }
   }, [currentUserId, friendId, messages]);
+  
+  // Update read messages set from fetched messages
+  useEffect(() => {
+    const alreadyReadMessages = messages
+      .filter(msg => msg.read_at)
+      .map(msg => msg.id);
+      
+    if (alreadyReadMessages.length > 0) {
+      setReadMessages(prev => {
+        const updated = new Set(prev);
+        alreadyReadMessages.forEach(id => updated.add(id));
+        return updated;
+      });
+    }
+  }, [messages]);
+  
+  // Check if a specific message is read
+  const isMessageRead = useCallback((messageId: string) => {
+    return readMessages.has(messageId);
+  }, [readMessages]);
   
   return { isMessageRead, markMessagesAsRead };
 };

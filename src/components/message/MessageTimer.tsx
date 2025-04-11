@@ -1,70 +1,77 @@
 
-import { useState, useEffect } from "react";
-import { Timer } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Clock } from "lucide-react";
 import { DecryptedMessage } from "@/types/message";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MessageTimerProps {
   message: DecryptedMessage;
-  onExpired?: () => void;
+  onExpired: () => void;
 }
 
 export const MessageTimer = ({ message, onExpired }: MessageTimerProps) => {
-  const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  
-  // Ensure all messages have the 24-hour TTL
-  const messageTtl = message.ephemeral_ttl || 86400; // Default to 24 hours in seconds
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [isExpiring, setIsExpiring] = useState(false);
 
   useEffect(() => {
-    const calculateTimeLeft = () => {
-      const createdAt = new Date(message.created_at).getTime();
-      const expiresAt = createdAt + (messageTtl * 1000);
-      const now = new Date().getTime();
-      const difference = expiresAt - now;
-      
-      return difference > 0 ? Math.ceil(difference / 1000) : 0;
-    };
+    if (!message.ephemeral_ttl) return;
 
-    setTimeLeft(calculateTimeLeft());
-    
-    const timer = setInterval(() => {
-      const remaining = calculateTimeLeft();
-      setTimeLeft(remaining);
-      
+    const createdAt = new Date(message.created_at).getTime();
+    const expiryTime = createdAt + message.ephemeral_ttl * 1000;
+
+    const checkExpiry = () => {
+      const now = Date.now();
+      const remaining = expiryTime - now;
+
       if (remaining <= 0) {
-        clearInterval(timer);
-        if (onExpired) {
-          onExpired();
-        }
+        onExpired();
+        return;
       }
-    }, 1000);
 
-    return () => {
-      clearInterval(timer);
+      // Less than 1 minute remaining
+      setIsExpiring(remaining < 60000);
+
+      const hours = Math.floor(remaining / (1000 * 60 * 60));
+      const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+
+      let display = "";
+      if (hours > 0) {
+        display = `${hours}t ${minutes}m`;
+      } else if (minutes > 0) {
+        display = `${minutes}m ${seconds}s`;
+      } else {
+        display = `${seconds}s`;
+      }
+
+      setTimeLeft(display);
     };
-  }, [message.created_at, messageTtl, onExpired]);
 
-  if (timeLeft === null) return null;
-  if (timeLeft <= 0) return null;
+    checkExpiry();
+    const interval = setInterval(checkExpiry, 1000);
 
-  // Format the display based on time remaining
-  const hours = Math.floor(timeLeft / 3600);
-  const minutes = Math.floor((timeLeft % 3600) / 60);
-  const seconds = timeLeft % 60;
-  
-  let timeString = '';
-  
-  if (hours > 0) {
-    timeString = `${hours}t ${minutes}m`;
-  } else if (minutes > 0) {
-    timeString = `${minutes}m ${seconds}s`;
-  } else {
-    timeString = `${seconds}s`;
-  }
+    return () => clearInterval(interval);
+  }, [message.created_at, message.ephemeral_ttl, onExpired]);
+
+  if (!timeLeft) return null;
 
   return (
-    <div className="flex items-center gap-1 text-xs text-cybergold-300">
-      <Timer className="w-3 h-3 text-cyberblue-400" />
-      <span className="font-medium">{timeString}</span>
-    </div>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className={`inline-flex items-center gap-1 text-[10px] sm:text-xs ${
+              isExpiring ? "text-red-400" : "text-cyberdark-400"
+            }`}
+          >
+            <Clock className="w-3 h-3" />
+            {timeLeft}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="bg-cyberdark-900 border-cybergold-500/20 text-xs">
+          <p>Meldingen slettes om {timeLeft}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 };

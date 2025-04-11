@@ -1,6 +1,6 @@
 
+import { Send, Loader2, Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
 
 interface SubmitButtonProps {
   isLoading: boolean;
@@ -10,26 +10,39 @@ interface SubmitButtonProps {
   editingMessage?: { id: string; content: string } | null;
 }
 
-export const SubmitButton = ({ 
-  isLoading, 
-  newMessage, 
-  selectedFile, 
+export const SubmitButton = ({
+  isLoading,
+  newMessage,
+  selectedFile,
   isRecording,
-  editingMessage 
+  editingMessage
 }: SubmitButtonProps) => {
+  const isDisabled = 
+    isLoading || 
+    isRecording || 
+    (!newMessage.trim() && !selectedFile);
+
   return (
-    <Button 
-      type="submit" 
-      disabled={isLoading || (!newMessage.trim() && !selectedFile) || isRecording}
-      className="w-full sm:w-auto bg-cybergold-500 hover:bg-cybergold-600 text-cyberdark-900 shadow-neon-gold transition-all duration-300 flex items-center justify-center gap-2"
+    <Button
+      type="submit"
+      size="icon"
+      disabled={isDisabled}
+      className={`
+        h-10 w-10 rounded-full text-white 
+        ${isDisabled 
+          ? 'bg-cyberdark-700 text-cyberdark-500' 
+          : editingMessage 
+            ? 'bg-cybergold-700 hover:bg-cybergold-600' 
+            : 'bg-cyberblue-700 hover:bg-cyberblue-600'}
+      `}
     >
-      <Send className="w-4 h-4" />
-      <span className="sm:hidden">
-        {editingMessage ? "Oppdater" : "Send"}
-      </span>
-      <span className="hidden sm:inline">
-        {editingMessage ? "Oppdater" : "Send"}
-      </span>
+      {isLoading ? (
+        <Loader2 className="h-5 w-5 animate-spin" />
+      ) : editingMessage ? (
+        <Edit className="h-5 w-5" />
+      ) : (
+        <Send className="h-5 w-5" />
+      )}
     </Button>
   );
 };

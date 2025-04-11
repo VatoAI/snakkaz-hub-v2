@@ -1,57 +1,75 @@
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useState, useRef, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
-export const useTypingIndicator = (currentUserId: string | null, friendId: string | null) => {
-  const [peerIsTyping, setPeerIsTyping] = useState(false);
-  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
+// Typing indicator hook that works similar to Telegram and Signal
+export const useTypingIndicator = (currentUserId: string, receiverId: string | undefined) => {
+  const [peerIsTyping, setPeerIsTyping] = useState<boolean>(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTypingEventRef = useRef<number>(0);
   
+  // Clear timeout on unmount
   useEffect(() => {
-    if (!currentUserId || !friendId) return;
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
 
-    // Subscribe to the typing indicators channel
-    const channel = supabase
-      .channel(`typing:${currentUserId}-${friendId}`)
+  // Handle receiving typing indicator events
+  useEffect(() => {
+    if (!currentUserId || !receiverId) return;
+    
+    // Subscribe to typing channel
+    const typingChannel = supabase
+      .channel(`typing:${currentUserId}`)
       .on('broadcast', { event: 'typing' }, (payload) => {
-        if (payload.payload.senderId === friendId) {
+        if (payload.payload.sender === receiverId) {
           setPeerIsTyping(true);
           
-          // Clear any existing timeout
-          if (typingTimeout.current) {
-            clearTimeout(typingTimeout.current);
+          // Auto-clear typing indicator after 3 seconds
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
           }
           
-          // Set timeout to clear typing indicator after 3 seconds
-          typingTimeout.current = setTimeout(() => {
+          typingTimeoutRef.current = setTimeout(() => {
             setPeerIsTyping(false);
           }, 3000);
         }
       })
       .subscribe();
-    
+      
     return () => {
-      if (typingTimeout.current) {
-        clearTimeout(typingTimeout.current);
-      }
-      supabase.removeChannel(channel);
+      supabase.removeChannel(typingChannel);
     };
-  }, [currentUserId, friendId]);
+  }, [currentUserId, receiverId]);
   
-  // Function to broadcast typing event to the other user
+  // Function to broadcast typing event
   const startTyping = useCallback(() => {
-    if (!currentUserId || !friendId) return;
+    if (!currentUserId || !receiverId) return;
     
+    const now = Date.now();
+    
+    // Throttle typing events to max 1 per second
+    if (now - lastTypingEventRef.current < 1000) {
+      return;
+    }
+    
+    lastTypingEventRef.current = now;
+    
+    // Broadcast typing event
     supabase
-      .channel(`typing:${friendId}-${currentUserId}`)
+      .channel(`typing:${receiverId}`)
       .send({
         type: 'broadcast',
         event: 'typing',
-        payload: { senderId: currentUserId }
+        payload: { sender: currentUserId }
+      })
+      .catch(error => {
+        console.error('Error sending typing event:', error);
       });
-  }, [currentUserId, friendId]);
+  }, [currentUserId, receiverId]);
   
-  return {
-    peerIsTyping,
-    startTyping
-  };
+  return { peerIsTyping, startTyping };
 };

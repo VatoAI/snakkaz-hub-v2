@@ -1,7 +1,7 @@
 
-import { useFileInput } from "@/hooks/useFileInput";
-import { FileDropdownMenu } from "./FileDropdownMenu";
-import { FilePreview } from "./FilePreview";
+import { Image, FileIcon, FilmIcon, Paperclip } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRef } from "react";
 
 interface FileInputsProps {
   selectedFile: File | null;
@@ -10,65 +10,104 @@ interface FileInputsProps {
   isRecording: boolean;
 }
 
-export const FileInputs = ({ 
-  selectedFile, 
-  setSelectedFile, 
-  isLoading, 
-  isRecording 
+export const FileInputs = ({
+  selectedFile,
+  setSelectedFile,
+  isLoading,
+  isRecording
 }: FileInputsProps) => {
-  const {
-    fileInputRef,
-    videoInputRef,
-    cameraInputRef,
-    documentInputRef,
-    handleFileSelect
-  } = useFileInput({ setSelectedFile });
-
-  const isDisabled = isLoading || isRecording;
-
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+  
+  const handleTriggerFile = (inputRef: React.RefObject<HTMLInputElement>) => {
+    inputRef.current?.click();
+  };
+  
   return (
-    <>
+    <div className="flex items-center gap-1">
       {selectedFile && (
-        <FilePreview file={selectedFile} onRemove={() => setSelectedFile(null)} />
+        <div className="flex items-center gap-2 p-1 mr-2 bg-cyberblue-900/40 rounded-full">
+          <span className="text-xs text-cyberblue-300 px-2 truncate max-w-[100px]">
+            {selectedFile.name}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5 rounded-full bg-red-900/80 text-white hover:bg-red-800"
+            onClick={() => setSelectedFile(null)}
+          >
+            ✕
+          </Button>
+        </div>
       )}
-
-      <input
-        type="file"
+      
+      <input 
         ref={fileInputRef}
-        onChange={handleFileSelect}
+        type="file" 
         accept="image/*"
         className="hidden"
-      />
-      <input
-        type="file"
-        ref={videoInputRef}
         onChange={handleFileSelect}
+        disabled={isLoading || isRecording}
+      />
+      
+      <input 
+        ref={videoInputRef}
+        type="file" 
         accept="video/*"
         className="hidden"
-      />
-      <input
-        type="file"
-        ref={cameraInputRef}
         onChange={handleFileSelect}
-        accept="image/*"
-        capture="environment"
-        className="hidden"
+        disabled={isLoading || isRecording}
       />
-      <input
-        type="file"
+      
+      <input 
         ref={documentInputRef}
-        onChange={handleFileSelect}
-        accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+        type="file" 
+        accept=".pdf,.doc,.docx,.txt"
         className="hidden"
+        onChange={handleFileSelect}
+        disabled={isLoading || isRecording}
       />
-
-      <FileDropdownMenu 
-        isDisabled={isDisabled}
-        onImageClick={() => fileInputRef.current?.click()}
-        onVideoClick={() => videoInputRef.current?.click()}
-        onCameraClick={() => cameraInputRef.current?.click()}
-        onDocumentClick={() => documentInputRef.current?.click()}
-      />
-    </>
+      
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-800"
+        onClick={() => handleTriggerFile(fileInputRef)}
+        disabled={isLoading || isRecording}
+      >
+        <Image className="h-4 w-4" />
+      </Button>
+      
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-800"
+        onClick={() => handleTriggerFile(videoInputRef)}
+        disabled={isLoading || isRecording}
+      >
+        <FilmIcon className="h-4 w-4" />
+      </Button>
+      
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 text-cybergold-400 hover:text-cybergold-300 hover:bg-cyberdark-800"
+        onClick={() => handleTriggerFile(documentInputRef)}
+        disabled={isLoading || isRecording}
+      >
+        <FileIcon className="h-4 w-4" />
+      </Button>
+    </div>
   );
 };

@@ -5,15 +5,13 @@ export const useMessageInputState = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   
+  // Clear file inputs after submission
   const clearFileInputs = () => {
-    setSelectedFile(null);
-    const resetFileInput = (input: HTMLInputElement | null) => {
-      if (input) input.value = '';
+    return (inputElement: HTMLInputElement | null) => {
+      if (inputElement) {
+        inputElement.value = '';
+      }
     };
-    
-    // We don't access the refs directly here since they belong to another component
-    // This function will be used by parent component that has access to the refs
-    return resetFileInput;
   };
   
   return {
