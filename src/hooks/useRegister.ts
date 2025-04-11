@@ -48,7 +48,7 @@ export const useRegister = ({
             description: "En bruker med denne e-postadressen finnes allerede. Prøv å logge inn i stedet.",
             variant: "destructive",
           });
-          navigate("/"); // Redirect to login page
+          navigate("/login"); // Redirect to login page
           return;
         }
         throw authError;
@@ -70,10 +70,11 @@ export const useRegister = ({
 
           toast({
             title: "Suksess!",
-            description: "Kontoen din er opprettet. Sjekk e-posten din for verifisering.",
+            description: "Kontoen din er opprettet. Du blir nå omdirigert til Chat.",
           });
           
-          navigate("/");
+          // Redirect to Chat after successful registration
+          navigate("/chat");
         }
       }
     } catch (error: any) {

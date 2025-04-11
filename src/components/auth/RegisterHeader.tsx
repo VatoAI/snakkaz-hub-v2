@@ -1,19 +1,27 @@
 
-import { Shield } from "lucide-react";
+import { CardDescription, CardTitle } from "@/components/ui/card";
 
 export const RegisterHeader = () => {
   return (
-    <div className="flex flex-col items-center mb-8 relative">
-      <div className="w-20 h-20 rounded-full bg-gradient-to-r from-cyberdark-900 to-cyberdark-950 border-2 border-cybergold-400 flex items-center justify-center mb-4 shadow-[0_0_20px_rgba(230,179,0,0.3)] relative">
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-cybergold-400/20 to-transparent animate-spin-slow"></div>
-        <Shield className="w-10 h-10 text-cybergold-300 relative z-10" />
+    <div className="text-center mb-6">
+      <div className="flex justify-center mb-4">
+        <img src="/snakkaz-logo.png" alt="SnakkaZ Logo" className="h-16 w-16 rounded-full" />
       </div>
-      <h1 className="text-4xl font-bold bg-gradient-to-r from-cybergold-300 via-cybergold-200 to-cybergold-300 bg-clip-text text-transparent animate-gradient">
-        Opprett konto
-      </h1>
-      <p className="text-cybergold-400 mt-2 text-lg">Bli med i SnakkaZ i dag</p>
-      <div className="absolute -top-4 -left-4 w-8 h-8 border-t-2 border-l-2 border-cybergold-400/30"></div>
-      <div className="absolute -top-4 -right-4 w-8 h-8 border-t-2 border-r-2 border-cybergold-400/30"></div>
+      <CardTitle className="text-2xl mb-2"
+        style={{
+          background: 'linear-gradient(90deg, #1a9dff, #ffffff, #d62828)',
+          WebkitBackgroundClip: 'text',
+          backgroundClip: 'text',
+          color: 'transparent',
+        }}
+      >
+        Registrer deg på SnakkaZ
+      </CardTitle>
+      <CardDescription className="text-gray-400">
+        Opprett din sikre SnakkaZ-konto for å starte samtaler
+      </CardDescription>
+      
+      <div className="mt-4 h-px w-full bg-gradient-to-r from-cyberblue-500/20 via-white/30 to-red-500/20"></div>
     </div>
   );
 };

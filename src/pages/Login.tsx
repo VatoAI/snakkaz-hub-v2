@@ -20,29 +20,29 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // For demo purposes - simulate login success
-      // In a real app with Supabase, use auth.signInWithPassword
-      console.log("Login attempt with:", email);
-      
-      // In a real implementation, this would be:
-      // const { data, error } = await supabase.auth.signInWithPassword({
-      //   email,
-      //   password,
-      // });
-      
-      // Demo login success - in production use actual authentication
-      toast({
-        title: "Logg inn vellykket",
-        description: "Du blir nå omdirigert til SnakkaZ Chat",
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
       
-      // Redirect to chat
-      setTimeout(() => navigate("/chat"), 1000);
-    } catch (error) {
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.user) {
+        toast({
+          title: "Logg inn vellykket",
+          description: "Du blir nå omdirigert til SnakkaZ Chat",
+        });
+        
+        // Redirect to chat
+        navigate("/chat");
+      }
+    } catch (error: any) {
       console.error("Login error:", error);
       toast({
         title: "Feil ved innlogging",
-        description: "Kontroller brukernavn og passord og prøv igjen",
+        description: error.message || "Kontroller brukernavn og passord og prøv igjen",
         variant: "destructive",
       });
     } finally {
@@ -60,10 +60,10 @@ const Login = () => {
       
       <Button 
         variant="ghost" 
-        className="absolute top-4 left-4 text-gray-400 hover:text-white hover:bg-cyberdark-800"
+        className="absolute top-4 left-4 text-white hover:text-cyberblue-400 hover:bg-cyberdark-800"
         onClick={() => navigate("/")}
       >
-        <ArrowLeft className="mr-2 h-4 w-4" /> Tilbake til Hjem
+        <ArrowLeft className="mr-2 h-4 w-4" /> Hjem
       </Button>
       
       <div className="w-full max-w-md z-10">

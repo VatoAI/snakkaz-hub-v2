@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Power } from "lucide-react";
 import { RegisterFormInputs } from "./RegisterFormInputs";
 import { useRegister } from "@/hooks/useRegister";
+import { useNavigate } from "react-router-dom";
 
 export const RegisterForm = () => {
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,18 +37,22 @@ export const RegisterForm = () => {
 
       <Button
         type="submit"
-        className="w-full relative group overflow-hidden bg-gradient-to-r from-cybergold-500 via-cybergold-400 to-cybergold-500 hover:from-cybergold-400 hover:to-cybergold-400 text-white font-semibold text-lg shadow-[0_0_15px_rgba(230,179,0,0.3)] transition-all duration-300 border border-cybergold-300/50 hover:shadow-[0_0_25px_rgba(230,179,0,0.5)]"
+        className="w-full relative group overflow-hidden text-white font-semibold text-lg transition-all duration-300 border border-transparent"
         disabled={isLoading}
+        style={{
+          background: 'linear-gradient(90deg, #1a9dff 0%, #3b82f6 50%, #d62828 100%)',
+          boxShadow: '0 0 15px rgba(26,157,255,0.4), 0 0 15px rgba(214,40,40,0.4)'
+        }}
       >
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
         <span className="relative text-lg">
           {isLoading ? (
-            <div className="flex items-center gap-2 justify-center text-cyberdark-950">
+            <div className="flex items-center gap-2 justify-center">
               <Power className="w-4 h-4 animate-spin" />
               Oppretter konto...
             </div>
           ) : (
-            <span className="text-cyberdark-950">Opprett konto</span>
+            "Opprett konto"
           )}
         </span>
       </Button>
