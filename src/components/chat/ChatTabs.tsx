@@ -1,4 +1,3 @@
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatGlobal } from '@/components/chat/ChatGlobal';
 import { DirectMessage } from '@/components/chat/friends/DirectMessage';
@@ -53,8 +52,14 @@ export const ChatTabs = ({
   userProfiles,
   handleCloseDirectChat
 }: ChatTabsProps) => {
+  const handleTabChange = (value: string) => {
+    if (typeof setActiveTab === 'function') {
+      setActiveTab(value);
+    }
+  };
+
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full">
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full h-full">
       <div className="border-b border-cybergold-500/30 px-4">
         <TabsList className="bg-transparent border-b-0">
           <TabsTrigger value="global" className="text-cybergold-300 data-[state=active]:text-cybergold-100 data-[state=active]:border-b-2 data-[state=active]:border-cybergold-400 rounded-none">

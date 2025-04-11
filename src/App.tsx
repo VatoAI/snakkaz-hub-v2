@@ -1,4 +1,3 @@
-
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from "@/components/ui/toaster";
 import Index from '@/pages/Index';
@@ -11,6 +10,7 @@ import Admin from '@/pages/Admin';
 import Login from '@/pages/Login';
 import { useAuthState } from '@/hooks/useAuthState';
 import { useEffect, useState } from 'react';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 import "./App.css";
 
 function AppRoutes() {
@@ -54,10 +54,12 @@ function AppRoutes() {
 
 function App() {
   return (
-    <Router>
-      <AppRoutes />
-      <Toaster />
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <AppRoutes />
+        <Toaster />
+      </Router>
+    </ThemeProvider>
   );
 }
 

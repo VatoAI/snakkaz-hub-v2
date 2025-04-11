@@ -1,9 +1,9 @@
-
 import { useRef, useEffect, useMemo, useState } from "react";
 import { DecryptedMessage } from "@/types/message";
 import { MessageGroups } from "./message/MessageGroups";
 import { Button } from "@/components/ui/button";
 import { ArrowDown } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface MessageListProps {
   messages: DecryptedMessage[];
@@ -20,10 +20,12 @@ export const MessageList = ({
   onEditMessage,
   onDeleteMessage,
 }: MessageListProps) => {
+  const { theme } = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const [isScrolling, setIsScrolling] = useState(false);
 
   // Group messages by sender and within 5 minutes
   const messageGroups = useMemo(() => {
@@ -59,10 +61,10 @@ export const MessageList = ({
 
   // Scroll to bottom when messages change, if auto-scroll is enabled
   useEffect(() => {
-    if (isAutoScrollEnabled && messagesEndRef.current) {
+    if (isAutoScrollEnabled && messagesEndRef.current && !isScrolling) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages, isAutoScrollEnabled]);
+  }, [messages, isAutoScrollEnabled, isScrolling]);
 
   // Handle scroll events to show/hide scroll button
   useEffect(() => {
@@ -82,8 +84,10 @@ export const MessageList = ({
   }, []);
 
   const scrollToBottom = () => {
+    setIsScrolling(true);
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     setIsAutoScrollEnabled(true);
+    setTimeout(() => setIsScrolling(false), 500);
   };
 
   // Check if message is from current user
@@ -92,9 +96,9 @@ export const MessageList = ({
   };
 
   return (
-    <div
+    <div 
       ref={containerRef}
-      className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scrollbar-thumb-cybergold-500/30 scrollbar-track-cyberdark-800 bg-gradient-to-b from-cyberdark-950 to-cyberdark-900"
+      className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent"
     >
       {messageGroups.length === 0 && (
         <div className="flex items-center justify-center h-full">
@@ -118,11 +122,14 @@ export const MessageList = ({
 
       {showScrollButton && (
         <Button
+          variant="ghost"
+          size="icon"
+          className={`fixed bottom-4 right-4 rounded-full ${
+            theme === 'dark' ? 'bg-gray-800' : 'bg-white'
+          } shadow-lg`}
           onClick={scrollToBottom}
-          className="absolute bottom-24 right-6 rounded-full h-10 w-10 p-0 bg-cyberblue-800 hover:bg-cyberblue-700 text-white shadow-lg"
-          aria-label="Scroll to bottom"
         >
-          <ArrowDown className="h-5 w-5" />
+          <ArrowDown className="h-4 w-4" />
         </Button>
       )}
     </div>

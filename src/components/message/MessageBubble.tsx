@@ -3,6 +3,7 @@ import { MessageContent } from "./MessageContent";
 import { MessageActions } from "./MessageActions";
 import { Clock } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface MessageBubbleProps {
   message: DecryptedMessage;
@@ -13,63 +14,65 @@ interface MessageBubbleProps {
   onDelete: (messageId: string) => void;
 }
 
-export const MessageBubble = ({ 
-  message, 
-  isCurrentUser, 
+export const MessageBubble = ({
+  message,
+  isCurrentUser,
   messageIndex,
   onMessageExpired,
   onEdit,
   onDelete
 }: MessageBubbleProps) => {
-  // All messages still have 24-hour auto-delete
-  const ttlIsFixed = true;
-  const isAutoDelete = message.ephemeral_ttl ? true : false;
+  const { theme } = useTheme();
+  const isLastMessage = messageIndex === 0;
 
   return (
-    <div 
-      className={`group relative flex mb-2 ${messageIndex === 0 ? '' : 'mt-1'}`}
-    >
-      <div 
+    <div className={`group relative flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}>
+      <div
         className={`
-          py-2.5 px-4 rounded-2xl max-w-[85%] break-words 
-          backdrop-blur-sm shadow-lg
+          relative max-w-[85%] rounded-2xl px-4 py-2
           ${isCurrentUser 
-            ? 'bg-blue-500/90 text-white ml-auto' 
-            : 'bg-cyberdark-800/80 text-cyberblue-100'
+            ? theme === 'dark' 
+              ? 'bg-blue-600 text-white' 
+              : 'bg-blue-500 text-white'
+            : theme === 'dark'
+              ? 'bg-gray-800 text-white'
+              : 'bg-gray-100 text-gray-900'
           }
+          ${isLastMessage ? 'rounded-br-none' : ''}
+          transition-colors duration-200
         `}
       >
-        <MessageContent message={message} onMessageExpired={onMessageExpired} />
+        <MessageContent 
+          message={message} 
+          onMessageExpired={onMessageExpired} 
+        />
         
-        {ttlIsFixed && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={`inline-flex items-center text-[10px] mt-1 ml-2 ${
-                  isCurrentUser ? 'text-blue-100/70' : 'text-cyberdark-400'
-                }`}>
-                  <Clock className="h-3 w-3 mr-1" />
-                  24t
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" align="center" className="text-xs">
-                Slettes automatisk etter 24 timer
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-      </div>
-      
-      {/* Show actions on hover if it's the current user's message */}
-      {isCurrentUser && (
-        <div className="self-start ml-1">
-          <MessageActions 
-            message={message} 
-            onEdit={onEdit} 
-            onDelete={onDelete} 
+        <div className="flex items-center justify-end gap-1 mt-1">
+          {message.is_encrypted && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Clock className="w-3 h-3 text-gray-400" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Encrypted message</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <span className="text-xs text-gray-400">
+            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </span>
+        </div>
+
+        <div className="absolute -right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <MessageActions
+            message={message}
+            onEdit={onEdit}
+            onDelete={onDelete}
           />
         </div>
-      )}
+      </div>
     </div>
   );
 };
