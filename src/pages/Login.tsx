@@ -24,6 +24,12 @@ const Login = () => {
       // In a real app with Supabase, use auth.signInWithPassword
       console.log("Login attempt with:", email);
       
+      // In a real implementation, this would be:
+      // const { data, error } = await supabase.auth.signInWithPassword({
+      //   email,
+      //   password,
+      // });
+      
       // Demo login success - in production use actual authentication
       toast({
         title: "Logg inn vellykket",

@@ -13,7 +13,7 @@ import { useAuthState } from '@/hooks/useAuthState';
 import { useEffect, useState } from 'react';
 import "./App.css";
 
-function App() {
+function AppRoutes() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const { userId, checkAuth } = useAuthState();
 
@@ -39,17 +39,23 @@ function App() {
   }
 
   return (
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/chat" element={userId ? <Chat /> : <Navigate to="/login" />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/profil" element={userId ? <Profile /> : <Navigate to="/login" />} />
+      <Route path="/info" element={<Info />} />
+      <Route path="/admin" element={userId ? <Admin /> : <Navigate to="/login" />} />
+      <Route path="/login" element={userId ? <Navigate to="/chat" /> : <Login />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
+function App() {
+  return (
     <Router>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/chat" element={userId ? <Chat /> : <Navigate to="/login" />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/profil" element={userId ? <Profile /> : <Navigate to="/login" />} />
-        <Route path="/info" element={<Info />} />
-        <Route path="/admin" element={userId ? <Admin /> : <Navigate to="/login" />} />
-        <Route path="/login" element={userId ? <Navigate to="/chat" /> : <Login />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AppRoutes />
       <Toaster />
     </Router>
   );
