@@ -26,17 +26,42 @@ export class WebRTCManager implements IWebRTCManager {
     private userId: string,
     options: WebRTCOptions = {}
   ) {
-    const { maxReconnectAttempts = 5 } = options; // Increased from 3 to 5
+    const { maxReconnectAttempts = 5 } = options;
     
     this.signalingService = new SignalingService(userId);
+    this.onMessageCallback = null;
     this.peerManager = new PeerManager(userId, this.onMessageCallback);
     this.connectionManager = new ConnectionManager(this.peerManager, this.secureConnections, this.localKeyPair);
     this.messageHandler = new MessageHandler(this.peerManager, this.secureConnections);
     this.reconnectionManager = new ReconnectionManager(this.connectionManager, maxReconnectAttempts);
     this.connectionStateManager = new ConnectionStateManager(this.connectionManager);
-    
-    this.initializeKeyPair();
-    this.setupSignalingListener();
+  }
+
+  public async initialize() {
+    if (this.isInitialized) {
+      console.log('WebRTCManager already initialized');
+      return;
+    }
+
+    try {
+      // Generate key pair for secure connections
+      await this.initializeKeyPair();
+      
+      // Setup signaling channel
+      this.setupSignalingListener();
+      
+      // Verify Supabase connection
+      const { data, error } = await this.signalingService.verifyConnection();
+      if (error) {
+        throw error;
+      }
+      
+      console.log('WebRTC setup complete');
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize WebRTCManager:', error);
+      throw error;
+    }
   }
 
   private async initializeKeyPair() {
@@ -159,7 +184,7 @@ export class WebRTCManager implements IWebRTCManager {
             // Wait for connection to establish with shorter timeouts
             let connectionEstablished = false;
             let attempts = 0;
-            const maxAttempts = 3; // Reduced from 5 to 3
+            const maxAttempts = 3;
             
             while (!connectionEstablished && attempts < maxAttempts) {
               if (this.connectionStateManager.isPeerReady(peerId)) {
@@ -167,8 +192,7 @@ export class WebRTCManager implements IWebRTCManager {
                 break;
               }
               
-              // Use shorter wait times for faster connection
-              const waitTime = Math.min(500 * Math.pow(1.5, attempts), 2000); // Reduced from 1000ms to 500ms base
+              const waitTime = Math.min(500 * Math.pow(1.5, attempts), 2000);
               await new Promise(resolve => setTimeout(resolve, waitTime));
               attempts++;
             }
@@ -212,7 +236,6 @@ export class WebRTCManager implements IWebRTCManager {
     return this.connectionManager.getDataChannelState(peerId);
   }
   
-  // Method to try reconnecting with a peer with improved error handling
   public async attemptReconnect(peerId: string) {
     if (!this.localKeyPair?.publicKey) {
       throw new Error('Cannot reconnect: no local public key available');
@@ -221,99 +244,11 @@ export class WebRTCManager implements IWebRTCManager {
     return await this.reconnectionManager.attemptReconnect(peerId, this.localKeyPair.publicKey);
   }
   
-  // Method to check if a peer is connected and ready for messaging
   public isPeerReady(peerId: string): boolean {
     return this.connectionStateManager.isPeerReady(peerId);
   }
   
-  // Try to ensure a peer is ready, reconnecting if necessary
   public async ensurePeerReady(peerId: string): Promise<boolean> {
     return await this.connectionStateManager.ensurePeerReady(peerId, this.attemptReconnect.bind(this));
-  }
-
-  public async initialize() {
-    if (this.isInitialized) {
-      console.log('WebRTCManager already initialized');
-      return;
-    }
-
-    try {
-      // Generate key pair for secure connections
-      await this.initializeKeyPair();
-      
-      // Setup signaling channel
-      this.setupSignalingListener();
-      
-      // Verify Supabase connection
-      const { data, error } = await this.signalingService.verifyConnection();
-      if (error) {
-        throw error;
-      }
-      console.log('Supabase connection verified');
-
-      this.isInitialized = true;
-      console.log('WebRTC setup complete');
-    } catch (error) {
-      console.error('Error initializing WebRTCManager:', error);
-      this.scheduleReconnect();
-    }
-  }
-
-  private scheduleReconnect() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-
-    this.reconnectTimeout = setTimeout(async () => {
-      console.log('Attempting to reconnect WebRTC...');
-      try {
-        await this.initialize();
-      } catch (error) {
-        console.error('Reconnection attempt failed:', error);
-        this.scheduleReconnect();
-      }
-    }, this.RECONNECT_DELAY);
-  }
-
-  private async handleKeyExchange(peerId: string, data: any) {
-    try {
-      if (!this.localKeyPair) {
-        throw new Error('Local key pair not initialized');
-      }
-
-      const sharedKey = await this.peerManager.establishSecureConnection(
-        peerId,
-        data,
-        this.localKeyPair
-      );
-
-      if (sharedKey) {
-        this.secureConnections.set(peerId, sharedKey);
-      }
-    } catch (error) {
-      console.error('Error handling key exchange:', error);
-    }
-  }
-
-  public async disconnect() {
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-    }
-
-    try {
-      await this.signalingService.disconnect();
-      this.peerManager.disconnectAll();
-      this.isInitialized = false;
-    } catch (error) {
-      console.error('Error during disconnect:', error);
-    }
-  }
-
-  public isConnected(): boolean {
-    return this.isInitialized;
-  }
-
-  public getConnectedPeers(): string[] {
-    return this.peerManager.getConnectedPeerIds();
   }
 }
