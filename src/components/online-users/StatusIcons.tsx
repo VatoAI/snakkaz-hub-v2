@@ -25,10 +25,29 @@ interface StatusIconProps {
   status: UserStatus;
   className?: string;
   size?: number;
+  showBadge?: boolean;
 }
 
-export const StatusIcon = ({ status, className, size = 4 }: StatusIconProps) => {
+export const StatusIcon = ({ status, className, size = 4, showBadge = false }: StatusIconProps) => {
   const Icon = statusIcons[status];
+  
+  if (showBadge) {
+    return (
+      <div className="relative">
+        <div className={cn(
+          `absolute -top-1 -right-1 w-${size/2} h-${size/2} rounded-full`,
+          status === 'online' ? "bg-green-500" : 
+          status === 'busy' ? "bg-yellow-500" : 
+          "bg-blue-500"
+        )}></div>
+        <Icon className={cn(
+          `w-${size} h-${size}`,
+          className
+        )} />
+      </div>
+    );
+  }
+  
   return (
     <Icon className={cn(
       `w-${size} h-${size}`,

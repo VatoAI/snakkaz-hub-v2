@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +27,6 @@ export const UserList = ({
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Fetch all users to show offline users too
   useEffect(() => {
     const fetchAllUsers = async () => {
       if (!showAllUsers) return;
@@ -64,22 +62,22 @@ export const UserList = ({
   const getUsersToDisplay = () => {
     if (showAllUsers) {
       return allUsers.map(user => {
-        // Check if user is online by looking for their presence
         const isOnline = Boolean(userPresence[user.id]);
         const status = isOnline ? userPresence[user.id].status : null;
         const isFriend = friends.includes(user.id);
         const displayName = userProfiles[user.id]?.username || user.username || user.id.substring(0, 8);
+        const avatarUrl = userProfiles[user.id]?.avatar_url;
         
         return {
           id: user.id,
           username: displayName,
           status,
           isOnline,
-          isFriend
+          isFriend,
+          avatarUrl
         };
       });
     } else {
-      // Only show users with presence data (online users)
       return Object.entries(userPresence)
         .filter(([userId]) => userId !== currentUserId)
         .map(([userId, presence]) => {
@@ -87,13 +85,15 @@ export const UserList = ({
           const displayName = userProfiles[userId]?.username || 
                              allUsers.find(u => u.id === userId)?.username || 
                              userId.substring(0, 8);
+          const avatarUrl = userProfiles[userId]?.avatar_url;
           
           return {
             id: userId,
             username: displayName,
             status: presence.status,
             isOnline: true,
-            isFriend
+            isFriend,
+            avatarUrl
           };
         });
     }
@@ -114,12 +114,11 @@ export const UserList = ({
         {isLoading ? 'Laster...' : (showAllUsers ? "Vis bare påloggede" : "Vis alle brukere")}
       </Button>
       
-      {/* Show accurate online count */}
       <div className="text-xs text-cybergold-500 mb-2">
         {onlineCount === 1 ? '1 bruker pålogget' : `${onlineCount} brukere pålogget`}
       </div>
       
-      <div className="max-h-[200px] overflow-y-auto space-y-1 pr-1">
+      <div className="max-h-[200px] overflow-y-auto space-y-1 pr-1 scrollbar-thin">
         {usersToDisplay.length === 0 ? (
           <div className="text-center text-cybergold-500 py-2 text-sm">
             {isLoading ? 
@@ -135,6 +134,7 @@ export const UserList = ({
               isOnline={user.isOnline}
               status={user.status}
               isFriend={user.isFriend}
+              avatarUrl={user.avatarUrl}
               onSendFriendRequest={onSendFriendRequest}
               onStartChat={onStartChat}
             />

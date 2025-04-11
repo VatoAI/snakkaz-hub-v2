@@ -1,12 +1,13 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Home, MessageSquare, User, Users } from 'lucide-react';
-import { OnlineUsers } from '@/components/OnlineUsers';
+import { OnlineUsers } from '@/components/online-users/OnlineUsers';
 import { UserPresence, UserStatus } from '@/types/presence';
 import { FriendsContainer } from './friends/FriendsContainer';
 import { DecryptedMessage } from '@/types/message';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { StatusIcon } from '@/components/online-users/StatusIcons';
 import {
   Sheet,
   SheetContent,
@@ -49,13 +50,13 @@ export const ChatHeader = ({
   const navigate = useNavigate();
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
 
-  // Lytter etter tilpassede hendelser for å åpne chat med venn
+  const currentUserProfile = currentUserId ? userProfiles[currentUserId] : null;
+
   useEffect(() => {
     const handleStartChatEvent = (e: Event) => {
       const event = e as CustomEvent;
       if (event.detail && event.detail.friendId) {
         setIsFriendsOpen(true);
-        // Her ville vi ideelt sett sette valgt venn
       }
     };
     
@@ -91,9 +92,26 @@ export const ChatHeader = ({
               variant="outline"
               size="icon"
               onClick={() => navigate('/profil')}
-              className="bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
+              className="relative bg-cyberdark-800/90 border-cybergold-400/50 text-cybergold-400 hover:bg-cyberdark-700"
             >
-              <User className="h-4 w-4" />
+              {currentUserProfile?.avatar_url ? (
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={currentUserProfile.avatar_url} />
+                  <AvatarFallback className="text-xs bg-cyberdark-700 text-cybergold-300">
+                    {currentUserProfile.username?.charAt(0).toUpperCase() || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <User className="h-4 w-4" />
+              )}
+              
+              <div className="absolute -bottom-1 -right-1 w-2 h-2 rounded-full border border-cyberdark-800">
+                <div className={`w-full h-full rounded-full ${
+                  currentStatus === 'online' ? "bg-green-500" : 
+                  currentStatus === 'busy' ? "bg-yellow-500" : 
+                  "bg-blue-500"
+                }`}></div>
+              </div>
             </Button>
             <Sheet open={isFriendsOpen} onOpenChange={setIsFriendsOpen}>
               <SheetTrigger asChild>
