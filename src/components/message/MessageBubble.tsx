@@ -1,4 +1,3 @@
-
 import { DecryptedMessage } from "@/types/message";
 import { MessageContent } from "./MessageContent";
 import { MessageActions } from "./MessageActions";
@@ -28,14 +27,15 @@ export const MessageBubble = ({
 
   return (
     <div 
-      className={`group relative flex mb-1 ${messageIndex === 0 ? '' : 'mt-1'}`}
+      className={`group relative flex mb-2 ${messageIndex === 0 ? '' : 'mt-1'}`}
     >
       <div 
         className={`
-          py-2 px-3 rounded-md max-w-full break-words 
+          py-2.5 px-4 rounded-2xl max-w-[85%] break-words 
+          backdrop-blur-sm shadow-lg
           ${isCurrentUser 
-            ? 'bg-cyberblue-900 text-white' 
-            : 'bg-cyberdark-800 text-cyberblue-100'
+            ? 'bg-blue-500/90 text-white ml-auto' 
+            : 'bg-cyberdark-800/80 text-cyberblue-100'
           }
         `}
       >
@@ -45,7 +45,9 @@ export const MessageBubble = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="inline-flex items-center text-[10px] text-cyberdark-400 mt-1 ml-2">
+                <span className={`inline-flex items-center text-[10px] mt-1 ml-2 ${
+                  isCurrentUser ? 'text-blue-100/70' : 'text-cyberdark-400'
+                }`}>
                   <Clock className="h-3 w-3 mr-1" />
                   24t
                 </span>

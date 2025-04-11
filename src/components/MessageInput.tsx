@@ -1,115 +1,76 @@
-
-import { useRef, FormEvent } from "react";
-import { Input } from "@/components/ui/input";
-import { useMessageInputState } from "./message-input/useMessageInputState";
-import { FileInputs } from "./message-input/FileInputs";
-import { AudioRecorder } from "./message-input/AudioRecorder";
-import { TTLSelector } from "./message-input/TTLSelector";
-import { EditingMessage } from "./message-input/EditingMessage";
-import { SubmitButton } from "./message-input/SubmitButton";
+import React, { FormEvent } from 'react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, SendHorizontal, X } from 'lucide-react';
+import { MessageTimer } from './message/MessageTimer';
 
 interface MessageInputProps {
   newMessage: string;
   setNewMessage: (message: string) => void;
-  onSubmit: (e: React.FormEvent, mediaFile?: File) => void;
+  onSubmit: (e: FormEvent) => Promise<void>;
   isLoading: boolean;
   ttl: number | null;
   setTtl: (ttl: number | null) => void;
-  receiverId?: string | null;
-  editingMessage?: { id: string; content: string } | null;
-  onCancelEdit?: () => void;
+  editingMessage: { id: string; content: string } | null;
+  onCancelEdit: () => void;
 }
 
-export const MessageInput = ({ 
-  newMessage, 
-  setNewMessage, 
-  onSubmit, 
+export const MessageInput = ({
+  newMessage,
+  setNewMessage,
+  onSubmit,
   isLoading,
   ttl,
   setTtl,
-  receiverId,
   editingMessage,
   onCancelEdit
 }: MessageInputProps) => {
-  const {
-    selectedFile,
-    setSelectedFile,
-    isRecording,
-    setIsRecording,
-    clearFileInputs
-  } = useMessageInputState();
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const documentInputRef = useRef<HTMLInputElement>(null);
-
-  // Fixed TTL of 24 hours (86400 seconds)
-  const defaultTtl = 86400;
-  // Force 24-hour TTL for all messages
-  if (ttl !== defaultTtl) {
-    setTtl(defaultTtl);
-  }
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() && !selectedFile) return;
-    
-    onSubmit(e, selectedFile || undefined);
-    setSelectedFile(null);
-    
-    // Clear all file inputs
-    const resetInput = clearFileInputs();
-    resetInput(fileInputRef.current);
-    resetInput(videoInputRef.current);
-    resetInput(cameraInputRef.current);
-    resetInput(documentInputRef.current);
-  };
-
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
-      {editingMessage && onCancelEdit && (
-        <EditingMessage
-          editingMessage={editingMessage}
-          onCancelEdit={onCancelEdit}
-        />
-      )}
-
-      <div className="flex-1 flex flex-col sm:flex-row gap-2 w-full">
-        <div className="flex flex-1 gap-2">
-          <FileInputs 
-            selectedFile={selectedFile}
-            setSelectedFile={setSelectedFile}
-            isLoading={isLoading}
-            isRecording={isRecording}
-          />
-          
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder={receiverId ? "Skriv en privat melding..." : "Skriv din melding..."}
-            className="flex-1 bg-cyberdark-800 border-cybergold-500/30 text-cyberblue-100 placeholder:text-cyberdark-600 focus:ring-cyberblue-500 focus:border-cyberblue-500"
-            disabled={isLoading || isRecording}
-          />
-          
-          <div className="flex gap-2">
-            <AudioRecorder
-              isLoading={isLoading}
-              isRecording={isRecording}
-              setIsRecording={setIsRecording}
-              setSelectedFile={setSelectedFile}
-            />
-          </div>
-        </div>
-      </div>
-      
-      <SubmitButton
-        isLoading={isLoading}
-        newMessage={newMessage}
-        selectedFile={selectedFile}
-        isRecording={isRecording}
-        editingMessage={editingMessage}
+    <form onSubmit={onSubmit} className="relative p-2">
+      <Textarea
+        value={newMessage}
+        onChange={(e) => setNewMessage(e.target.value)}
+        placeholder={editingMessage ? "Rediger melding..." : "Skriv en melding..."}
+        className="min-h-[44px] max-h-32 resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 pr-12"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            onSubmit(e);
+          }
+        }}
       />
+      
+      {editingMessage && (
+        <div className="absolute top-2 left-2 flex items-center gap-2 text-xs text-cybergold-400">
+          <span>Redigerer melding</span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={onCancelEdit}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      
+      <div className="absolute right-2 bottom-2 flex items-center gap-2">
+        <MessageTimer ttl={ttl} setTtl={setTtl} />
+        
+        <Button
+          type="submit"
+          size="icon"
+          disabled={!newMessage.trim() || isLoading}
+          className="bg-blue-500 hover:bg-blue-600 text-white h-8 w-8 rounded-full shadow-lg"
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <SendHorizontal className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
     </form>
   );
 };

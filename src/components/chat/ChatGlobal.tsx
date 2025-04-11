@@ -1,4 +1,4 @@
-
+import React from 'react';
 import { MessageList } from '@/components/MessageList';
 import { MessageInput } from '@/components/MessageInput';
 import { DecryptedMessage } from "@/types/message";
@@ -35,28 +35,32 @@ export const ChatGlobal = ({
   onDeleteMessage
 }: ChatGlobalProps) => {
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-cyberdark-950">
       <div className="flex-1 overflow-hidden">
-        <MessageList 
-          messages={messages} 
-          onMessageExpired={onMessageExpired}
-          currentUserId={currentUserId}
-          onEditMessage={onEditMessage}
-          onDeleteMessage={onDeleteMessage}
-        />
+        <div className="max-w-2xl mx-auto px-4 py-6">
+          <MessageList 
+            messages={messages} 
+            onMessageExpired={onMessageExpired}
+            currentUserId={currentUserId}
+            onEditMessage={onEditMessage}
+            onDeleteMessage={onDeleteMessage}
+          />
+        </div>
       </div>
 
-      <div className="p-2 sm:p-4 border-t border-cybergold-500/30">
-        <MessageInput
-          newMessage={newMessage}
-          setNewMessage={setNewMessage}
-          onSubmit={onSubmit}
-          isLoading={isLoading}
-          ttl={ttl}
-          setTtl={setTtl}
-          editingMessage={editingMessage}
-          onCancelEdit={onCancelEdit}
-        />
+      <div className="max-w-2xl mx-auto w-full px-4 py-4">
+        <div className="backdrop-blur-sm bg-cyberdark-800/50 rounded-2xl border border-cybergold-500/20">
+          <MessageInput
+            newMessage={newMessage}
+            setNewMessage={setNewMessage}
+            onSubmit={onSubmit}
+            isLoading={isLoading}
+            ttl={ttl}
+            setTtl={setTtl}
+            editingMessage={editingMessage}
+            onCancelEdit={onCancelEdit}
+          />
+        </div>
       </div>
     </div>
   );
