@@ -55,6 +55,10 @@ export const useMessageSender = (
 
       const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
       
+      // Convert groupId from string to boolean if needed for database
+      // or pass null if no groupId provided
+      const dbGroupId = groupId ? true : null;
+      
       const { error } = await supabase
         .from('messages')
         .insert({
@@ -66,7 +70,7 @@ export const useMessageSender = (
           media_url: mediaUrl,
           media_type: mediaType,
           receiver_id: receiverId,
-          group_id: groupId
+          group_id: dbGroupId
         });
 
       if (error) {
