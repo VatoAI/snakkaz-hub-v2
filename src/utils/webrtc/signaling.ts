@@ -1,46 +1,56 @@
-import { SupabaseService } from '@/services/supabase.service';
+import { createClient } from '@supabase/supabase-js';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 export class SignalingService {
   private channel: RealtimeChannel | null = null;
-  private supabase: SupabaseService;
+  private supabase = createClient(
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.VITE_SUPABASE_ANON_KEY
+  );
 
-  constructor(private userId: string) {
-    this.supabase = SupabaseService.getInstance();
+  constructor(private userId: string) {}
+
+  public async verifyConnection() {
+    return await this.supabase.from('health').select('status').single();
   }
 
-  public async setupSignalingChannel(onSignal: (signal: any) => void) {
-    try {
-      this.channel = await this.supabase.subscribeToSignaling(
-        this.userId,
-        (payload) => {
-          console.log('Received signal:', payload);
-          onSignal(payload);
-        }
-      );
-    } catch (error) {
-      console.error('Error setting up signaling channel:', error);
-      throw error;
+  public setupSignalingListener(callback: (signal: any) => Promise<void>) {
+    if (this.channel) {
+      this.channel.unsubscribe();
     }
+
+    this.channel = this.supabase
+      .channel(`signaling-${this.userId}`)
+      .on('broadcast', { event: 'signal' }, async (payload) => {
+        await callback(payload);
+      })
+      .subscribe((status) => {
+        console.log('Signaling channel subscription status:', status);
+        if (status === 'CLOSED') {
+          console.log('Failed to subscribe to signaling channel:', status);
+        }
+      });
+
+    return () => {
+      if (this.channel) {
+        this.channel.unsubscribe();
+        this.channel = null;
+      }
+    };
   }
 
   public async sendSignal(targetUserId: string, signal: any) {
-    try {
-      await this.supabase.sendSignal(targetUserId, signal);
-    } catch (error) {
-      console.error('Error sending signal:', error);
-      throw error;
+    if (!this.channel) {
+      throw new Error('Signaling channel not initialized');
     }
-  }
 
-  public async disconnect() {
-    if (this.channel) {
-      try {
-        await this.channel.unsubscribe();
-        this.channel = null;
-      } catch (error) {
-        console.error('Error disconnecting signaling channel:', error);
+    return await this.channel.send({
+      type: 'broadcast',
+      event: 'signal',
+      payload: {
+        ...signal,
+        target: targetUserId
       }
-    }
+    });
   }
 }

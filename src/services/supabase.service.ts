@@ -1,6 +1,11 @@
 import { createClient, SupabaseClient, User, RealtimeChannel } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
 export class SupabaseService {
   private static instance: SupabaseService;
   private client: SupabaseClient<Database>;
@@ -11,25 +16,7 @@ export class SupabaseService {
   private readonly RECONNECT_DELAY = 2000; // 2 seconds
 
   private constructor() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase credentials are not properly configured');
-    }
-
-    this.client = createClient<Database>(supabaseUrl, supabaseKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10
-        }
-      }
-    });
+    this.client = supabase;
 
     // Setup auth state change listener
     this.client.auth.onAuthStateChange((event, session) => {
@@ -364,5 +351,16 @@ export class SupabaseService {
 
   public getClient(): SupabaseClient<Database> {
     return this.client;
+  }
+
+  static async executeSQL(sql: string) {
+    try {
+      const { data, error } = await supabase.rpc('execute_sql', { sql_command: sql });
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error executing SQL:', error);
+      throw error;
+    }
   }
 } 

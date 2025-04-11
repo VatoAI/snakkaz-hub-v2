@@ -12,6 +12,7 @@ import { useAuthState } from '@/hooks/useAuthState';
 import { useEffect, useState } from 'react';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import "./App.css";
+import AdminPage from './pages/admin';
 
 function AppRoutes() {
   const [isAuthChecking, setIsAuthChecking] = useState(true);
@@ -45,7 +46,7 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/profil" element={userId ? <Profile /> : <Navigate to="/login" />} />
       <Route path="/info" element={<Info />} />
-      <Route path="/admin" element={userId ? <Admin /> : <Navigate to="/login" />} />
+      <Route path="/admin" element={userId ? <AdminPage /> : <Navigate to="/login" />} />
       <Route path="/login" element={userId ? <Navigate to="/chat" /> : <Login />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

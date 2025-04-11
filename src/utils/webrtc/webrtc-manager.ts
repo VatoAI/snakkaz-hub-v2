@@ -47,6 +47,7 @@ export class WebRTCManager implements IWebRTCManager {
       this.connectionManager = new ConnectionManager(this.peerManager, this.secureConnections, this.localKeyPair);
     } catch (error) {
       console.error('Failed to generate key pair:', error);
+      throw error;
     }
   }
 
@@ -55,11 +56,18 @@ export class WebRTCManager implements IWebRTCManager {
       this.signalingCleanup();
     }
     
-    this.signalingCleanup = this.peerManager.signalingService.setupSignalingListener(
-      async (signal) => await this.peerManager.handleIncomingSignal(signal)
+    const cleanup = this.signalingService.setupSignalingListener(
+      async (signal) => {
+        try {
+          await this.peerManager.handleIncomingSignal(signal);
+        } catch (error) {
+          console.error('Error handling incoming signal:', error);
+        }
+      }
     );
     
-    return this.signalingCleanup;
+    this.signalingCleanup = cleanup;
+    return cleanup;
   }
 
   public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey) {
@@ -231,49 +239,23 @@ export class WebRTCManager implements IWebRTCManager {
 
     try {
       // Generate key pair for secure connections
-      this.localKeyPair = await generateKeyPair();
-      console.log('Local key pair generated');
-
+      await this.initializeKeyPair();
+      
       // Setup signaling channel
-      await this.setupSignaling();
+      this.setupSignalingListener();
+      
+      // Verify Supabase connection
+      const { data, error } = await this.signalingService.verifyConnection();
+      if (error) {
+        throw error;
+      }
+      console.log('Supabase connection verified');
 
       this.isInitialized = true;
       console.log('WebRTC setup complete');
     } catch (error) {
       console.error('Error initializing WebRTCManager:', error);
       this.scheduleReconnect();
-    }
-  }
-
-  private async setupSignaling() {
-    try {
-      await this.signalingService.setupSignalingChannel(async (signal) => {
-        try {
-          const { type, sender, data } = signal.payload;
-          
-          switch (type) {
-            case 'offer':
-              await this.peerManager.handleOffer(sender, data);
-              break;
-            case 'answer':
-              await this.peerManager.handleAnswer(sender, data);
-              break;
-            case 'ice-candidate':
-              await this.peerManager.handleIceCandidate(sender, data);
-              break;
-            case 'key-exchange':
-              await this.handleKeyExchange(sender, data);
-              break;
-            default:
-              console.warn('Unknown signal type:', type);
-          }
-        } catch (error) {
-          console.error('Error handling signal:', error);
-        }
-      });
-    } catch (error) {
-      console.error('Error setting up signaling:', error);
-      throw error;
     }
   }
 
