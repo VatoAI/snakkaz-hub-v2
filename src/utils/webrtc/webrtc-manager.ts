@@ -1,4 +1,3 @@
-
 import { generateKeyPair } from '../encryption';
 import { PeerManager } from './peer-manager';
 import { ConnectionManager } from './connection-manager';
@@ -6,6 +5,7 @@ import { MessageHandler } from './message-handler';
 import { ReconnectionManager } from './reconnection-manager';
 import { ConnectionStateManager } from './connection-state-manager';
 import { IWebRTCManager, WebRTCOptions } from './webrtc-types';
+import { SignalingService } from './signaling';
 
 export class WebRTCManager implements IWebRTCManager {
   private peerManager: PeerManager;
@@ -17,6 +17,10 @@ export class WebRTCManager implements IWebRTCManager {
   private onMessageCallback: ((message: string, peerId: string) => void) | null = null;
   private secureConnections: Map<string, CryptoKey> = new Map();
   private signalingCleanup: (() => void) | null = null;
+  private signalingService: SignalingService;
+  private isInitialized: boolean = false;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private readonly RECONNECT_DELAY = 5000; // 5 seconds
 
   constructor(
     private userId: string,
@@ -24,7 +28,8 @@ export class WebRTCManager implements IWebRTCManager {
   ) {
     const { maxReconnectAttempts = 5 } = options; // Increased from 3 to 5
     
-    this.peerManager = new PeerManager(userId);
+    this.signalingService = new SignalingService(userId);
+    this.peerManager = new PeerManager(userId, this.onMessageCallback);
     this.connectionManager = new ConnectionManager(this.peerManager, this.secureConnections, this.localKeyPair);
     this.messageHandler = new MessageHandler(this.peerManager, this.secureConnections);
     this.reconnectionManager = new ReconnectionManager(this.connectionManager, maxReconnectAttempts);
@@ -68,41 +73,68 @@ export class WebRTCManager implements IWebRTCManager {
 
   public async sendMessage(peerId: string, message: string, isDirect: boolean = false) {
     try {
+      // Add connection state check before sending
+      const connectionState = this.connectionStateManager.getConnectionState(peerId);
+      if (connectionState !== 'connected') {
+        console.log(`Connection not ready (${connectionState}), attempting recovery`);
+        await this.attemptConnectionRecovery(peerId);
+      }
+
       return await this.messageHandler.sendMessage(peerId, message, isDirect);
     } catch (error) {
       console.error(`Error sending message to peer ${peerId}:`, error);
       
-      // Try to auto-reconnect and retry once
+      // Enhanced error recovery
       if (this.localKeyPair?.publicKey) {
         try {
-          await this.attemptReconnect(peerId);
-          // If reconnection worked, try sending again
+          console.log(`Attempting connection recovery for peer ${peerId}`);
+          await this.attemptConnectionRecovery(peerId);
+          // If recovery worked, try sending again
           return await this.messageHandler.sendMessage(peerId, message, isDirect);
-        } catch (reconnectError) {
-          console.error(`Auto-reconnect failed for peer ${peerId}:`, reconnectError);
-          throw error; // Throw the original error
+        } catch (recoveryError) {
+          console.error(`Connection recovery failed for peer ${peerId}:`, recoveryError);
+          throw new Error(`Failed to send message: ${error.message}`);
         }
       } else {
-        throw error;
+        throw new Error(`Cannot recover connection: no local key pair`);
       }
     }
   }
 
+  private async attemptConnectionRecovery(peerId: string): Promise<boolean> {
+    const maxAttempts = 3;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      try {
+        console.log(`Recovery attempt ${attempts + 1} for peer ${peerId}`);
+        await this.attemptReconnect(peerId);
+        
+        // Wait for connection to stabilize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const connectionState = this.connectionStateManager.getConnectionState(peerId);
+        const dataChannelState = this.connectionStateManager.getDataChannelState(peerId);
+        
+        if (connectionState === 'connected' && dataChannelState === 'open') {
+          console.log(`Successfully recovered connection to peer ${peerId}`);
+          return true;
+        }
+        
+        attempts++;
+      } catch (error) {
+        console.error(`Recovery attempt ${attempts + 1} failed:`, error);
+        attempts++;
+      }
+    }
+
+    console.error(`Failed to recover connection after ${maxAttempts} attempts`);
+    return false;
+  }
+
   public onMessage(callback: (message: string, peerId: string) => void) {
     this.onMessageCallback = callback;
-    
-    // Create a new message handler callback
-    const messageCallback = this.messageHandler.setupMessageCallback(callback);
-    
-    // Create a new PeerManager with the callback
-    this.peerManager = new PeerManager(this.userId, messageCallback);
-    
-    // Recreate dependent objects with the new PeerManager
-    this.connectionManager = new ConnectionManager(this.peerManager, this.secureConnections, this.localKeyPair);
-    this.messageHandler = new MessageHandler(this.peerManager, this.secureConnections);
-    
-    // Re-initialize the signaling listener with the new peer manager
-    this.setupSignalingListener();
+    this.messageHandler.setupMessageCallback(callback);
   }
 
   public async sendDirectMessage(peerId: string, message: string) {
@@ -189,5 +221,117 @@ export class WebRTCManager implements IWebRTCManager {
   // Try to ensure a peer is ready, reconnecting if necessary
   public async ensurePeerReady(peerId: string): Promise<boolean> {
     return await this.connectionStateManager.ensurePeerReady(peerId, this.attemptReconnect.bind(this));
+  }
+
+  public async initialize() {
+    if (this.isInitialized) {
+      console.log('WebRTCManager already initialized');
+      return;
+    }
+
+    try {
+      // Generate key pair for secure connections
+      this.localKeyPair = await generateKeyPair();
+      console.log('Local key pair generated');
+
+      // Setup signaling channel
+      await this.setupSignaling();
+
+      this.isInitialized = true;
+      console.log('WebRTC setup complete');
+    } catch (error) {
+      console.error('Error initializing WebRTCManager:', error);
+      this.scheduleReconnect();
+    }
+  }
+
+  private async setupSignaling() {
+    try {
+      await this.signalingService.setupSignalingChannel(async (signal) => {
+        try {
+          const { type, sender, data } = signal.payload;
+          
+          switch (type) {
+            case 'offer':
+              await this.peerManager.handleOffer(sender, data);
+              break;
+            case 'answer':
+              await this.peerManager.handleAnswer(sender, data);
+              break;
+            case 'ice-candidate':
+              await this.peerManager.handleIceCandidate(sender, data);
+              break;
+            case 'key-exchange':
+              await this.handleKeyExchange(sender, data);
+              break;
+            default:
+              console.warn('Unknown signal type:', type);
+          }
+        } catch (error) {
+          console.error('Error handling signal:', error);
+        }
+      });
+    } catch (error) {
+      console.error('Error setting up signaling:', error);
+      throw error;
+    }
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+
+    this.reconnectTimeout = setTimeout(async () => {
+      console.log('Attempting to reconnect WebRTC...');
+      try {
+        await this.initialize();
+      } catch (error) {
+        console.error('Reconnection attempt failed:', error);
+        this.scheduleReconnect();
+      }
+    }, this.RECONNECT_DELAY);
+  }
+
+  private async handleKeyExchange(peerId: string, data: any) {
+    try {
+      if (!this.localKeyPair) {
+        throw new Error('Local key pair not initialized');
+      }
+
+      const sharedKey = await this.peerManager.establishSecureConnection(
+        peerId,
+        data,
+        this.localKeyPair
+      );
+
+      if (sharedKey) {
+        this.secureConnections.set(peerId, sharedKey);
+      }
+    } catch (error) {
+      console.error('Error handling key exchange:', error);
+    }
+  }
+
+  public async disconnect() {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+    }
+
+    try {
+      await this.signalingService.disconnect();
+      this.peerManager.disconnectAll();
+      this.isInitialized = false;
+    } catch (error) {
+      console.error('Error during disconnect:', error);
+    }
+  }
+
+  public isConnected(): boolean {
+    return this.isInitialized;
+  }
+
+  public getConnectedPeers(): string[] {
+    return this.peerManager.getConnectedPeerIds();
   }
 }

@@ -1,14 +1,27 @@
-
 import { ConnectionManager } from './connection-manager';
 
 export class ConnectionStateManager {
-  constructor(private connectionManager: ConnectionManager) {}
+  private connectionStates: Map<string, RTCPeerConnectionState>;
+  private dataChannelStates: Map<string, RTCDataChannelState>;
+
+  constructor(private connectionManager: ConnectionManager) {
+    this.connectionStates = new Map();
+    this.dataChannelStates = new Map();
+  }
   
+  public updateConnectionState(peerId: string, state: RTCPeerConnectionState) {
+    this.connectionStates.set(peerId, state);
+  }
+
+  public updateDataChannelState(peerId: string, state: RTCDataChannelState) {
+    this.dataChannelStates.set(peerId, state);
+  }
+
   public isPeerReady(peerId: string): boolean {
-    const connState = this.connectionManager.getConnectionState(peerId);
-    const dataState = this.connectionManager.getDataChannelState(peerId);
+    const connectionState = this.getConnectionState(peerId);
+    const dataChannelState = this.getDataChannelState(peerId);
     
-    return connState === 'connected' && dataState === 'open';
+    return connectionState === 'connected' && dataChannelState === 'open';
   }
   
   public async ensurePeerReady(peerId: string, 
@@ -24,5 +37,13 @@ export class ConnectionStateManager {
       console.error(`Failed to ensure peer ${peerId} is ready:`, error);
       return false;
     }
+  }
+
+  public getConnectionState(peerId: string): RTCPeerConnectionState {
+    return this.connectionStates.get(peerId) || 'disconnected';
+  }
+
+  public getDataChannelState(peerId: string): RTCDataChannelState {
+    return this.dataChannelStates.get(peerId) || 'closed';
   }
 }

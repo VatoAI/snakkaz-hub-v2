@@ -1,92 +1,40 @@
-
 import { useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { DecryptedMessage } from "@/types/message";
+import { SupabaseService } from "@/services/supabase.service";
 import { decryptMessage } from "@/utils/encryption";
+import { DecryptedMessage } from "@/types/message";
 
 export const useMessageFetch = (
-  userId: string | null, 
-  setMessages: (updater: React.SetStateAction<DecryptedMessage[]>) => void,
+  userId: string | null,
+  setMessages: (messages: DecryptedMessage[]) => void,
   toast: any,
   receiverId?: string,
   groupId?: string
 ) => {
+  const supabase = SupabaseService.getInstance();
+
   const fetchMessages = useCallback(async () => {
     if (!userId) {
-      console.log("User not authenticated");
+      console.log("Bruker ikke pålogget");
       return;
     }
 
     try {
-      // Først, kontroller at nødvendige kolonner eksisterer
-      try {
-        await supabase.rpc('check_and_add_columns', { 
-          p_table_name: 'messages', 
-          column_names: ['is_edited', 'edited_at', 'is_deleted', 'deleted_at', 'group_id', 'read_at', 'is_delivered'] as any
-        });
-      } catch (error) {
-        console.log('Error checking columns, continuing anyway:', error);
-      }
-
-      // Nå kan vi hente meldingene
-      let query = supabase
-        .from('messages')
-        .select(`
-          id,
-          encrypted_content,
-          encryption_key,
-          iv,
-          created_at,
-          ephemeral_ttl,
-          media_url,
-          media_type,
-          receiver_id,
-          is_edited,
-          edited_at,
-          is_deleted,
-          deleted_at,
-          group_id,
-          read_at,
-          is_delivered,
-          sender:sender_id (
-            id,
-            username,
-            full_name,
-            avatar_url
-          )
-        `)
-        .order('created_at', { ascending: true });
-
-      // Hvis receiverId er angitt, hent bare meldinger mellom bruker og mottaker
-      if (receiverId) {
-        query = query.or(`and(sender_id.eq.${userId},receiver_id.eq.${receiverId}),and(sender_id.eq.${receiverId},receiver_id.eq.${userId})`);
-      } 
-      // Hvis groupId er angitt, hent bare meldinger for den gruppen
-      else if (groupId) {
-        // Konverter groupId til true siden kolonnen er boolsk
-        query = query.eq('group_id', true);
-      } 
-      // Ellers, hent globale meldinger (null receiver og null group)
-      else {
-        query = query.is('receiver_id', null).is('group_id', null);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        throw error;
-      }
+      const messages = await supabase.getMessages({
+        userId,
+        receiverId,
+        groupId,
+        limit: 50
+      });
 
       // Decrypt messages
       const decryptedMessages: (DecryptedMessage | null)[] = await Promise.all(
-        (data || []).map(async (message: any) => {
+        (messages || []).map(async (message: any) => {
           try {
-            // Sjekk om meldingen har gått ut på dato
+            // Check if message has expired
             if (message.ephemeral_ttl) {
               const createdAt = new Date(message.created_at).getTime();
               const expiresAt = createdAt + (message.ephemeral_ttl * 1000);
               if (Date.now() > expiresAt) {
-                // Skip expired messages
                 return null;
               }
             }
@@ -116,8 +64,8 @@ export const useMessageFetch = (
               read_at: message.read_at,
               is_delivered: message.is_delivered || false
             };
-          } catch (decryptError) {
-            console.error("Error decrypting message:", decryptError);
+          } catch (error) {
+            console.error("Error decrypting message:", error);
             return null;
           }
         })
@@ -125,18 +73,17 @@ export const useMessageFetch = (
 
       // Filter out null messages (expired or decrypt failed)
       const validMessages = decryptedMessages.filter(msg => msg !== null) as DecryptedMessage[];
-      
       setMessages(validMessages);
-      
+
     } catch (error) {
       console.error("Error fetching messages:", error);
       toast({
-        title: "Feil",
-        description: "Kunne ikke hente meldinger",
-        variant: "destructive",
+        title: "Feil ved henting av meldinger",
+        description: "Kunne ikke hente meldingene. Prøv igjen senere.",
+        variant: "destructive"
       });
     }
-  }, [userId, setMessages, toast, receiverId, groupId]);
+  }, [userId, receiverId, groupId, setMessages, toast, supabase]);
 
   return { fetchMessages };
 };

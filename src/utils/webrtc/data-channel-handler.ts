@@ -1,8 +1,15 @@
-
 import { PeerConnection } from './types';
 
 export class DataChannelHandler {
-  constructor(private onMessageCallback: ((message: string, peerId: string) => void) | null = null) {}
+  private messageCallback: ((message: string, peerId: string) => void) | null = null;
+
+  constructor(onMessageCallback: ((message: string, peerId: string) => void) | null = null) {
+    this.messageCallback = onMessageCallback;
+  }
+  
+  public setMessageCallback(callback: (message: string, peerId: string) => void) {
+    this.messageCallback = callback;
+  }
   
   public setupDataChannel(connection: PeerConnection, peerId: string): void {
     if (connection.connection.connectionState === 'connected') {
@@ -33,8 +40,8 @@ export class DataChannelHandler {
   
   private setupDataChannelEvents(dataChannel: RTCDataChannel, peerId: string): void {
     dataChannel.onmessage = (event) => {
-      if (this.onMessageCallback) {
-        this.onMessageCallback(event.data, peerId);
+      if (this.messageCallback) {
+        this.messageCallback(event.data, peerId);
       }
     };
 

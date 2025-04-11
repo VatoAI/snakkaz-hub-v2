@@ -16,6 +16,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 interface ChatHeaderProps {
   userPresence: Record<string, UserPresence>;
@@ -70,49 +71,95 @@ export const ChatHeader = ({
   }, []);
 
   return (
-    <div className="flex items-center justify-between px-4 py-2 border-b">
-      <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-          <Home className="h-5 w-5" />
-        </Button>
-        
-        <Button variant="ghost" size="icon" onClick={onToggleHidden}>
-          <Users className="h-5 w-5" />
-        </Button>
-      </div>
+    <div className="relative">
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-snakkaz animate-gradient shadow-snakkaz" />
+      <div className="flex items-center justify-between px-4 py-3 bg-snakkaz-dark border-b border-snakkaz-blue/5 shadow-snakkaz">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate('/')}
+            className={cn(
+              "relative overflow-hidden",
+              "hover:bg-gradient-snakkaz hover:text-white hover:shadow-snakkaz-hover",
+              "transition-all duration-300"
+            )}
+          >
+            <Home className="h-5 w-5" />
+          </Button>
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onToggleHidden}
+            className={cn(
+              "relative overflow-hidden",
+              "hover:bg-gradient-snakkaz hover:text-white hover:shadow-snakkaz-hover",
+              "transition-all duration-300"
+            )}
+          >
+            <Users className="h-5 w-5" />
+          </Button>
 
-      <div className="flex items-center space-x-2">
-        <Button variant="ghost" size="icon" onClick={toggleTheme}>
-          {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </Button>
+          <h1 className="hidden sm:block text-xl font-bold">
+            <span className="bg-gradient-snakkaz bg-clip-text text-transparent animate-gradient">
+              SnakkaZ Chat
+            </span>
+          </h1>
+        </div>
 
-        <Sheet open={isFriendsOpen} onOpenChange={setIsFriendsOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>User Profile</SheetTitle>
-            </SheetHeader>
-            <div className="mt-4">
-              <OnlineUsers
-                userPresence={userPresence}
-                currentUserId={currentUserId}
-                currentStatus={currentStatus}
-                onStatusChange={onStatusChange}
-                webRTCManager={webRTCManager}
-                directMessages={directMessages}
-                onNewMessage={onNewMessage}
-                friends={friends}
-                onSendFriendRequest={onSendFriendRequest}
-                onStartChat={onStartChat}
-                userProfiles={userProfiles}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleTheme}
+            className={cn(
+              "relative overflow-hidden",
+              "hover:bg-gradient-snakkaz hover:text-white hover:shadow-snakkaz-hover",
+              "transition-all duration-300"
+            )}
+          >
+            {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </Button>
+
+          <Sheet open={isFriendsOpen} onOpenChange={setIsFriendsOpen}>
+            <SheetTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className={cn(
+                  "relative overflow-hidden",
+                  "hover:bg-gradient-snakkaz hover:text-white hover:shadow-snakkaz-hover",
+                  "transition-all duration-300"
+                )}
+              >
+                <User className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent className="bg-snakkaz-dark border-snakkaz-blue/10">
+              <SheetHeader>
+                <SheetTitle className="bg-gradient-snakkaz bg-clip-text text-transparent">
+                  Brukerprofil
+                </SheetTitle>
+              </SheetHeader>
+              <div className="mt-4">
+                <OnlineUsers
+                  userPresence={userPresence}
+                  currentUserId={currentUserId}
+                  currentStatus={currentStatus}
+                  onStatusChange={onStatusChange}
+                  webRTCManager={webRTCManager}
+                  directMessages={directMessages}
+                  onNewMessage={onNewMessage}
+                  friends={friends}
+                  onSendFriendRequest={onSendFriendRequest}
+                  onStartChat={onStartChat}
+                  userProfiles={userProfiles}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </div>
   );

@@ -1,11 +1,16 @@
-
 import { decryptMessage } from '../encryption';
 
 export class MessageReceiver {
+  private messageCallback: ((message: string, peerId: string) => void) | null = null;
+
   constructor() {}
 
   public setupMessageCallback(callback: (message: string, peerId: string) => void) {
+    this.messageCallback = callback;
+    
     return async (messageData: string, peerId: string) => {
+      if (!this.messageCallback) return;
+      
       try {
         console.log(`Received message from ${peerId}:`, messageData.substring(0, 30) + '...');
         
@@ -20,14 +25,14 @@ export class MessageReceiver {
             parsedMessage.key,
             parsedMessage.iv
           );
-          callback(`${decryptedMessage}`, peerId);
+          this.messageCallback(decryptedMessage, peerId);
         } else {
           // Handle regular message
-          callback(parsedMessage.content, peerId);
+          this.messageCallback(parsedMessage.content, peerId);
         }
       } catch (error) {
         console.error('Error processing message:', error);
-        callback(messageData, peerId); // Fallback to raw message
+        this.messageCallback(messageData, peerId); // Fallback to raw message
       }
     };
   }

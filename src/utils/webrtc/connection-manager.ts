@@ -1,13 +1,14 @@
-
 import { PeerManager } from './peer-manager';
 import { ConnectionRetryManager } from './connection-retry-manager';
 import { ConnectionTimeoutManager } from './connection-timeout-manager';
 import { SecureConnectionManager } from './secure-connection-manager';
+import { ConnectionStateManager } from './connection-state-manager';
 
 export class ConnectionManager {
   private retryManager: ConnectionRetryManager;
   private timeoutManager: ConnectionTimeoutManager;
   private secureConnectionManager: SecureConnectionManager;
+  private connectionStateManager: ConnectionStateManager;
 
   constructor(
     private peerManager: PeerManager,
@@ -18,6 +19,7 @@ export class ConnectionManager {
     this.retryManager = new ConnectionRetryManager(3, 5000); // Max 3 attempts, 5 second reset
     this.timeoutManager = new ConnectionTimeoutManager();
     this.secureConnectionManager = new SecureConnectionManager(secureConnections);
+    this.connectionStateManager = new ConnectionStateManager(this);
   }
 
   public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey) {
@@ -118,18 +120,12 @@ export class ConnectionManager {
     this.retryManager.resetAllAttempts();
   }
 
-  public getConnectionState(peerId: string): string {
-    const connection = this.peerManager.getPeerConnection(peerId);
-    if (!connection) return 'disconnected';
-    
-    return connection.connection.connectionState || 'unknown';
+  public getConnectionState(peerId: string): RTCPeerConnectionState {
+    return this.connectionStateManager.getConnectionState(peerId) || 'disconnected';
   }
   
-  public getDataChannelState(peerId: string): string {
-    const connection = this.peerManager.getPeerConnection(peerId);
-    if (!connection || !connection.dataChannel) return 'closed';
-    
-    return connection.dataChannel.readyState || 'unknown';
+  public getDataChannelState(peerId: string): RTCDataChannelState {
+    return this.connectionStateManager.getDataChannelState(peerId) || 'closed';
   }
   
   public async attemptReconnect(peerId: string, publicKey: JsonWebKey) {

@@ -122,7 +122,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-snakkaz-dark text-snakkaz-light;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
@@ -138,15 +138,42 @@
   }
   
   .scrollbar-thin::-webkit-scrollbar-track {
-    @apply bg-cyberdark-900;
+    @apply bg-snakkaz-dark;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-cybergold-500/30 rounded-full;
+    @apply bg-gradient-snakkaz rounded-full;
   }
   
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    @apply bg-cybergold-500/50;
+    @apply bg-gradient-snakkaz-hover;
+  }
+
+  .snakkaz-gradient-text {
+    @apply bg-gradient-snakkaz bg-clip-text text-transparent;
+  }
+
+  .snakkaz-gradient-border {
+    @apply border-2 border-transparent;
+    background: linear-gradient(to right, #2563eb, #dc2626) border-box;
+    mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    -webkit-mask-composite: destination-out;
+  }
+
+  .snakkaz-gradient-button {
+    @apply relative overflow-hidden rounded-lg px-4 py-2 transition-all duration-300;
+    background: linear-gradient(135deg, #2563eb 0%, #dc2626 100%);
+  }
+
+  .snakkaz-gradient-button:hover {
+    @apply shadow-lg;
+    background: linear-gradient(135deg, #1d4ed8 0%, #b91c1c 100%);
+  }
+
+  .snakkaz-gradient-button:active {
+    @apply transform scale-95;
   }
 }
 
@@ -164,4 +191,22 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* SnakkaZ specific animations */
+@keyframes gradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradientFlow 3s ease infinite;
 }

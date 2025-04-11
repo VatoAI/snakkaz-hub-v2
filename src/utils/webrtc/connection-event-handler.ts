@@ -1,13 +1,14 @@
-
 import { PeerConnection } from './types';
 import { DataChannelHandler } from './data-channel-handler';
 import { SignalingService } from './signaling';
+import { ConnectionStateManager } from './connection-state-manager';
 
 export class ConnectionEventHandler {
   constructor(
     private userId: string,
     private signalingService: SignalingService,
-    private dataChannelHandler: DataChannelHandler
+    private dataChannelHandler: DataChannelHandler,
+    private connectionStateManager: ConnectionStateManager
   ) {}
 
   public setupConnectionEventHandlers(connection: PeerConnection, peerId: string): void {
@@ -50,12 +51,16 @@ export class ConnectionEventHandler {
 
     // Handler for connection state changes
     connection.connection.onconnectionstatechange = () => {
-      console.log(`Connection state with ${peerId}:`, connection.connection.connectionState);
-      if (connection.connection.connectionState === 'connected') {
+      const state = connection.connection.connectionState;
+      console.log(`Connection state with ${peerId}:`, state);
+      
+      // Update connection state in ConnectionStateManager
+      this.connectionStateManager.updateConnectionState(peerId, state as RTCPeerConnectionState);
+      
+      if (state === 'connected') {
         this.dataChannelHandler.setupDataChannel(connection, peerId);
-      } else if (connection.connection.connectionState === 'failed' || 
-                connection.connection.connectionState === 'closed') {
-        console.log(`Connection with ${peerId} is ${connection.connection.connectionState}`);
+      } else if (state === 'failed' || state === 'closed') {
+        console.log(`Connection with ${peerId} is ${state}`);
       }
     };
     
@@ -63,5 +68,20 @@ export class ConnectionEventHandler {
     connection.connection.onsignalingstatechange = () => {
       console.log(`Signaling state with ${peerId}:`, connection.connection.signalingState);
     };
+
+    // Handler for data channel state changes
+    if (connection.dataChannel) {
+      connection.dataChannel.onopen = () => {
+        this.connectionStateManager.updateDataChannelState(peerId, 'open');
+      };
+      
+      connection.dataChannel.onclose = () => {
+        this.connectionStateManager.updateDataChannelState(peerId, 'closed');
+      };
+      
+      connection.dataChannel.onerror = () => {
+        this.connectionStateManager.updateDataChannelState(peerId, 'closed');
+      };
+    }
   }
 }
