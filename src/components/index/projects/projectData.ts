@@ -3,9 +3,9 @@ import { ProjectProps } from "../ProjectCard";
 
 export const projects: (ProjectProps & { isFeatured?: boolean })[] = [
   {
-    title: "ChatCipher Assistant",
-    description: "Sikker samtalekryptering med avansert AI-assistent. Chat med ende-til-ende-kryptering og intelligente svar.",
-    previewUrl: "https://chatcipher-assistant.lovable.app",
+    title: "SnakkaZ",
+    description: "Sikker samtalekryptering med avansert AI-sikkerhet. Chat med ende-til-ende-kryptering og intelligente sikkerhet.",
+    previewUrl: "https://snakkaz.com/chat.",
     category: "chat",
     isFeatured: true,
     hasSupabase: true,
