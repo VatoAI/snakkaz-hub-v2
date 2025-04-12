@@ -6,6 +6,8 @@ import { ReconnectionManager } from './reconnection-manager';
 import { ConnectionStateManager } from './connection-state-manager';
 import { IWebRTCManager, WebRTCOptions } from './webrtc-types';
 import { SignalingService } from './signaling';
+import { PFSManager } from '../encryption/pfs-manager';
+import { RateLimiter } from '../security/rate-limiter';
 
 export class WebRTCManager implements IWebRTCManager {
   private peerManager: PeerManager;
@@ -21,6 +23,8 @@ export class WebRTCManager implements IWebRTCManager {
   private isInitialized: boolean = false;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private readonly RECONNECT_DELAY = 5000; // 5 seconds
+  private pfsManager: PFSManager;
+  private rateLimiter: RateLimiter;
 
   constructor(
     private userId: string,
@@ -35,6 +39,8 @@ export class WebRTCManager implements IWebRTCManager {
     this.messageHandler = new MessageHandler(this.peerManager, this.secureConnections);
     this.reconnectionManager = new ReconnectionManager(this.connectionManager, maxReconnectAttempts);
     this.connectionStateManager = new ConnectionStateManager(this.connectionManager);
+    this.pfsManager = new PFSManager();
+    this.rateLimiter = new RateLimiter();
   }
 
   public async initialize() {
@@ -97,6 +103,16 @@ export class WebRTCManager implements IWebRTCManager {
 
   public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey) {
     try {
+      // Check rate limiting
+      if (!this.rateLimiter.isAllowed(peerId)) {
+        const blockedUntil = this.rateLimiter.getBlockedUntil(peerId);
+        throw new Error(`Connection attempts exceeded. Try again after ${new Date(blockedUntil!).toLocaleTimeString()}`);
+      }
+
+      // Get current key pair for PFS
+      const currentKeyPair = await this.pfsManager.getCurrentKeyPair(peerId);
+      this.localKeyPair = currentKeyPair;
+
       return await this.connectionManager.connectToPeer(peerId, peerPublicKey);
     } catch (error) {
       console.error(`Error connecting to peer ${peerId}:`, error);
@@ -106,12 +122,21 @@ export class WebRTCManager implements IWebRTCManager {
 
   public async sendMessage(peerId: string, message: string, isDirect: boolean = false) {
     try {
+      // Check rate limiting
+      if (!this.rateLimiter.isAllowed(peerId)) {
+        const blockedUntil = this.rateLimiter.getBlockedUntil(peerId);
+        throw new Error(`Message sending rate exceeded. Try again after ${new Date(blockedUntil!).toLocaleTimeString()}`);
+      }
+
       // Add connection state check before sending
       const connectionState = this.connectionStateManager.getConnectionState(peerId);
       if (connectionState !== 'connected') {
         console.log(`Connection not ready (${connectionState}), attempting recovery`);
         await this.attemptConnectionRecovery(peerId);
       }
+
+      // Rotate keys if needed
+      await this.pfsManager.rotateKeys(peerId);
 
       return await this.messageHandler.sendMessage(peerId, message, isDirect);
     } catch (error) {
@@ -221,10 +246,14 @@ export class WebRTCManager implements IWebRTCManager {
   }
 
   public disconnect(peerId: string) {
+    this.pfsManager.clearKeys(peerId);
+    this.rateLimiter.reset(peerId);
     this.connectionManager.disconnect(peerId);
   }
 
   public disconnectAll() {
+    this.pfsManager = new PFSManager(); // Reset PFS manager
+    this.rateLimiter = new RateLimiter(); // Reset rate limiter
     this.connectionManager.disconnectAll();
   }
   
