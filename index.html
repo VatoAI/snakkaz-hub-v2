@@ -28,21 +28,6 @@
     <div id="root"></div>
 
     <!-- App-scripts -->
-    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
-
-    <!-- Service Worker -->
-    <script>
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker
-          .register("/service-worker.js")
-          .then((registration) => {
-            console.log("Service Worker registrert:", registration.scope);
-          })
-          .catch((error) => {
-            console.error("Service Worker feilet:", error);
-          });
-      }
-    </script>
   </body>
 </html>
