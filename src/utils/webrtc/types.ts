@@ -1,21 +1,30 @@
 import type { Database } from '@/integrations/supabase/types';
 
 export interface PeerConnection {
-  connection: RTCPeerConnection;
   dataChannel: RTCDataChannel | null;
-  peer: string;
+  connection: RTCPeerConnection;
+  peerId: string;
+  close(): void;
+  setDataChannel(channel: RTCDataChannel): void;
+}
+
+export interface SignalPayload {
+  target: string;
+  sender: string;
+  type: string;
+  data: any;
+}
+
+export interface ConnectionState {
+  peerId: string;
+  state: RTCPeerConnectionState;
+  timestamp: number;
 }
 
 export interface SignalingMessage {
   type: 'offer' | 'answer' | 'ice-candidate' | 'key-exchange';
   sender: string;
   data: any;
-}
-
-export interface ConnectionState {
-  isConnected: boolean;
-  lastAttempt: number;
-  retryCount: number;
 }
 
 export interface ConnectionStates {

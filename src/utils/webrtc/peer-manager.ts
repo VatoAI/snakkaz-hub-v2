@@ -6,6 +6,8 @@ import { ConnectionEventHandler } from './connection-event-handler';
 import { SignalingHandler } from './signaling-handler';
 import { ConnectionStateManager } from './connection-state-manager';
 import { ConnectionManager } from './connection-manager';
+import { RTCConfig as RTCConfigImport } from './rtc-config';
+import { PeerConnection as PeerConnectionImport } from './peer-connection';
 
 export class PeerManager {
   private connections: Map<string, PeerConnection> = new Map();
@@ -16,12 +18,11 @@ export class PeerManager {
   private messageCallback: ((message: string, peerId: string) => void) | null = null;
   private connectionStateManager: ConnectionStateManager;
   private connectionManager: ConnectionManager;
+  private static instance: PeerManager;
+  private userId: string;
 
-  constructor(
-    private userId: string,
-    onMessageCallback: ((message: string, peerId: string) => void) | null = null
-  ) {
-    this.messageCallback = onMessageCallback;
+  private constructor(userId: string) {
+    this.userId = userId;
     this.signalingService = new SignalingService(userId);
     this.dataChannelHandler = new DataChannelHandler(this.messageCallback);
     
@@ -40,6 +41,13 @@ export class PeerManager {
     );
     
     this.signalingHandler = new SignalingHandler(userId, this.signalingService);
+  }
+
+  public static getInstance(userId: string): PeerManager {
+    if (!PeerManager.instance) {
+      PeerManager.instance = new PeerManager(userId);
+    }
+    return PeerManager.instance;
   }
 
   public setMessageCallback(callback: (message: string, peerId: string) => void) {
@@ -111,43 +119,47 @@ export class PeerManager {
     }
   }
 
-  getPeerConnection(peerId: string): PeerConnection | undefined {
+  public getConnection(peerId: string): PeerConnection | undefined {
     return this.connections.get(peerId);
   }
 
-  isConnected(peerId: string): boolean {
-    const connection = this.connections.get(peerId);
-    return !!connection && 
-           !!connection.dataChannel && 
-           connection.dataChannel.readyState === 'open' &&
-           connection.connection.connectionState === 'connected';
+  public createConnection(peerId: string): PeerConnection {
+    if (this.connections.has(peerId)) {
+      return this.connections.get(peerId)!;
+    }
+
+    const connection = new RTCPeerConnection(RTCConfig);
+    const peerConnection = new PeerConnectionImport(connection, peerId);
+    this.connections.set(peerId, peerConnection);
+    return peerConnection;
   }
 
-  disconnect(peerId: string): void {
+  public removeConnection(peerId: string): void {
     const connection = this.connections.get(peerId);
     if (connection) {
-      if (connection.dataChannel) {
-        try {
-          connection.dataChannel.close();
-        } catch (e) {
-          console.error(`Error closing data channel for peer ${peerId}:`, e);
-        }
-      }
-      
-      try {
-        connection.connection.close();
-      } catch (e) {
-        console.error(`Error closing connection for peer ${peerId}:`, e);
-      }
-      
+      connection.close();
       this.connections.delete(peerId);
     }
   }
 
-  disconnectAll(): void {
-    this.connections.forEach((connection, peerId) => {
-      this.disconnect(peerId);
-    });
+  public disconnectAll(): void {
+    for (const [peerId, connection] of this.connections) {
+      connection.close();
+      this.connections.delete(peerId);
+    }
+  }
+
+  public getConnections(): Map<string, PeerConnection> {
+    return this.connections;
+  }
+
+  public isConnected(peerId: string): boolean {
+    const connection = this.connections.get(peerId);
+    return !!connection && connection.connection.connectionState === 'connected';
+  }
+
+  public disconnect(peerId: string): void {
+    this.removeConnection(peerId);
   }
 
   public async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
@@ -268,15 +280,5 @@ export class PeerManager {
     };
 
     return { connection, dataChannel: null };
-  }
-
-  public disconnectAll() {
-    for (const [peerId, connection] of this.connections) {
-      if (connection.dataChannel) {
-        connection.dataChannel.close();
-      }
-      connection.connection.close();
-      this.connections.delete(peerId);
-    }
   }
 }
