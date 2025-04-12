@@ -58,11 +58,26 @@ export class PeerManager {
   private createPeerConnection(peerId: string): PeerConnection {
     const peerConnection = new RTCPeerConnection(RTCConfig);
     
-    return {
-      peer: null,
-      connection: peerConnection,
-      dataChannel: null
+    peerConnection.onicecandidate = async (event) => {
+      if (event.candidate) {
+        await this.signalingService.sendSignal(peerId, {
+          type: 'ice-candidate',
+          sender: this.userId,
+          data: event.candidate
+        });
+      }
     };
+
+    peerConnection.onconnectionstatechange = () => {
+      console.log(`Connection state changed for peer ${peerId}:`, peerConnection.connectionState);
+      this.connectionStateManager.updateConnectionState(peerId, peerConnection.connectionState);
+    };
+
+    peerConnection.ondatachannel = (event) => {
+      this.dataChannelHandler.handleIncomingDataChannel({ connection: peerConnection, dataChannel: null, peerId }, event, peerId);
+    };
+
+    return { connection: peerConnection, dataChannel: null, peerId };
   }
 
   public async handleIncomingSignal(signal: any): Promise<void> {
@@ -76,28 +91,20 @@ export class PeerManager {
 
   public async createPeer(peerId: string): Promise<PeerConnection> {
     console.log('Creating new peer connection to:', peerId);
-    const peerConnection = new RTCPeerConnection(RTCConfig);
+    const connection = this.createPeerConnection(peerId);
 
-    const connection: PeerConnection = {
-      peer: null,
-      connection: peerConnection,
-      dataChannel: null
-    };
-
-    this.connectionEventHandler.setupConnectionEventHandlers(connection, peerId);
-    
     try {
       // Store the connection first in case we need to access it during signaling
       this.connections.set(peerId, connection);
       
       // Check if the signaling state is stable before creating an offer
-      if (peerConnection.signalingState === 'stable') {
-        const offer = await peerConnection.createOffer({
+      if (connection.connection.signalingState === 'stable') {
+        const offer = await connection.connection.createOffer({
           offerToReceiveAudio: false,
           offerToReceiveVideo: false,
           iceRestart: true // Enable ICE restart for better connection recovery
         });
-        await peerConnection.setLocalDescription(offer);
+        await connection.connection.setLocalDescription(offer);
         
         await this.signalingService.sendSignal({
           sender_id: this.userId,
@@ -108,7 +115,7 @@ export class PeerManager {
           }
         });
       } else {
-        console.log(`Cannot create offer in current signaling state: ${peerConnection.signalingState}`);
+        console.log(`Cannot create offer in current signaling state: ${connection.connection.signalingState}`);
       }
 
       return connection;
@@ -137,14 +144,20 @@ export class PeerManager {
   public removeConnection(peerId: string): void {
     const connection = this.connections.get(peerId);
     if (connection) {
-      connection.close();
+      if (connection.dataChannel) {
+        connection.dataChannel.close();
+      }
+      connection.connection.close();
       this.connections.delete(peerId);
     }
   }
 
   public disconnectAll(): void {
     for (const [peerId, connection] of this.connections) {
-      connection.close();
+      if (connection.dataChannel) {
+        connection.dataChannel.close();
+      }
+      connection.connection.close();
       this.connections.delete(peerId);
     }
   }
@@ -255,30 +268,5 @@ export class PeerManager {
       this.connections.set(peerId, connection);
     }
     return connection;
-  }
-
-  private createPeerConnection(peerId: string): PeerConnection {
-    const connection = new RTCPeerConnection(RTCConfig);
-    
-    connection.onicecandidate = async (event) => {
-      if (event.candidate) {
-        await this.signalingService.sendSignal(peerId, {
-          type: 'ice-candidate',
-          sender: this.userId,
-          data: event.candidate
-        });
-      }
-    };
-
-    connection.onconnectionstatechange = () => {
-      console.log(`Connection state changed for peer ${peerId}:`, connection.connectionState);
-      this.connectionStateManager.updateConnectionState(peerId, connection.connectionState);
-    };
-
-    connection.ondatachannel = (event) => {
-      this.dataChannelHandler.handleIncomingDataChannel({ connection, dataChannel: null }, event, peerId);
-    };
-
-    return { connection, dataChannel: null };
   }
 }
