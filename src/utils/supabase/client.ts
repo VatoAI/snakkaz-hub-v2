@@ -21,6 +21,14 @@ export const supabase = createClient(
       params: {
         eventsPerSecond: 10
       }
+    },
+    global: {
+      headers: {
+        'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_ALLOWED_ORIGINS?.split(',')[0] || '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true'
+      }
     }
   }
 ); 
