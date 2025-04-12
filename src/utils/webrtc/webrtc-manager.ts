@@ -8,8 +8,25 @@ import { IWebRTCManager, WebRTCOptions } from './webrtc-types';
 import { SignalingService } from './signaling';
 import { PFSManager } from '../encryption/pfs-manager';
 import { RateLimiter } from '../security/rate-limiter';
+import { supabase } from '@/integrations/supabase/client';
+import { EncryptionManager } from '../crypto/encryption-manager';
+import { KeyExchangeManager } from '../crypto/key-exchange-manager';
+
+interface PeerConnection {
+  connection: RTCPeerConnection;
+  dataChannel: RTCDataChannel | null;
+  userId: string;
+}
+
+interface SignalingMessage {
+  type: 'offer' | 'answer' | 'ice-candidate';
+  data: any;
+  senderId: string;
+  recipientId: string;
+}
 
 export class WebRTCManager implements IWebRTCManager {
+  private static instance: WebRTCManager;
   private peerManager: PeerManager;
   private connectionManager: ConnectionManager;
   private messageHandler: MessageHandler;
@@ -25,8 +42,20 @@ export class WebRTCManager implements IWebRTCManager {
   private readonly RECONNECT_DELAY = 5000; // 5 seconds
   private pfsManager: PFSManager;
   private rateLimiter: RateLimiter;
+  private connections: Map<string, PeerConnection> = new Map();
+  private encryptionManager: EncryptionManager;
+  private keyExchangeManager: KeyExchangeManager;
+  private messageCallbacks: Set<(message: { content: string; senderId: string }) => void> = new Set();
 
-  constructor(
+  private readonly configuration: RTCConfiguration = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      // Add your TURN servers here
+    ]
+  };
+
+  private constructor(
     private userId: string,
     options: WebRTCOptions = {}
   ) {
@@ -41,6 +70,15 @@ export class WebRTCManager implements IWebRTCManager {
     this.connectionStateManager = new ConnectionStateManager(this.connectionManager);
     this.pfsManager = new PFSManager();
     this.rateLimiter = new RateLimiter();
+    this.encryptionManager = EncryptionManager.getInstance();
+    this.keyExchangeManager = KeyExchangeManager.getInstance();
+  }
+
+  public static getInstance(): WebRTCManager {
+    if (!WebRTCManager.instance) {
+      WebRTCManager.instance = new WebRTCManager(supabase.auth.getUser().data.user.id);
+    }
+    return WebRTCManager.instance;
   }
 
   public async initialize() {
@@ -279,5 +317,216 @@ export class WebRTCManager implements IWebRTCManager {
   
   public async ensurePeerReady(peerId: string): Promise<boolean> {
     return await this.connectionStateManager.ensurePeerReady(peerId, this.attemptReconnect.bind(this));
+  }
+
+  private async setupSignalingChannel(): Promise<void> {
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (!currentUser) throw new Error('User not authenticated');
+
+    supabase
+      .channel('webrtc-signaling')
+      .on(
+        'broadcast',
+        { event: 'signaling' },
+        async (payload: { message: SignalingMessage }) => {
+          if (payload.message.recipientId === currentUser.id) {
+            await this.handleSignalingMessage(payload.message);
+          }
+        }
+      )
+      .subscribe();
+  }
+
+  private async sendSignalingMessage(message: SignalingMessage): Promise<void> {
+    await supabase.channel('webrtc-signaling').send({
+      type: 'broadcast',
+      event: 'signaling',
+      message
+    });
+  }
+
+  public async initiateConnection(recipientId: string): Promise<void> {
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (!currentUser) throw new Error('User not authenticated');
+
+    const peerConnection = new RTCPeerConnection(this.configuration);
+    const dataChannel = peerConnection.createDataChannel('chat');
+    
+    this.setupDataChannel(dataChannel, recipientId);
+    this.setupPeerConnectionHandlers(peerConnection, recipientId);
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+
+    this.connections.set(recipientId, {
+      connection: peerConnection,
+      dataChannel,
+      userId: recipientId
+    });
+
+    await this.sendSignalingMessage({
+      type: 'offer',
+      data: offer,
+      senderId: currentUser.id,
+      recipientId
+    });
+  }
+
+  private async handleSignalingMessage(message: SignalingMessage): Promise<void> {
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (!currentUser) throw new Error('User not authenticated');
+
+    switch (message.type) {
+      case 'offer':
+        await this.handleOffer(message);
+        break;
+      case 'answer':
+        await this.handleAnswer(message);
+        break;
+      case 'ice-candidate':
+        await this.handleIceCandidate(message);
+        break;
+    }
+  }
+
+  private async handleOffer(message: SignalingMessage): Promise<void> {
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (!currentUser) throw new Error('User not authenticated');
+
+    const peerConnection = new RTCPeerConnection(this.configuration);
+    this.setupPeerConnectionHandlers(peerConnection, message.senderId);
+
+    peerConnection.ondatachannel = (event) => {
+      this.setupDataChannel(event.channel, message.senderId);
+    };
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(message.data));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    this.connections.set(message.senderId, {
+      connection: peerConnection,
+      dataChannel: null,
+      userId: message.senderId
+    });
+
+    await this.sendSignalingMessage({
+      type: 'answer',
+      data: answer,
+      senderId: currentUser.id,
+      recipientId: message.senderId
+    });
+  }
+
+  private async handleAnswer(message: SignalingMessage): Promise<void> {
+    const connection = this.connections.get(message.senderId);
+    if (connection) {
+      await connection.connection.setRemoteDescription(
+        new RTCSessionDescription(message.data)
+      );
+    }
+  }
+
+  private async handleIceCandidate(message: SignalingMessage): Promise<void> {
+    const connection = this.connections.get(message.senderId);
+    if (connection) {
+      await connection.connection.addIceCandidate(
+        new RTCIceCandidate(message.data)
+      );
+    }
+  }
+
+  private setupPeerConnectionHandlers(
+    peerConnection: RTCPeerConnection,
+    userId: string
+  ): void {
+    peerConnection.onicecandidate = async (event) => {
+      if (event.candidate) {
+        const currentUser = (await supabase.auth.getUser()).data.user;
+        if (!currentUser) return;
+
+        await this.sendSignalingMessage({
+          type: 'ice-candidate',
+          data: event.candidate,
+          senderId: currentUser.id,
+          recipientId: userId
+        });
+      }
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      if (peerConnection.connectionState === 'failed') {
+        this.handleConnectionFailure(userId);
+      }
+    };
+  }
+
+  private setupDataChannel(dataChannel: RTCDataChannel, userId: string): void {
+    const connection = this.connections.get(userId);
+    if (connection) {
+      connection.dataChannel = dataChannel;
+    }
+
+    dataChannel.onmessage = async (event) => {
+      try {
+        const { ciphertext, nonce } = JSON.parse(event.data);
+        const senderPublicKey = await this.keyExchangeManager.getPublicKey(userId);
+        const decryptedContent = await this.encryptionManager.decryptMessage(
+          { ciphertext, nonce },
+          senderPublicKey
+        );
+
+        this.messageCallbacks.forEach(callback =>
+          callback({ content: decryptedContent, senderId: userId })
+        );
+      } catch (error) {
+        console.error('Error processing WebRTC message:', error);
+      }
+    };
+  }
+
+  public async sendMessage(recipientId: string, content: string): Promise<boolean> {
+    try {
+      const connection = this.connections.get(recipientId);
+      if (!connection || !connection.dataChannel || connection.dataChannel.readyState !== 'open') {
+        return false;
+      }
+
+      const recipientPublicKey = await this.keyExchangeManager.getPublicKey(recipientId);
+      const encryptedMessage = await this.encryptionManager.encryptMessage(
+        content,
+        recipientPublicKey
+      );
+
+      connection.dataChannel.send(JSON.stringify(encryptedMessage));
+      return true;
+    } catch (error) {
+      console.error('Error sending WebRTC message:', error);
+      return false;
+    }
+  }
+
+  public onMessage(callback: (message: { content: string; senderId: string }) => void): void {
+    this.messageCallbacks.add(callback);
+  }
+
+  private handleConnectionFailure(userId: string): void {
+    const connection = this.connections.get(userId);
+    if (connection) {
+      if (connection.dataChannel) {
+        connection.dataChannel.close();
+      }
+      connection.connection.close();
+      this.connections.delete(userId);
+    }
+  }
+
+  public isConnected(userId: string): boolean {
+    const connection = this.connections.get(userId);
+    return !!(
+      connection &&
+      connection.dataChannel &&
+      connection.dataChannel.readyState === 'open'
+    );
   }
 }

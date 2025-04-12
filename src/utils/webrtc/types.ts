@@ -72,3 +72,9 @@ export type WebRTCTypes = {
   RTCSessionDescription: typeof RTCSessionDescription;
   RTCIceCandidate: typeof RTCIceCandidate;
 };
+
+export type ConnectionType = 'direct' | 'relay' | 'unknown';
+
+export interface ICEConfig {
+  iceServers: RTCIceServer[];
+}

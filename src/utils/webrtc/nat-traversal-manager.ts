@@ -80,19 +80,22 @@ export class NATTraversalManager {
     });
   }
 
-  public resetAttempts(peerId: string) {
+  public resetAttempts(peerId: string): void {
     this.connectionAttempts.delete(peerId);
   }
 
-  public getConnectionType(connection: RTCPeerConnection): 'direct' | 'relay' | 'unknown' {
-    const stats = connection.getStats();
-    return stats.then(stats => {
+  public async getConnectionType(connection: RTCPeerConnection): Promise<'direct' | 'relay' | 'unknown'> {
+    try {
+      const stats = await connection.getStats();
       for (const stat of stats.values()) {
         if (stat.type === 'candidate-pair' && stat.state === 'succeeded') {
           return stat.remoteCandidateId.includes('relay') ? 'relay' : 'direct';
         }
       }
       return 'unknown';
-    });
+    } catch (error) {
+      console.error('Error getting connection type:', error);
+      return 'unknown';
+    }
   }
 } 

@@ -1,4 +1,6 @@
-export class PeerConnection {
+import type { PeerConnection as IPeerConnection } from './types';
+
+export class PeerConnectionImpl implements IPeerConnection {
   public dataChannel: RTCDataChannel | null = null;
   public connection: RTCPeerConnection;
   public peerId: string;
@@ -18,4 +20,6 @@ export class PeerConnection {
   public setDataChannel(channel: RTCDataChannel): void {
     this.dataChannel = channel;
   }
-} 
+}
+
+export { PeerConnectionImpl as PeerConnection }; 
