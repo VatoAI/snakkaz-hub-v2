@@ -1,30 +1,6 @@
-import { createClient, SupabaseClient, User, RealtimeChannel } from '@supabase/supabase-js';
+import { SupabaseClient, User, RealtimeChannel } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
-
-// Validate environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing required Supabase environment variables. Please check your .env file.');
-}
-
-// Initialize Supabase client with error handling
-let supabase: SupabaseClient<Database>;
-try {
-  supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true
-    }
-  });
-} catch (error) {
-  console.error('Failed to initialize Supabase client:', error);
-  throw error;
-}
-
-export { supabase };
+import { supabase } from '@/integrations/supabase/client';
 
 export class SupabaseService {
   private static instance: SupabaseService;
@@ -375,7 +351,10 @@ export class SupabaseService {
 
   static async executeSQL(sql: string) {
     try {
-      const { data, error } = await supabase.rpc('execute_sql', { sql_command: sql });
+      const { data, error } = await supabase.rpc('check_and_add_columns', { 
+        p_table_name: 'messages',
+        column_names: ['encryption_key', 'iv']
+      });
       if (error) throw error;
       return data;
     } catch (error) {
