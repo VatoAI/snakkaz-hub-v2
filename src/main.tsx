@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
@@ -20,7 +21,7 @@ async function initializeSupabase() {
 async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     try {
-      const registration = await navigator.serviceWorker.register('/service-worker.js');
+      const registration = await navigator.serviceWorker.register('/sw.js');
       console.log('Service Worker registered with scope:', registration.scope);
       
       // Check for updates
@@ -42,10 +43,13 @@ async function registerServiceWorker() {
       if (navigator.serviceWorker.controller) {
         console.log('PWA already installed and active');
       }
+
+      return registration;
     } catch (error) {
       console.error('Service Worker registration failed:', error);
     }
   }
+  return null;
 }
 
 // Initialize app

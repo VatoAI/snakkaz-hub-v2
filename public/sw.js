@@ -1,3 +1,4 @@
+
 const CACHE_NAME = 'snakkaz-cache-v1';
 const ALLOWED_ORIGINS = [
   'https://snakkaz.com',
@@ -84,4 +85,4 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-}); 
+});
