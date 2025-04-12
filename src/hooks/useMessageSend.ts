@@ -11,7 +11,7 @@ export const useMessageSend = (
   setIsLoading: (loading: boolean) => void,
   toast: any
 ) => {
-  const handleSendMessage = useCallback(async (webRTCManager: any, onlineUsers: Set<string>, mediaFile?: File, receiverId?: string) => {
+  const handleSendMessage = useCallback(async (webRTCManager: any, onlineUsers: Set<string>, mediaFile?: File, receiverId?: string, groupId?: string) => {
     if ((!newMessage.trim() && !mediaFile) || !userId) {
       console.log("Ingen melding eller fil å sende, eller bruker ikke pålogget");
       return;
@@ -46,19 +46,20 @@ export const useMessageSend = (
         });
       }
 
-      const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
+      const result = await encryptMessage(newMessage.trim());
       
       const { error } = await supabase
         .from('messages')
         .insert({
-          encrypted_content: encryptedContent,
-          encryption_key: key,
-          iv: iv,
+          encrypted_content: result.encryptedContent,
+          encryption_key: result.key,
+          iv: result.iv,
           sender_id: userId,
           ephemeral_ttl: ttl,
           media_url: mediaUrl,
           media_type: mediaType,
-          receiver_id: receiverId
+          receiver_id: receiverId,
+          group_id: groupId
         });
 
       if (error) {
