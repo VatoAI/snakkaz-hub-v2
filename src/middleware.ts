@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { securityHeaders } from './utils/security/security-headers';
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
   // Set security headers
-  response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'DENY');
-  response.headers.set('X-XSS-Protection', '1; mode=block');
-  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  Object.entries(securityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
 
   // Handle CORS
   const origin = request.headers.get('origin');
@@ -17,9 +16,6 @@ export function middleware(request: NextRequest) {
 
   if (origin && allowedOrigins.includes(origin)) {
     response.headers.set('Access-Control-Allow-Origin', origin);
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    response.headers.set('Access-Control-Allow-Credentials', 'true');
   }
 
   // Handle preflight requests
@@ -28,6 +24,14 @@ export function middleware(request: NextRequest) {
       status: 204,
       headers: response.headers
     });
+  }
+
+  // Block analytics if disabled
+  if (process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === 'false') {
+    const url = new URL(request.url);
+    if (url.pathname.includes('analytics') || url.pathname.includes('tracking')) {
+      return new NextResponse(null, { status: 204 });
+    }
   }
 
   return response;
