@@ -4,7 +4,7 @@ import { ConnectionManager } from './connection-manager';
 import { MessageHandler } from './message-handler';
 import { ReconnectionManager } from './reconnection-manager';
 import { ConnectionStateManager } from './connection-state-manager';
-import { IWebRTCManager, WebRTCOptions } from './webrtc-types';
+import { IWebRTCManager, WebRTCOptions } from './types';
 import { SignalingService } from './signaling';
 import { PFSManager } from '../encryption/pfs-manager';
 import { RateLimiter } from '../security/rate-limiter';
@@ -34,13 +34,40 @@ export class WebRTCManager implements IWebRTCManager {
     
     this.signalingService = new SignalingService(userId);
     this.onMessageCallback = null;
+    
+    // Create a new instance of PeerManager instead of using the singleton
     this.peerManager = new PeerManager(userId, this.onMessageCallback);
+    
     this.connectionManager = new ConnectionManager(this.peerManager, this.secureConnections, this.localKeyPair);
     this.messageHandler = new MessageHandler(this.peerManager, this.secureConnections);
     this.reconnectionManager = new ReconnectionManager(this.connectionManager, maxReconnectAttempts);
     this.connectionStateManager = new ConnectionStateManager(this.connectionManager);
     this.pfsManager = new PFSManager();
     this.rateLimiter = new RateLimiter();
+  }
+
+  public getConnectionState(peerId: string): string {
+    return this.connectionManager.getConnectionState(peerId);
+  }
+  
+  public getDataChannelState(peerId: string): string {
+    return this.connectionManager.getDataChannelState(peerId);
+  }
+  
+  public async attemptReconnect(peerId: string): Promise<boolean> {
+    if (!this.localKeyPair?.publicKey) {
+      throw new Error('Cannot reconnect: no local public key available');
+    }
+    
+    return await this.reconnectionManager.attemptReconnect(peerId, this.localKeyPair.publicKey);
+  }
+  
+  public isPeerReady(peerId: string): boolean {
+    return this.connectionStateManager.isPeerReady(peerId);
+  }
+  
+  public async ensurePeerReady(peerId: string): Promise<boolean> {
+    return await this.connectionStateManager.ensurePeerReady(peerId, this.attemptReconnect.bind(this));
   }
 
   public async initialize() {
@@ -120,14 +147,8 @@ export class WebRTCManager implements IWebRTCManager {
     }
   }
 
-  public async sendMessage(peerId: string, message: string, isDirect: boolean = false) {
+  public async sendMessage(peerId: string, message: string, isDirect: boolean = false): Promise<boolean> {
     try {
-      // Check rate limiting
-      if (!this.rateLimiter.isAllowed(peerId)) {
-        const blockedUntil = this.rateLimiter.getBlockedUntil(peerId);
-        throw new Error(`Message sending rate exceeded. Try again after ${new Date(blockedUntil!).toLocaleTimeString()}`);
-      }
-
       // Add connection state check before sending
       const connectionState = this.connectionStateManager.getConnectionState(peerId);
       if (connectionState !== 'connected') {
@@ -141,21 +162,7 @@ export class WebRTCManager implements IWebRTCManager {
       return await this.messageHandler.sendMessage(peerId, message, isDirect);
     } catch (error) {
       console.error(`Error sending message to peer ${peerId}:`, error);
-      
-      // Enhanced error recovery
-      if (this.localKeyPair?.publicKey) {
-        try {
-          console.log(`Attempting connection recovery for peer ${peerId}`);
-          await this.attemptConnectionRecovery(peerId);
-          // If recovery worked, try sending again
-          return await this.messageHandler.sendMessage(peerId, message, isDirect);
-        } catch (recoveryError) {
-          console.error(`Connection recovery failed for peer ${peerId}:`, recoveryError);
-          throw new Error(`Failed to send message: ${error.message}`);
-        }
-      } else {
-        throw new Error(`Cannot recover connection: no local key pair`);
-      }
+      return false;
     }
   }
 
@@ -166,7 +173,7 @@ export class WebRTCManager implements IWebRTCManager {
     while (attempts < maxAttempts) {
       try {
         console.log(`Recovery attempt ${attempts + 1} for peer ${peerId}`);
-        await this.attemptReconnect(peerId);
+        const result = await this.attemptReconnect(peerId);
         
         // Wait for connection to stabilize
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -195,7 +202,7 @@ export class WebRTCManager implements IWebRTCManager {
     this.messageHandler.setupMessageCallback(callback);
   }
 
-  public async sendDirectMessage(peerId: string, message: string) {
+  public async sendDirectMessage(peerId: string, message: string): Promise<boolean> {
     try {
       // Check connection state before sending
       if (!this.connectionStateManager.isPeerReady(peerId)) {
@@ -237,7 +244,7 @@ export class WebRTCManager implements IWebRTCManager {
       return await this.messageHandler.sendDirectMessage(peerId, message);
     } catch (error) {
       console.error(`Failed to send direct message to ${peerId}:`, error);
-      throw error;
+      return false;
     }
   }
 
@@ -255,29 +262,5 @@ export class WebRTCManager implements IWebRTCManager {
     this.pfsManager = new PFSManager(); // Reset PFS manager
     this.rateLimiter = new RateLimiter(); // Reset rate limiter
     this.connectionManager.disconnectAll();
-  }
-  
-  public getConnectionState(peerId: string): string {
-    return this.connectionManager.getConnectionState(peerId);
-  }
-  
-  public getDataChannelState(peerId: string): string {
-    return this.connectionManager.getDataChannelState(peerId);
-  }
-  
-  public async attemptReconnect(peerId: string) {
-    if (!this.localKeyPair?.publicKey) {
-      throw new Error('Cannot reconnect: no local public key available');
-    }
-    
-    return await this.reconnectionManager.attemptReconnect(peerId, this.localKeyPair.publicKey);
-  }
-  
-  public isPeerReady(peerId: string): boolean {
-    return this.connectionStateManager.isPeerReady(peerId);
-  }
-  
-  public async ensurePeerReady(peerId: string): Promise<boolean> {
-    return await this.connectionStateManager.ensurePeerReady(peerId, this.attemptReconnect.bind(this));
   }
 }

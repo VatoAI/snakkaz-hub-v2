@@ -1,13 +1,12 @@
-import { PeerConnection } from './types';
+
+import { PeerConnection, SignalPayload, SimplePeerConnection } from './types';
 import { SignalingService } from './signaling';
-import { RTCConfig } from './config';
+import { RTCConfig } from './rtc-config';
 import { DataChannelHandler } from './data-channel-handler';
 import { ConnectionEventHandler } from './connection-event-handler';
 import { SignalingHandler } from './signaling-handler';
 import { ConnectionStateManager } from './connection-state-manager';
 import { ConnectionManager } from './connection-manager';
-import { RTCConfig as RTCConfigImport } from './rtc-config';
-import { PeerConnection as PeerConnectionImport } from './peer-connection';
 
 export class PeerManager {
   private connections: Map<string, PeerConnection> = new Map();
@@ -21,10 +20,10 @@ export class PeerManager {
   private static instance: PeerManager;
   private userId: string;
 
-  private constructor(userId: string) {
+  constructor(userId: string, messageCallback: ((message: string, peerId: string) => void) | null = null) {
     this.userId = userId;
     this.signalingService = new SignalingService(userId);
-    this.dataChannelHandler = new DataChannelHandler(this.messageCallback);
+    this.dataChannelHandler = new DataChannelHandler(messageCallback);
     
     // Create connection manager first
     this.connectionManager = new ConnectionManager(this, new Map(), null);
@@ -58,12 +57,31 @@ export class PeerManager {
   private createPeerConnection(peerId: string): PeerConnection {
     const peerConnection = new RTCPeerConnection(RTCConfig);
     
+    // Create a PeerConnection object that implements the PeerConnection interface
+    const connection: PeerConnection = {
+      connection: peerConnection,
+      dataChannel: null,
+      peerId,
+      close: () => {
+        if (connection.dataChannel) {
+          connection.dataChannel.close();
+        }
+        connection.connection.close();
+      },
+      setDataChannel: (channel) => {
+        connection.dataChannel = channel;
+      }
+    };
+    
     peerConnection.onicecandidate = async (event) => {
       if (event.candidate) {
-        await this.signalingService.sendSignal(peerId, {
-          type: 'ice-candidate',
-          sender: this.userId,
-          data: event.candidate
+        await this.signalingService.sendSignal({
+          sender_id: this.userId,
+          receiver_id: peerId,
+          signal_data: {
+            type: 'ice-candidate',
+            candidate: event.candidate
+          }
         });
       }
     };
@@ -74,10 +92,10 @@ export class PeerManager {
     };
 
     peerConnection.ondatachannel = (event) => {
-      this.dataChannelHandler.handleIncomingDataChannel({ connection: peerConnection, dataChannel: null, peerId }, event, peerId);
+      this.dataChannelHandler.handleIncomingDataChannel(connection, event, peerId);
     };
 
-    return { connection: peerConnection, dataChannel: null, peerId };
+    return connection;
   }
 
   public async handleIncomingSignal(signal: any): Promise<void> {
@@ -135,29 +153,22 @@ export class PeerManager {
       return this.connections.get(peerId)!;
     }
 
-    const connection = new RTCPeerConnection(RTCConfig);
-    const peerConnection = new PeerConnectionImport(connection, peerId);
-    this.connections.set(peerId, peerConnection);
-    return peerConnection;
+    const connection = this.createPeerConnection(peerId);
+    this.connections.set(peerId, connection);
+    return connection;
   }
 
   public removeConnection(peerId: string): void {
     const connection = this.connections.get(peerId);
     if (connection) {
-      if (connection.dataChannel) {
-        connection.dataChannel.close();
-      }
-      connection.connection.close();
+      connection.close();
       this.connections.delete(peerId);
     }
   }
 
   public disconnectAll(): void {
     for (const [peerId, connection] of this.connections) {
-      if (connection.dataChannel) {
-        connection.dataChannel.close();
-      }
-      connection.connection.close();
+      connection.close();
       this.connections.delete(peerId);
     }
   }
@@ -181,10 +192,13 @@ export class PeerManager {
       await connection.connection.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await connection.connection.createAnswer();
       await connection.connection.setLocalDescription(answer);
-      await this.signalingService.sendSignal(peerId, {
-        type: 'answer',
-        sender: this.userId,
-        data: answer
+      await this.signalingService.sendSignal({
+        sender_id: this.userId,
+        receiver_id: peerId,
+        signal_data: {
+          type: 'answer',
+          sdp: answer.sdp
+        }
       });
     } catch (error) {
       console.error('Error handling offer:', error);

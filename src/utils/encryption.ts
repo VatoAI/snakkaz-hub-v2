@@ -21,12 +21,22 @@ export async function generateKeyPair(): Promise<{ publicKey: JsonWebKey; privat
   }
 }
 
-export async function encryptMessage(message: string, key: CryptoKey): Promise<string> {
+export async function encryptMessage(message: string): Promise<{ encryptedContent: string, key: string, iv: string }> {
   try {
     const encoder = new TextEncoder();
     const encodedMessage = encoder.encode(message);
     
+    const key = await window.crypto.subtle.generateKey(
+      {
+        name: "AES-GCM",
+        length: 256,
+      },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    
     const iv = crypto.getRandomValues(new Uint8Array(12));
+    
     const encryptedContent = await crypto.subtle.encrypt(
       {
         name: 'AES-GCM',
@@ -36,12 +46,16 @@ export async function encryptMessage(message: string, key: CryptoKey): Promise<s
       encodedMessage
     );
 
-    const encryptedArray = new Uint8Array(encryptedContent);
-    const result = new Uint8Array(iv.length + encryptedArray.length);
-    result.set(iv);
-    result.set(encryptedArray, iv.length);
-
-    return btoa(String.fromCharCode(...result));
+    const exportedKey = await window.crypto.subtle.exportKey("jwk", key);
+    
+    const encryptedContentBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptedContent)));
+    const ivBase64 = btoa(String.fromCharCode(...iv));
+    
+    return {
+      encryptedContent: encryptedContentBase64,
+      key: JSON.stringify(exportedKey),
+      iv: ivBase64
+    };
   } catch (error) {
     console.error('Error encrypting message:', error);
     throw error;
@@ -113,4 +127,4 @@ export async function establishSecureConnection(
     console.error('Error establishing secure connection:', error);
     throw error;
   }
-} 
+}

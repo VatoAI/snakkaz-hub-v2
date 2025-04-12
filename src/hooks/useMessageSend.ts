@@ -46,14 +46,14 @@ export const useMessageSend = (
         });
       }
 
-      const result = await encryptMessage(newMessage.trim());
+      const encryptionResult = await encryptMessage(newMessage.trim());
       
       const { error } = await supabase
         .from('messages')
         .insert({
-          encrypted_content: result.encryptedContent,
-          encryption_key: result.key,
-          iv: result.iv,
+          encrypted_content: encryptionResult.encryptedContent,
+          encryption_key: encryptionResult.key,
+          iv: encryptionResult.iv,
           sender_id: userId,
           ephemeral_ttl: ttl,
           media_url: mediaUrl,

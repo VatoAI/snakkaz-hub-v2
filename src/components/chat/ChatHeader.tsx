@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -53,7 +54,7 @@ export const ChatHeader = ({
   const navigate = useNavigate();
   const [isFriendsOpen, setIsFriendsOpen] = useState(false);
 
-  const currentUserProfile = currentUserId ? userProfiles[currentUserId] : null;
+  const currentUserProfile = currentUserId ? userProfiles?.[currentUserId] : null;
 
   useEffect(() => {
     const handleStartChatEvent = (e: Event) => {
@@ -143,14 +144,12 @@ export const ChatHeader = ({
                 </SheetTitle>
               </SheetHeader>
               <div className="mt-4">
+                {/* Only passing props that OnlineUsers accepts */}
                 <OnlineUsers
                   userPresence={userPresence}
                   currentUserId={currentUserId}
                   currentStatus={currentStatus}
                   onStatusChange={onStatusChange}
-                  webRTCManager={webRTCManager}
-                  directMessages={directMessages}
-                  onNewMessage={onNewMessage}
                   friends={friends}
                   onSendFriendRequest={onSendFriendRequest}
                   onStartChat={onStartChat}
