@@ -1,3 +1,4 @@
+
 import { decryptMessage } from '../encryption';
 
 export class MessageReceiver {
@@ -22,8 +23,7 @@ export class MessageReceiver {
           console.log('Processing encrypted direct message');
           const decryptedMessage = await decryptMessage(
             parsedMessage.content,
-            parsedMessage.key,
-            parsedMessage.iv
+            parsedMessage.key
           );
           this.messageCallback(decryptedMessage, peerId);
         } else {

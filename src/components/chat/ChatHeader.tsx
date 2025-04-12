@@ -144,7 +144,6 @@ export const ChatHeader = ({
                 </SheetTitle>
               </SheetHeader>
               <div className="mt-4">
-                {/* Only passing props that OnlineUsers accepts */}
                 <OnlineUsers
                   userPresence={userPresence}
                   currentUserId={currentUserId}
@@ -154,6 +153,8 @@ export const ChatHeader = ({
                   onSendFriendRequest={onSendFriendRequest}
                   onStartChat={onStartChat}
                   userProfiles={userProfiles}
+                  hidden={hidden || false}
+                  onToggleHidden={onToggleHidden || (() => {})}
                 />
               </div>
             </SheetContent>

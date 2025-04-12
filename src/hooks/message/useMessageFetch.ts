@@ -1,3 +1,4 @@
+
 import { useCallback } from "react";
 import { SupabaseService } from "@/services/supabase.service";
 import { decryptMessage } from "@/utils/encryption";
@@ -41,8 +42,7 @@ export const useMessageFetch = (
 
             const content = await decryptMessage(
               message.encrypted_content,
-              message.encryption_key,
-              message.iv
+              message.encryption_key
             );
 
             return {

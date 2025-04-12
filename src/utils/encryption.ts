@@ -1,130 +1,81 @@
-export async function generateKeyPair(): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> {
+export const encryptMessage = async (plaintext: string): Promise<{ encryptedContent: string, key: string, iv: string }> => {
   try {
-    const keyPair = await crypto.subtle.generateKey(
-      {
-        name: 'ECDH',
-        namedCurve: 'P-256'
-      },
+    // Generate a random encryption key and IV for this message
+    const key = await crypto.subtle.generateKey(
+      { name: 'AES-GCM', length: 256 },
       true,
-      ['deriveKey', 'deriveBits']
-    );
-
-    const [publicKey, privateKey] = await Promise.all([
-      crypto.subtle.exportKey('jwk', keyPair.publicKey),
-      crypto.subtle.exportKey('jwk', keyPair.privateKey)
-    ]);
-
-    return { publicKey, privateKey };
-  } catch (error) {
-    console.error('Error generating key pair:', error);
-    throw error;
-  }
-}
-
-export async function encryptMessage(message: string): Promise<{ encryptedContent: string, key: string, iv: string }> {
-  try {
-    const encoder = new TextEncoder();
-    const encodedMessage = encoder.encode(message);
-    
-    const key = await window.crypto.subtle.generateKey(
-      {
-        name: "AES-GCM",
-        length: 256,
-      },
-      true,
-      ["encrypt", "decrypt"]
+      ['encrypt', 'decrypt']
     );
     
     const iv = crypto.getRandomValues(new Uint8Array(12));
     
-    const encryptedContent = await crypto.subtle.encrypt(
-      {
-        name: 'AES-GCM',
-        iv: iv
-      },
+    // Encode the message as UTF-8
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plaintext);
+    
+    // Encrypt the message
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
       key,
-      encodedMessage
+      data
     );
-
-    const exportedKey = await window.crypto.subtle.exportKey("jwk", key);
     
-    const encryptedContentBase64 = btoa(String.fromCharCode(...new Uint8Array(encryptedContent)));
-    const ivBase64 = btoa(String.fromCharCode(...iv));
+    // Convert encrypted data to base64 string
+    const encryptedContent = btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
     
+    // Export the key to JWK format
+    const exportedKey = await crypto.subtle.exportKey('jwk', key);
+    
+    // Convert key to string and IV to base64 string
     return {
-      encryptedContent: encryptedContentBase64,
+      encryptedContent,
       key: JSON.stringify(exportedKey),
-      iv: ivBase64
+      iv: btoa(String.fromCharCode(...iv))
     };
   } catch (error) {
-    console.error('Error encrypting message:', error);
+    console.error('Encryption error:', error);
     throw error;
   }
-}
+};
 
-export async function decryptMessage(encryptedMessage: string, key: CryptoKey): Promise<string> {
+export const decryptMessage = async (encryptedContent: string, keyString: string): Promise<string> => {
   try {
-    const encryptedArray = Uint8Array.from(atob(encryptedMessage), c => c.charCodeAt(0));
-    const iv = encryptedArray.slice(0, 12);
-    const encryptedContent = encryptedArray.slice(12);
-
-    const decryptedContent = await crypto.subtle.decrypt(
-      {
-        name: 'AES-GCM',
-        iv: iv
-      },
-      key,
-      encryptedContent
-    );
-
-    const decoder = new TextDecoder();
-    return decoder.decode(decryptedContent);
-  } catch (error) {
-    console.error('Error decrypting message:', error);
-    throw error;
-  }
-}
-
-export async function establishSecureConnection(
-  localPublicKey: JsonWebKey,
-  localPrivateKey: JsonWebKey,
-  peerPublicKey: JsonWebKey
-): Promise<CryptoKey> {
-  try {
-    const [localPrivate, peerPublic] = await Promise.all([
-      crypto.subtle.importKey(
-        'jwk',
-        localPrivateKey,
-        { name: 'ECDH', namedCurve: 'P-256' },
-        false,
-        ['deriveKey']
-      ),
-      crypto.subtle.importKey(
-        'jwk',
-        peerPublicKey,
-        { name: 'ECDH', namedCurve: 'P-256' },
-        false,
-        []
-      )
-    ]);
-
-    const derivedKey = await crypto.subtle.deriveKey(
-      {
-        name: 'ECDH',
-        public: peerPublic
-      },
-      localPrivate,
-      {
-        name: 'AES-GCM',
-        length: 256
-      },
+    if (!encryptedContent || !keyString) {
+      throw new Error('Missing encrypted content or key');
+    }
+    
+    // Parse the key from string to JWK
+    const keyData = JSON.parse(keyString);
+    
+    // Import the key
+    const key = await crypto.subtle.importKey(
+      'jwk',
+      keyData,
+      { name: 'AES-GCM', length: 256 },
       false,
-      ['encrypt', 'decrypt']
+      ['decrypt']
     );
-
-    return derivedKey;
+    
+    // Get IV from the message (assuming it's stored with the message)
+    const iv = new Uint8Array(Array.from(atob(keyData.iv || ''), c => c.charCodeAt(0)));
+    
+    // Convert base64 encrypted content to ArrayBuffer
+    const encryptedBuffer = new Uint8Array(
+      Array.from(atob(encryptedContent), c => c.charCodeAt(0))
+    ).buffer;
+    
+    // Decrypt the message
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encryptedBuffer
+    );
+    
+    // Decode the decrypted message
+    const decoder = new TextDecoder();
+    return decoder.decode(decryptedBuffer);
   } catch (error) {
-    console.error('Error establishing secure connection:', error);
+    console.error('Decryption error:', error);
     throw error;
   }
-}
+};

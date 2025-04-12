@@ -1,33 +1,63 @@
-import { Clock } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-interface MessageTimerProps {
-  ttl: number | null;
-  setTtl: (ttl: number | null) => void;
+import React, { useEffect, useState } from 'react';
+import { DecryptedMessage } from '@/types/message';
+
+export interface MessageTimerProps {
+  message: DecryptedMessage;
+  onExpired: () => void;
 }
 
-export const MessageTimer = ({ ttl, setTtl }: MessageTimerProps) => {
-  // Fixed TTL of 24 hours (86400 seconds)
-  const defaultTtl = 86400;
-  
-  // Force 24-hour TTL for all messages
-  if (ttl !== defaultTtl) {
-    setTtl(defaultTtl);
+export const MessageTimer: React.FC<MessageTimerProps> = ({ message, onExpired }) => {
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!message.ephemeral_ttl) return;
+
+    const createdAt = new Date(message.created_at).getTime();
+    const expiresAt = createdAt + (message.ephemeral_ttl * 1000);
+    
+    const calculateTimeLeft = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((expiresAt - now) / 1000));
+      
+      if (remaining <= 0 && onExpired) {
+        onExpired();
+        return 0;
+      }
+      
+      return remaining;
+    };
+
+    setTimeLeft(calculateTimeLeft());
+    
+    const timer = setInterval(() => {
+      const remaining = calculateTimeLeft();
+      setTimeLeft(remaining);
+      
+      if (remaining <= 0) {
+        clearInterval(timer);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [message.created_at, message.ephemeral_ttl, onExpired]);
+
+  if (!message.ephemeral_ttl || timeLeft === null) {
+    return null;
   }
 
+  const formatTimeLeft = () => {
+    if (timeLeft <= 60) {
+      return `${timeLeft}s`;
+    }
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    return `${minutes}m ${seconds}s`;
+  };
+
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex items-center text-[10px] text-cyberdark-400">
-            <Clock className="h-3 w-3 mr-1" />
-            24t
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="top" align="center" className="text-xs">
-          Slettes automatisk etter 24 timer
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <span className="text-[10px] sm:text-xs text-pink-400">
+      ⏱️ {formatTimeLeft()}
+    </span>
   );
 };

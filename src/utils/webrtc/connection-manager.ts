@@ -1,180 +1,177 @@
 import { PeerManager } from './peer-manager';
-import { ConnectionRetryManager } from './connection-retry-manager';
-import { ConnectionTimeoutManager } from './connection-timeout-manager';
-import { SecureConnectionManager } from './secure-connection-manager';
-import { ConnectionStateManager } from './connection-state-manager';
+import { PeerConnection } from './peer-connection';
+import { RTCConfig } from './rtc-config';
+import { SignalingService } from './signaling';
 
 export class ConnectionManager {
-  private retryManager: ConnectionRetryManager;
-  private timeoutManager: ConnectionTimeoutManager;
-  private secureConnectionManager: SecureConnectionManager;
-  private connectionStateManager: ConnectionStateManager;
+  private connections: Map<string, PeerConnection> = new Map();
+  private signalingService: SignalingService;
 
   constructor(
     private peerManager: PeerManager,
     private secureConnections: Map<string, CryptoKey>,
     private localKeyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey } | null
   ) {
-    // Use more conservative retry settings
-    this.retryManager = new ConnectionRetryManager(3, 5000); // Max 3 attempts, 5 second reset
-    this.timeoutManager = new ConnectionTimeoutManager();
-    this.secureConnectionManager = new SecureConnectionManager(secureConnections);
-    this.connectionStateManager = new ConnectionStateManager(this);
+    this.signalingService = new SignalingService(peerManager.getUserId());
   }
 
-  public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey) {
-    if (!this.localKeyPair) {
-      throw new Error('Local key pair not initialized');
-    }
-
+  public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey): Promise<PeerConnection | null> {
     try {
-      if (this.retryManager.hasReachedMaxAttempts(peerId)) {
-        console.log(`Max connection attempts reached for peer ${peerId}, using server fallback`);
-        return null;
+      console.log(`Attempting to connect to peer ${peerId}`);
+      
+      // Check if we already have a connection
+      let connection = this.peerManager.getConnection(peerId);
+      
+      if (connection && connection.connection.connectionState === 'connected') {
+        console.log(`Already connected to peer ${peerId}`);
+        return connection;
       }
       
-      this.retryManager.incrementAttempts(peerId);
-
-      const isConnected = this.peerManager.isConnected(peerId);
-      if (isConnected) {
-        console.log(`Already connected to peer ${peerId}`);
-        // Reset attempt counter on successful connection
-        this.retryManager.resetAttempts(peerId);
-        return this.peerManager.getPeerConnection(peerId);
-      }
-
-      let connection = this.peerManager.getPeerConnection(peerId);
-      const needsNewConnection = !connection || 
-          connection.connection.connectionState === 'failed' || 
+      // Create a new connection if none exists or if the existing one is closed
+      if (!connection || 
           connection.connection.connectionState === 'closed' || 
-          connection.connection.connectionState === 'disconnected';
-          
-      if (needsNewConnection) {
+          connection.connection.connectionState === 'failed') {
         console.log(`Creating new connection to peer ${peerId}`);
-        try {
-          connection = await this.peerManager.createPeer(peerId);
-          
-          // Very fast timeout - 2s for quicker fallback
-          this.timeoutManager.setTimeout(peerId, () => {
-            const currentConnection = this.peerManager.getPeerConnection(peerId);
-            if (currentConnection && 
-                (currentConnection.connection.connectionState === 'failed' || 
-                 currentConnection.connection.connectionState === 'closed' || 
-                 currentConnection.connection.connectionState === 'disconnected' ||
-                 currentConnection.connection.connectionState === 'new')) {
-              console.log(`Connection to peer ${peerId} failed, attempting reconnect`);
-              this.connectToPeer(peerId, peerPublicKey);
-            }
-          }, 2000);
-        } catch (createError) {
-          console.error(`Error creating peer connection to ${peerId}:`, createError);
-          throw createError;
-        }
+        connection = await this.peerManager.createPeer(peerId);
+        
+        // Create a data channel for this connection
+        const dataChannel = connection.connection.createDataChannel(`channel-${peerId}`, {
+          ordered: true,
+          maxRetransmits: 3
+        });
+        
+        connection.setDataChannel(dataChannel);
+        
+        // Set up data channel event handlers
+        dataChannel.onopen = () => {
+          console.log(`Data channel to peer ${peerId} opened`);
+        };
+        
+        dataChannel.onclose = () => {
+          console.log(`Data channel to peer ${peerId} closed`);
+        };
+        
+        dataChannel.onerror = (error) => {
+          console.error(`Data channel error with peer ${peerId}:`, error);
+        };
       }
-
-      if (this.localKeyPair) {
-        await this.secureConnectionManager.establishSecureConnection(
-          peerId,
-          this.localKeyPair.publicKey,
-          this.localKeyPair.privateKey,
-          peerPublicKey
-        );
-      }
-
-      // Schedule retry reset after a successful connection
-      if (connection && connection.connection.connectionState === 'connected') {
-        this.retryManager.resetAttempts(peerId);
-      } else {
-        // Only schedule reset if connection not already established
-        this.retryManager.scheduleRetryReset(peerId);
-      }
-
+      
       return connection;
     } catch (error) {
-      console.error('Error connecting to peer:', error);
-      throw error;
+      console.error(`Error connecting to peer ${peerId}:`, error);
+      return null;
     }
   }
 
-  public disconnect(peerId: string) {
-    console.log(`Disconnecting from peer ${peerId}`);
-    
-    // Clear any pending timeouts
-    this.timeoutManager.clearTimeout(peerId);
-    
-    // Disconnect peer and clean up
+  public disconnect(peerId: string): void {
     this.peerManager.disconnect(peerId);
-    this.secureConnectionManager.removeSecureConnection(peerId);
-    this.retryManager.resetAttempts(peerId);
   }
 
-  public disconnectAll() {
-    console.log('Disconnecting from all peers');
-    
-    // Clear all timeouts
-    this.timeoutManager.clearAllTimeouts();
-    
-    // Disconnect all peers and clean up
+  public disconnectAll(): void {
     this.peerManager.disconnectAll();
-    this.secureConnectionManager.clearAllSecureConnections();
-    this.retryManager.resetAllAttempts();
   }
 
-  public getConnectionState(peerId: string): RTCPeerConnectionState {
-    return this.connectionStateManager.getConnectionState(peerId) || 'disconnected';
+  public getConnection(peerId: string): PeerConnection | undefined {
+    return this.peerManager.getConnection(peerId);
   }
-  
-  public getDataChannelState(peerId: string): RTCDataChannelState {
-    return this.connectionStateManager.getDataChannelState(peerId) || 'closed';
+
+  public getConnectionState(peerId: string): string {
+    const connection = this.peerManager.getConnection(peerId);
+    if (!connection) {
+      return 'disconnected';
+    }
+    return connection.connection.connectionState;
   }
-  
-  public async attemptReconnect(peerId: string, publicKey: JsonWebKey) {
-    console.log(`Attempting to reconnect with peer ${peerId}`);
-    
-    // Reset connection attempts for this peer
-    this.retryManager.resetAttempts(peerId);
-    
-    // Clean up existing connection
-    this.peerManager.disconnect(peerId);
-    
-    // Attempt new connection with reduced retries
-    let attempt = 0;
-    const maxRetries = 2; // Reduced max retries for faster feedback
-    let success = false;
-    
-    while (attempt < maxRetries && !success) {
-      try {
-        const connection = await this.connectToPeer(peerId, publicKey);
-        
-        // Wait for the connection to establish, but with shorter timeout
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const connectionState = this.getConnectionState(peerId);
-        const dataChannelState = this.getDataChannelState(peerId);
-        
-        if (connectionState === 'connected' && dataChannelState === 'open') {
-          success = true;
-          console.log(`Successfully reconnected to peer ${peerId}`);
-          return connection;
-        }
-        
-        console.log(`Connection attempt ${attempt + 1} for peer ${peerId} not yet successful, retrying...`);
-      } catch (error) {
-        console.error(`Reconnection attempt ${attempt + 1} to peer ${peerId} failed:`, error);
+
+  public getDataChannelState(peerId: string): string {
+    const connection = this.peerManager.getConnection(peerId);
+    if (!connection || !connection.dataChannel) {
+      return 'closed';
+    }
+    return connection.dataChannel.readyState;
+  }
+
+  public async reconnect(peerId: string): Promise<boolean> {
+    try {
+      // Disconnect first to clean up any existing connection
+      this.disconnect(peerId);
+      
+      // Wait a moment for cleanup
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Attempt to reconnect if we have the public key
+      if (this.localKeyPair?.publicKey) {
+        const connection = await this.connectToPeer(peerId, this.localKeyPair.publicKey);
+        return !!connection;
       }
       
-      attempt++;
-      // Short fixed backoff instead of exponential
-      if (attempt < maxRetries) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
+      return false;
+    } catch (error) {
+      console.error(`Error reconnecting to peer ${peerId}:`, error);
+      return false;
+    }
+  }
+
+  public async createSecureConnection(peerId: string, remotePublicKey: JsonWebKey): Promise<CryptoKey | null> {
+    if (!this.localKeyPair) {
+      console.error('No local key pair available for secure connection');
+      return null;
     }
     
-    if (!success) {
-      console.log(`All reconnection attempts to peer ${peerId} failed, falling back to server`);
-      throw new Error(`Failed to reconnect to peer ${peerId}`);
+    try {
+      // Import the remote public key
+      const importedPublicKey = await crypto.subtle.importKey(
+        'jwk',
+        remotePublicKey,
+        {
+          name: 'ECDH',
+          namedCurve: 'P-256'
+        },
+        true,
+        []
+      );
+      
+      // Import the local private key
+      const importedPrivateKey = await crypto.subtle.importKey(
+        'jwk',
+        this.localKeyPair.privateKey,
+        {
+          name: 'ECDH',
+          namedCurve: 'P-256'
+        },
+        true,
+        ['deriveKey', 'deriveBits']
+      );
+      
+      // Derive a shared secret using ECDH
+      const sharedSecret = await crypto.subtle.deriveBits(
+        {
+          name: 'ECDH',
+          public: importedPublicKey
+        },
+        importedPrivateKey,
+        256
+      );
+      
+      // Convert the shared secret to an AES key
+      const sharedKey = await crypto.subtle.importKey(
+        'raw',
+        sharedSecret,
+        {
+          name: 'AES-GCM',
+          length: 256
+        },
+        true,
+        ['encrypt', 'decrypt']
+      );
+      
+      // Store the secure connection
+      this.secureConnections.set(peerId, sharedKey);
+      
+      return sharedKey;
+    } catch (error) {
+      console.error(`Error creating secure connection with peer ${peerId}:`, error);
+      return null;
     }
-    
-    return this.peerManager.getPeerConnection(peerId);
   }
 }

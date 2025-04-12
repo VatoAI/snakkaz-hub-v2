@@ -1,365 +1,266 @@
-import { SupabaseClient, User, RealtimeChannel } from '@supabase/supabase-js';
-import { Database } from '@/types/supabase';
 import { supabase } from '@/integrations/supabase/client';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export class SupabaseService {
   private static instance: SupabaseService;
-  private client: SupabaseClient<Database>;
-  private currentUser: User | null = null;
-  private activeChannels: Map<string, RealtimeChannel> = new Map();
-  private reconnectAttempts: number = 0;
-  private readonly MAX_RECONNECT_ATTEMPTS = 5;
-  private readonly RECONNECT_DELAY = 2000; // 2 seconds
-
+  private supabase: SupabaseClient;
+  
   private constructor() {
-    this.client = supabase;
-
-    // Setup auth state change listener
-    this.client.auth.onAuthStateChange((event, session) => {
-      this.currentUser = session?.user ?? null;
-      
-      // Reconnect realtime channels on auth change
-      if (event === 'SIGNED_IN') {
-        this.reconnectChannels();
-      } else if (event === 'SIGNED_OUT') {
-        this.disconnectAllChannels();
-      }
-    });
+    this.supabase = supabase;
   }
-
-  private async reconnectChannels() {
-    for (const [channelName, channel] of this.activeChannels.entries()) {
-      try {
-        await channel.unsubscribe();
-        const newChannel = await this.resubscribeChannel(channelName);
-        this.activeChannels.set(channelName, newChannel);
-      } catch (error) {
-        console.error(`Failed to reconnect channel ${channelName}:`, error);
-      }
-    }
-  }
-
-  private disconnectAllChannels() {
-    for (const [channelName, channel] of this.activeChannels.entries()) {
-      try {
-        channel.unsubscribe();
-        this.activeChannels.delete(channelName);
-      } catch (error) {
-        console.error(`Failed to disconnect channel ${channelName}:`, error);
-      }
-    }
-  }
-
-  private async resubscribeChannel(channelName: string): Promise<RealtimeChannel> {
-    return new Promise((resolve, reject) => {
-      const channel = this.client.channel(channelName);
-      
-      channel.on('system', { event: '*' }, (status) => {
-        console.log(`Channel ${channelName} status:`, status);
-      });
-
-      channel.subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          resolve(channel);
-        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-          if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-            this.reconnectAttempts++;
-            console.log(`Attempting to reconnect channel ${channelName}. Attempt ${this.reconnectAttempts}`);
-            setTimeout(() => {
-              this.resubscribeChannel(channelName)
-                .then(resolve)
-                .catch(reject);
-            }, this.RECONNECT_DELAY);
-          } else {
-            reject(new Error(`Failed to connect to channel ${channelName} after ${this.MAX_RECONNECT_ATTEMPTS} attempts`));
-          }
-        }
-      });
-    });
-  }
-
+  
   public static getInstance(): SupabaseService {
     if (!SupabaseService.instance) {
       SupabaseService.instance = new SupabaseService();
     }
     return SupabaseService.instance;
   }
-
-  // Auth methods
-  public async signIn(email: string, password: string) {
-    const { data, error } = await this.client.auth.signInWithPassword({
-      email,
-      password
-    });
-    if (error) throw error;
-    return data;
+  
+  public async getProfile(userId: string) {
+    try {
+      const { data, error } = await this.supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      return null;
+    }
+  }
+  
+  public async updateProfile(userId: string, updates: any) {
+    try {
+      const { error } = await this.supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', userId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return { success: false, error };
+    }
+  }
+  
+  public async getMessages({ 
+    userId, 
+    receiverId, 
+    groupId, 
+    limit 
+  }: { 
+    userId: string; 
+    receiverId?: string; 
+    groupId?: string; 
+    limit?: number; 
+  }) {
+    try {
+      let query = this.supabase
+        .from('messages')
+        .select('*, sender:sender_id(id, username, full_name, avatar_url)')
+        .order('created_at', { ascending: true })
+        .limit(limit || 50);
+      
+      if (receiverId) {
+        query = query.or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+        query = query.or(`sender_id.eq.${receiverId},receiver_id.eq.${receiverId}`);
+      } else if (groupId) {
+        query = query.eq('group_id', groupId);
+      } else {
+        query = query.is('group_id', null);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        throw error;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      return null;
+    }
+  }
+  
+  public subscribeToMessages(
+    callback: (payload: any) => void,
+    { userId, receiverId, groupId }: { userId?: string; receiverId?: string; groupId?: string }
+  ) {
+    let channel = this.supabase
+      .channel('public:messages')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        (payload) => {
+          if (userId && receiverId) {
+            if (
+              (payload.new.sender_id === userId && payload.new.receiver_id === receiverId) ||
+              (payload.new.sender_id === receiverId && payload.new.receiver_id === userId)
+            ) {
+              callback(payload);
+            }
+          } else if (userId && !receiverId) {
+            if (payload.new.group_id === null) {
+              callback(payload);
+            }
+          } else if (groupId) {
+            if (payload.new.group_id === groupId) {
+              callback(payload);
+            }
+          } else {
+            callback(payload);
+          }
+        }
+      );
+    
+    return channel.subscribe();
+  }
+  
+  public async uploadMedia(file: File, folder: string): Promise<string | null> {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${crypto.randomUUID()}.${fileExt}`;
+      
+      const { error } = await this.supabase.storage
+        .from(folder)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+      
+      if (error) {
+        throw error;
+      }
+      
+      return filePath;
+    } catch (error) {
+      console.error('Error uploading media:', error);
+      return null;
+    }
   }
 
-  public async signOut() {
-    const { error } = await this.client.auth.signOut();
-    if (error) throw error;
+  // Fix the message sending method
+  public async sendMessage({ 
+    content, 
+    senderId, 
+    receiverId, 
+    groupId, 
+    encryptedContent, 
+    encryptionKey, 
+    iv, 
+    ttl, 
+    mediaUrl, 
+    mediaType 
+  }: { 
+    content: string; 
+    senderId: string; 
+    receiverId?: string; 
+    groupId?: string; 
+    encryptedContent: string; 
+    encryptionKey: string; 
+    iv: string; 
+    ttl?: number | null; 
+    mediaUrl?: string | null; 
+    mediaType?: string | null; 
+  }) {
+    try {
+      // Convert groupId from string to correct type for database
+      // Database expects boolean or null, not string
+      const dbGroupId = groupId ? true : null;
+      
+      const { error } = await this.supabase
+        .from('messages')
+        .insert({
+          encrypted_content: encryptedContent,
+          encryption_key: encryptionKey,
+          iv: iv,
+          sender_id: senderId,
+          receiver_id: receiverId,
+          ephemeral_ttl: ttl,
+          media_url: mediaUrl,
+          media_type: mediaType,
+          group_id: dbGroupId
+        });
+      
+      if (error) {
+        throw error;
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
   }
-
-  // Messages methods
-  public async sendMessage(params: {
-    content: string;
+  
+  public async editMessage({
+    messageId,
+    senderId,
+    encryptedContent,
+    encryptionKey,
+    iv
+  }: {
+    messageId: string;
     senderId: string;
-    receiverId?: string;
-    groupId?: string;
     encryptedContent: string;
     encryptionKey: string;
     iv: string;
-    ttl?: number;
-    mediaUrl?: string;
-    mediaType?: string;
   }) {
-    const { error } = await this.client
-      .from('messages')
-      .insert({
-        sender_id: params.senderId,
-        receiver_id: params.receiverId,
-        group_id: params.groupId,
-        encrypted_content: params.encryptedContent,
-        encryption_key: params.encryptionKey,
-        iv: params.iv,
-        ephemeral_ttl: params.ttl,
-        media_url: params.mediaUrl,
-        media_type: params.mediaType
-      });
-    
-    if (error) throw error;
-  }
-
-  public async editMessage(params: {
-    messageId: string,
-    senderId: string,
-    encryptedContent: string,
-    encryptionKey: string,
-    iv: string
-  }) {
-    const { error } = await this.client
-      .from('messages')
-      .update({
-        encrypted_content: params.encryptedContent,
-        encryption_key: params.encryptionKey,
-        iv: params.iv,
-        is_edited: true,
-        edited_at: new Date().toISOString()
-      })
-      .eq('id', params.messageId)
-      .eq('sender_id', params.senderId); // Ensure only the sender can edit
-    
-    if (error) throw error;
-  }
-
-  public async deleteMessage(params: {
-    messageId: string,
-    senderId: string
-  }) {
-    const { error } = await this.client
-      .from('messages')
-      .update({
-        is_deleted: true,
-        deleted_at: new Date().toISOString()
-      })
-      .eq('id', params.messageId)
-      .eq('sender_id', params.senderId); // Ensure only the sender can delete
-    
-    if (error) throw error;
-  }
-
-  public async getMessages(params: {
-    userId: string;
-    receiverId?: string;
-    groupId?: string;
-    limit?: number;
-    offset?: number;
-  }) {
-    let query = this.client
-      .from('messages')
-      .select('*, sender:profiles(*)')
-      .order('created_at', { ascending: true });
-
-    if (params.receiverId) {
-      query = query.or(
-        `and(sender_id.eq.${params.userId},receiver_id.eq.${params.receiverId}),` +
-        `and(sender_id.eq.${params.receiverId},receiver_id.eq.${params.userId})`
-      );
-    } else if (params.groupId) {
-      query = query.eq('group_id', true);
-    } else {
-      query = query.is('receiver_id', null).is('group_id', null);
-    }
-
-    if (params.limit) {
-      query = query.limit(params.limit);
-    }
-
-    if (params.offset) {
-      query = query.range(params.offset, params.offset + (params.limit || 50) - 1);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
-  }
-
-  // Realtime subscription methods
-  public async subscribeToMessages(
-    callback: (payload: any) => void,
-    filter?: { userId?: string; receiverId?: string; groupId?: string }
-  ): Promise<RealtimeChannel> {
-    const channelName = 'messages';
-    const channelFilters: any = {
-      event: '*',
-      schema: 'public',
-      table: 'messages'
-    };
-
-    if (filter) {
-      const filterConditions: string[] = [];
-      if (filter.userId) {
-        filterConditions.push(`sender_id=eq.${filter.userId}`);
-      }
-      if (filter.receiverId) {
-        filterConditions.push(`receiver_id=eq.${filter.receiverId}`);
-      }
-      if (filter.groupId) {
-        filterConditions.push(`group_id=eq.${filter.groupId}`);
-      }
-      if (filterConditions.length > 0) {
-        channelFilters.filter = filterConditions.join(' AND ');
-      }
-    }
-
     try {
-      const channel = this.client.channel(channelName);
+      const { error } = await this.supabase
+        .from('messages')
+        .update({
+          encrypted_content: encryptedContent,
+          encryption_key: encryptionKey,
+          iv: iv,
+          is_edited: true,
+          edited_at: new Date().toISOString()
+        })
+        .eq('id', messageId)
+        .eq('sender_id', senderId);
       
-      channel.on('system', { event: '*' }, (status) => {
-        console.log(`Messages channel status:`, status);
-      });
-
-      channel
-        .on('postgres_changes', channelFilters, callback)
-        .subscribe((status) => {
-          console.log('Messages subscription status:', status);
-          if (status === 'SUBSCRIBED') {
-            this.activeChannels.set(channelName, channel);
-          }
-        });
-
-      return channel;
-    } catch (error) {
-      console.error('Error subscribing to messages:', error);
-      throw error;
-    }
-  }
-
-  // Add signaling channel subscription
-  public async subscribeToSignaling(
-    userId: string,
-    callback: (payload: any) => void
-  ): Promise<RealtimeChannel> {
-    const channelName = `signaling:${userId}`;
-    
-    try {
-      const channel = this.client.channel(channelName);
+      if (error) {
+        throw error;
+      }
       
-      channel.on('system', { event: '*' }, (status) => {
-        console.log(`Signaling channel status:`, status);
-      });
-
-      channel
-        .on('broadcast', { event: 'signal' }, callback)
-        .subscribe((status) => {
-          console.log('Signaling subscription status:', status);
-          if (status === 'SUBSCRIBED') {
-            this.activeChannels.set(channelName, channel);
-          }
-        });
-
-      return channel;
+      return { success: true };
     } catch (error) {
-      console.error('Error subscribing to signaling:', error);
-      throw error;
+      console.error('Error editing message:', error);
+      return { success: false, error };
     }
   }
-
-  // Add method to send signaling message
-  public async sendSignal(targetUserId: string, signal: any) {
-    const channelName = `signaling:${targetUserId}`;
+  
+  public async deleteMessage({ messageId, senderId }: { messageId: string; senderId: string }) {
     try {
-      await this.client.channel(channelName).send({
-        type: 'broadcast',
-        event: 'signal',
-        payload: signal
-      });
+      const { error } = await this.supabase
+        .from('messages')
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString()
+        })
+        .eq('id', messageId)
+        .eq('sender_id', senderId);
+      
+      if (error) {
+        throw error;
+      }
+      
+      return { success: true };
     } catch (error) {
-      console.error('Error sending signal:', error);
-      throw error;
+      console.error('Error deleting message:', error);
+      return { success: false, error };
     }
   }
-
-  // User profile methods
-  public async updateProfile(userId: string, updates: Partial<Database['public']['Tables']['profiles']['Update']>) {
-    const { error } = await this.client
-      .from('profiles')
-      .update(updates)
-      .eq('id', userId);
-    
-    if (error) throw error;
-  }
-
-  public async getProfile(userId: string) {
-    const { data, error } = await this.client
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    
-    if (error) throw error;
-    return data;
-  }
-
-  // Storage methods
-  public async uploadMedia(file: File, bucket: string) {
-    const fileExt = file.name.split('.').pop();
-    const filePath = `${crypto.randomUUID()}.${fileExt}`;
-
-    const { error } = await this.client.storage
-      .from(bucket)
-      .upload(filePath, file);
-    
-    if (error) throw error;
-    return filePath;
-  }
-
-  public getMediaUrl(bucket: string, path: string) {
-    return this.client.storage
-      .from(bucket)
-      .getPublicUrl(path).data.publicUrl;
-  }
-
-  // Helper methods
-  public getCurrentUser(): User | null {
-    return this.currentUser;
-  }
-
-  public getClient(): SupabaseClient<Database> {
-    return this.client;
-  }
-
-  static async executeSQL(sql: string) {
-    try {
-      const { data, error } = await supabase.rpc('check_and_add_columns', { 
-        p_table_name: 'messages',
-        column_names: ['encryption_key', 'iv']
-      });
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error executing SQL:', error);
-      throw error;
-    }
-  }
-} 
+}

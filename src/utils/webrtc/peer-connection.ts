@@ -1,7 +1,7 @@
 
-import { PeerConnection } from './types';
+import { type PeerConnection as IPeerConnection } from './types';
 
-export class PeerConnection implements PeerConnection {
+export class PeerConnection implements IPeerConnection {
   constructor(
     public connection: RTCPeerConnection,
     public peerId: string,
