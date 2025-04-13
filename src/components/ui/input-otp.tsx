@@ -1,6 +1,6 @@
 
 import * as React from "react"
-import { OTPInput, SlotProps } from "input-otp"
+import { OTPInput, SlotProps, OTPInputProps } from "input-otp"
 import { Dot } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -33,8 +33,8 @@ const InputOTPSlot = React.forwardRef<
   React.ElementRef<"div">,
   React.ComponentPropsWithoutRef<"div"> & { index: number }
 >(({ index, className, ...props }, ref) => {
-  // Use React.useContext with a type assertion to handle the Context
-  const inputOTPContext = React.useContext(OTPInput.Context as React.Context<{ slots?: SlotProps[] }>);
+  // Use the context from input-otp package
+  const inputOTPContext = React.useContext(OTPInput.Context);
   const { char, hasFakeCaret, isActive } = inputOTPContext?.slots?.[index] || {};
 
   return (
