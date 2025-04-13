@@ -11,6 +11,7 @@ import { RateLimiter } from '../security/rate-limiter';
 import { supabase } from '@/integrations/supabase/client';
 import { EncryptionManager } from '../crypto/encryption-manager';
 import { KeyExchangeManager } from '../crypto/key-exchange-manager';
+import { establishSecureConnection, encryptMessage, decryptMessage, JsonWebKey } from '../encryption';
 
 interface PeerConnection {
   connection: RTCPeerConnection;
@@ -46,6 +47,7 @@ export class WebRTCManager implements IWebRTCManager {
   private encryptionManager: EncryptionManager;
   private keyExchangeManager: KeyExchangeManager;
   private messageCallbacks: Set<(message: { content: string; senderId: string }) => void> = new Set();
+  private keyExchangeUnsubscribe: (() => Promise<string>) | null = null;
 
   private readonly configuration: RTCConfiguration = {
     iceServers: [
@@ -113,37 +115,67 @@ export class WebRTCManager implements IWebRTCManager {
       console.log('WebRTCManager already initialized');
       return;
     }
+    console.log("Initializing WebRTCManager...");
 
     try {
-      // Generate key pair for secure connections
+      // 1. Generate local key pair
       await this.initializeKeyPair();
-      
-      // Setup signaling channel
-      this.setupSignalingListener();
-      
-      // Verify Supabase connection
-      const { data, error } = await this.signalingService.verifyConnection();
-      if (error) {
-        throw error;
+      if (!this.localKeyPair) {
+          throw new Error("Failed to initialize key pair.");
       }
-      
-      console.log('WebRTC setup complete');
+
+      // 2. Provide keys and setup callback with KeyExchangeManager
+      this.keyExchangeManager.setLocalKeyPair(this.localKeyPair);
+      this.keyExchangeManager.setSecureConnectionCallback(this.handleReceivedSharedSecret.bind(this));
+
+      // 3. Setup Key Exchange Listener (via Supabase)
+      // This will listen for incoming public keys and trigger handleIncomingKeyExchange
+      try {
+          this.keyExchangeUnsubscribe = await this.keyExchangeManager.setupKeyExchangeListener();
+          console.log("Key exchange listener started.");
+      } catch (keyError) {
+          console.error("Failed to setup key exchange listener:", keyError);
+          // Decide how to handle this, maybe retry? For now, log and continue.
+          throw new Error("Key exchange setup failed.");
+      }
+
+
+      // 4. Setup WebRTC Signaling Listener (via Supabase)
+      this.setupSignalingListener(); // Handles WebRTC offers/answers/candidates
+      console.log("WebRTC signaling listener started.");
+
+
+      // 5. Verify Supabase connection (for signaling service)
+      // Optional: Can be removed if connection is verified elsewhere
+      // const { data, error } = await this.signalingService.verifyConnection();
+      // if (error) {
+      //   throw error;
+      // }
+      // console.log('Supabase connection verified.');
+
+
+      console.log('WebRTCManager initialization complete');
       this.isInitialized = true;
     } catch (error) {
       console.error('Failed to initialize WebRTCManager:', error);
-      throw error;
+      // Cleanup if initialization failed partially?
+      await this.cleanup();
+      throw error; // Re-throw error after logging/cleanup attempt
     }
   }
 
   private async initializeKeyPair() {
     try {
       this.localKeyPair = await generateKeyPair();
-      console.log('Local key pair generated');
-      // Update connectionManager with the new keyPair
-      this.connectionManager = new ConnectionManager(this.peerManager, this.secureConnections, this.localKeyPair);
+      console.log('Local key pair generated successfully.');
+      // Update ConnectionManager ONLY if it needs the key pair *during* construction
+      // If ConnectionManager only needs it later, this might not be needed here.
+      // Consider if ConnectionManager needs dynamic updates or just reads from secureConnections.
+      // this.connectionManager = new ConnectionManager(this.peerManager, this.secureConnections, this.localKeyPair);
     } catch (error) {
       console.error('Failed to generate key pair:', error);
-      throw error;
+      this.localKeyPair = null; // Ensure it's null on failure
+      throw error; // Re-throw
     }
   }
 
@@ -166,38 +198,143 @@ export class WebRTCManager implements IWebRTCManager {
     return cleanup;
   }
 
-  public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey) {
+  public async connectToPeer(peerId: string) {
+    console.log(`Attempting to connect to peer ${peerId}`);
+    if (!this.isInitialized || !this.localKeyPair || !this.localKeyPair.publicKey) {
+        throw new Error("WebRTCManager not initialized or local key pair missing.");
+    }
+    if (peerId === this.userId) {
+        throw new Error("Cannot connect to self.");
+    }
+
     try {
       // Check rate limiting
       if (!this.rateLimiter.isAllowed(peerId)) {
         const blockedUntil = this.rateLimiter.getBlockedUntil(peerId);
-        throw new Error(`Connection attempts exceeded. Try again after ${new Date(blockedUntil!).toLocaleTimeString()}`);
+        throw new Error(`Connection attempts exceeded for ${peerId}. Try again after ${new Date(blockedUntil!).toLocaleTimeString()}`);
       }
 
-      // Get current key pair for PFS
-      const currentKeyPair = await this.pfsManager.getCurrentKeyPair(peerId);
-      this.localKeyPair = currentKeyPair;
+      // 1. Check if we already have a shared secret (meaning keys are exchanged)
+      if (this.secureConnections.has(peerId)) {
+          console.log(`Shared secret already exists for ${peerId}. Proceeding with WebRTC connection.`);
+          // Proceed directly with WebRTC connection via ConnectionManager/PeerManager
+          // This part needs careful implementation in ConnectionManager/PeerManager
+          await this.connectionManager.connectToPeer(peerId);
+          return; // Assume connectToPeer handles the WebRTC part now
+      }
 
-      return await this.connectionManager.connectToPeer(peerId, peerPublicKey);
+      // 2. If no secret, check if we have the peer's public key
+      console.log(`No shared secret found for ${peerId}. Checking for public key.`);
+      const peerPublicKey = await this.keyExchangeManager.getPublicKey(peerId);
+
+      if (peerPublicKey) {
+          console.log(`Public key found for ${peerId}. Attempting to establish secure connection.`);
+          // We have their key, they might have ours. Try establishing the secret.
+          // Note: establishSecureConnection is usually called *when receiving* a key.
+          // If we fetch their key, we should ensure they also fetch ours or have it.
+          // This flow might be better handled by always initiating exchange.
+          try {
+              const sharedSecret = await establishSecureConnection(this.localKeyPair.privateKey, peerPublicKey);
+              this.handleReceivedSharedSecret(peerId, sharedSecret); // Store the secret
+              // Now proceed with WebRTC connection
+              await this.connectionManager.connectToPeer(peerId);
+              return;
+          } catch (error) {
+              console.error(`Failed to establish secure connection with ${peerId} using fetched key:`, error);
+              // Fall through to initiate exchange if establishing fails
+          }
+      }
+
+      // 3. If we don't have their key (or establishing failed), initiate the key exchange.
+      // This sends our public key to the peer via Supabase.
+      // The peer's listener (`handleIncomingKeyExchange`) will then:
+      //    a) Store our key.
+      //    b) Establish the shared secret.
+      //    c) Call *their* `handleReceivedSharedSecret` callback.
+      //    d) Initiate an exchange *back* to us (sending their public key).
+      // Our listener (`handleIncomingKeyExchange`) will then receive their key,
+      // establish the secret, and call *our* `handleReceivedSharedSecret`.
+      console.log(`Public key not found or establishing failed for ${peerId}. Initiating key exchange.`);
+      await this.keyExchangeManager.initiateKeyExchange(peerId, this.localKeyPair.publicKey);
+
+      // What happens next?
+      // Option A: Wait here for the secret to appear via the callback (complex, potential deadlocks).
+      // Option B: Let initiateKeyExchange trigger the process. The actual WebRTC connection
+      //           (offer/answer) should ideally only start *after* the secret is established.
+      //           Perhaps `handleReceivedSharedSecret` should trigger the WebRTC connection attempt?
+      // For now: We initiate the exchange and let the callback handle storing the secret.
+      // The actual sending of offers might need to check `secureConnections.has(peerId)`.
+
+      console.log(`Key exchange initiated with ${peerId}. WebRTC connection will proceed once keys are exchanged and secret is derived.`);
+      // Maybe call connectionManager.prepareConnection(peerId) or similar?
+      // Or let the UI handle the "connecting..." state until the secret is ready.
+
+
     } catch (error) {
-      console.error(`Error connecting to peer ${peerId}:`, error);
-      throw error;
+      console.error(`Error initiating connection process with peer ${peerId}:`, error);
+      this.rateLimiter.incrementAttempts(peerId); // Increment attempts on failure
+      throw error; // Re-throw
     }
   }
 
   public async sendMessage(peerId: string, message: string, isDirect: boolean = false): Promise<boolean> {
+    console.log(`Attempting to send message to ${peerId}`);
     try {
-      // Add connection state check before sending
+      // Ensure connection is ready (WebRTC level)
       const connectionState = this.connectionStateManager.getConnectionState(peerId);
-      if (connectionState !== 'connected') {
-        console.log(`Connection not ready (${connectionState}), attempting recovery`);
-        await this.attemptConnectionRecovery(peerId);
+      const dataChannelState = this.connectionStateManager.getDataChannelState(peerId); // Check data channel too
+
+      if (connectionState !== 'connected' || dataChannelState !== 'open') {
+        console.warn(`WebRTC connection/channel not ready for ${peerId} (State: ${connectionState}/${dataChannelState}). Attempting recovery.`);
+        const recovered = await this.attemptConnectionRecovery(peerId);
+        if (!recovered) {
+           console.error(`Failed to recover connection to ${peerId}. Cannot send message.`);
+           return false;
+        }
+         console.log(`Connection recovered for ${peerId}. Proceeding with send.`);
       }
 
-      // Rotate keys if needed
-      await this.pfsManager.rotateKeys(peerId);
 
-      return await this.messageHandler.sendMessage(peerId, message, isDirect);
+      // *** Get the shared secret ***
+      const sharedSecret = this.secureConnections.get(peerId);
+      if (!sharedSecret) {
+        console.error(`Cannot send message: No shared secret found for peer ${peerId}. Key exchange might be incomplete.`);
+        // Maybe try initiating key exchange again? Or inform the user.
+        // await this.connectToPeer(peerId); // Re-initiate process? Risky.
+        return false; // Fail for now
+      }
+      console.log(`Shared secret found for ${peerId}. Proceeding with encryption.`);
+
+
+      // Rotate keys if using PFS (PFSManager needs integration with sharedSecret logic)
+      // await this.pfsManager.rotateKeys(peerId); // This needs rework for E2EE
+
+
+      // *** Encrypt the message using the shared secret ***
+      let encryptedMessageData;
+      try {
+          // Assuming encryptMessage takes the secret (CryptoKey) and message (string)
+          // and returns an object like { iv: string (base64), encryptedData: string (base64) }
+          encryptedMessageData = await encryptMessage(sharedSecret, message);
+          console.log(`Message encrypted for ${peerId}`);
+      } catch (encError) {
+          console.error(`Failed to encrypt message for ${peerId}:`, encError);
+          return false;
+      }
+
+
+      // *** Send the encrypted payload ***
+      // MessageHandler needs to be adapted to send this structured data.
+      // It should probably JSON.stringify the encryptedMessageData object.
+      const success = await this.messageHandler.sendEncryptedMessage(peerId, encryptedMessageData);
+      if (success) {
+           console.log(`Encrypted message sent successfully to ${peerId}`);
+      } else {
+           console.error(`Failed to send encrypted message to ${peerId} via MessageHandler.`);
+      }
+      return success;
+
+
     } catch (error) {
       console.error(`Error sending message to peer ${peerId}:`, error);
       return false;
@@ -237,7 +374,56 @@ export class WebRTCManager implements IWebRTCManager {
 
   public onMessage(callback: (message: string, peerId: string) => void) {
     this.onMessageCallback = callback;
-    this.messageHandler.setupMessageCallback(callback);
+    this.messageHandler.setupMessageCallback(async (encryptedPayload: any, peerId: string) => {
+       console.log(`Received encrypted payload from ${peerId}:`, encryptedPayload);
+
+
+       // *** Get the shared secret ***
+       const sharedSecret = this.secureConnections.get(peerId);
+       if (!sharedSecret) {
+         console.error(`Cannot decrypt message: No shared secret found for peer ${peerId}.`);
+         // Maybe request key exchange? Drop message?
+         return; // Ignore message if no secret
+       }
+       console.log(`Shared secret found for ${peerId}. Attempting decryption.`);
+
+
+       try {
+           // Assuming 'encryptedPayload' is the object { iv: string, encryptedData: string }
+           // It might arrive as a JSON string, needing JSON.parse first. Check MessageHandler.
+           let payloadToDecrypt = encryptedPayload;
+           if (typeof encryptedPayload === 'string') {
+               try {
+                  payloadToDecrypt = JSON.parse(encryptedPayload);
+               } catch (parseError) {
+                   console.error(`Failed to parse incoming message payload from ${peerId}:`, parseError);
+                   return; // Cannot decrypt if parsing fails
+               }
+           }
+
+
+           if (!payloadToDecrypt || !payloadToDecrypt.iv || !payloadToDecrypt.encryptedData) {
+                console.error(`Invalid encrypted payload structure received from ${peerId}:`, payloadToDecrypt);
+                return;
+           }
+
+
+           // *** Decrypt the message ***
+           // Assuming decryptMessage takes the secret (CryptoKey) and the payload object
+           const decryptedMessage = await decryptMessage(sharedSecret, payloadToDecrypt);
+           console.log(`Message decrypted successfully from ${peerId}`);
+
+
+           // *** Call the original user callback with the decrypted message ***
+           callback(decryptedMessage, peerId);
+
+
+       } catch (error) {
+           console.error(`Failed to decrypt message from ${peerId}:`, error);
+           // Handle decryption failure (e.g., wrong key, corrupted message)
+           // Maybe notify the user or log? Don't call the callback.
+       }
+    });
   }
 
   public async sendDirectMessage(peerId: string, message: string): Promise<boolean> {
@@ -249,7 +435,7 @@ export class WebRTCManager implements IWebRTCManager {
         // Try to reconnect if we have the peer's public key
         if (this.localKeyPair?.publicKey) {
           try {
-            await this.connectToPeer(peerId, this.localKeyPair.publicKey);
+            await this.connectToPeer(peerId);
             
             // Wait for connection to establish with shorter timeouts
             let connectionEstablished = false;
@@ -301,242 +487,60 @@ export class WebRTCManager implements IWebRTCManager {
     this.rateLimiter = new RateLimiter(); // Reset rate limiter
     this.connectionManager.disconnectAll();
   }
-<<<<<<< HEAD
-  
-  public getConnectionState(peerId: string): string {
-    return this.connectionManager.getConnectionState(peerId);
-  }
-  
-  public getDataChannelState(peerId: string): string {
-    return this.connectionManager.getDataChannelState(peerId);
-  }
-  
-  public async attemptReconnect(peerId: string) {
-    if (!this.localKeyPair?.publicKey) {
-      throw new Error('Cannot reconnect: no local public key available');
-    }
-    
-    return await this.reconnectionManager.attemptReconnect(peerId, this.localKeyPair.publicKey);
-  }
-  
-  public isPeerReady(peerId: string): boolean {
-    return this.connectionStateManager.isPeerReady(peerId);
-  }
-  
-  public async ensurePeerReady(peerId: string): Promise<boolean> {
-    return await this.connectionStateManager.ensurePeerReady(peerId, this.attemptReconnect.bind(this));
+
+  private handleReceivedSharedSecret(peerId: string, secret: CryptoKey): void {
+      console.log(`Received shared secret for peer ${peerId}. Storing.`);
+      this.secureConnections.set(peerId, secret);
+      // Optional: Trigger any logic that depends on the secure connection being ready
+      // For example, maybe now we can proceed with the actual WebRTC connection setup if it was pending.
   }
 
-  private async setupSignalingChannel(): Promise<void> {
-    const currentUser = (await supabase.auth.getUser()).data.user;
-    if (!currentUser) throw new Error('User not authenticated');
+  public async cleanup() {
+      console.log("Cleaning up WebRTCManager...");
+      this.isInitialized = false;
 
-    supabase
-      .channel('webrtc-signaling')
-      .on(
-        'broadcast',
-        { event: 'signaling' },
-        async (payload: { message: SignalingMessage }) => {
-          if (payload.message.recipientId === currentUser.id) {
-            await this.handleSignalingMessage(payload.message);
-          }
-        }
-      )
-      .subscribe();
-  }
 
-  private async sendSignalingMessage(message: SignalingMessage): Promise<void> {
-    await supabase.channel('webrtc-signaling').send({
-      type: 'broadcast',
-      event: 'signaling',
-      message
-    });
-  }
-
-  public async initiateConnection(recipientId: string): Promise<void> {
-    const currentUser = (await supabase.auth.getUser()).data.user;
-    if (!currentUser) throw new Error('User not authenticated');
-
-    const peerConnection = new RTCPeerConnection(this.configuration);
-    const dataChannel = peerConnection.createDataChannel('chat');
-    
-    this.setupDataChannel(dataChannel, recipientId);
-    this.setupPeerConnectionHandlers(peerConnection, recipientId);
-
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    this.connections.set(recipientId, {
-      connection: peerConnection,
-      dataChannel,
-      userId: recipientId
-    });
-
-    await this.sendSignalingMessage({
-      type: 'offer',
-      data: offer,
-      senderId: currentUser.id,
-      recipientId
-    });
-  }
-
-  private async handleSignalingMessage(message: SignalingMessage): Promise<void> {
-    const currentUser = (await supabase.auth.getUser()).data.user;
-    if (!currentUser) throw new Error('User not authenticated');
-
-    switch (message.type) {
-      case 'offer':
-        await this.handleOffer(message);
-        break;
-      case 'answer':
-        await this.handleAnswer(message);
-        break;
-      case 'ice-candidate':
-        await this.handleIceCandidate(message);
-        break;
-    }
-  }
-
-  private async handleOffer(message: SignalingMessage): Promise<void> {
-    const currentUser = (await supabase.auth.getUser()).data.user;
-    if (!currentUser) throw new Error('User not authenticated');
-
-    const peerConnection = new RTCPeerConnection(this.configuration);
-    this.setupPeerConnectionHandlers(peerConnection, message.senderId);
-
-    peerConnection.ondatachannel = (event) => {
-      this.setupDataChannel(event.channel, message.senderId);
-    };
-
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(message.data));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    this.connections.set(message.senderId, {
-      connection: peerConnection,
-      dataChannel: null,
-      userId: message.senderId
-    });
-
-    await this.sendSignalingMessage({
-      type: 'answer',
-      data: answer,
-      senderId: currentUser.id,
-      recipientId: message.senderId
-    });
-  }
-
-  private async handleAnswer(message: SignalingMessage): Promise<void> {
-    const connection = this.connections.get(message.senderId);
-    if (connection) {
-      await connection.connection.setRemoteDescription(
-        new RTCSessionDescription(message.data)
-      );
-    }
-  }
-
-  private async handleIceCandidate(message: SignalingMessage): Promise<void> {
-    const connection = this.connections.get(message.senderId);
-    if (connection) {
-      await connection.connection.addIceCandidate(
-        new RTCIceCandidate(message.data)
-      );
-    }
-  }
-
-  private setupPeerConnectionHandlers(
-    peerConnection: RTCPeerConnection,
-    userId: string
-  ): void {
-    peerConnection.onicecandidate = async (event) => {
-      if (event.candidate) {
-        const currentUser = (await supabase.auth.getUser()).data.user;
-        if (!currentUser) return;
-
-        await this.sendSignalingMessage({
-          type: 'ice-candidate',
-          data: event.candidate,
-          senderId: currentUser.id,
-          recipientId: userId
-        });
-      }
-    };
-
-    peerConnection.onconnectionstatechange = () => {
-      if (peerConnection.connectionState === 'failed') {
-        this.handleConnectionFailure(userId);
-      }
-    };
-  }
-
-  private setupDataChannel(dataChannel: RTCDataChannel, userId: string): void {
-    const connection = this.connections.get(userId);
-    if (connection) {
-      connection.dataChannel = dataChannel;
-    }
-
-    dataChannel.onmessage = async (event) => {
-      try {
-        const { ciphertext, nonce } = JSON.parse(event.data);
-        const senderPublicKey = await this.keyExchangeManager.getPublicKey(userId);
-        const decryptedContent = await this.encryptionManager.decryptMessage(
-          { ciphertext, nonce },
-          senderPublicKey
-        );
-
-        this.messageCallbacks.forEach(callback =>
-          callback({ content: decryptedContent, senderId: userId })
-        );
-      } catch (error) {
-        console.error('Error processing WebRTC message:', error);
-      }
-    };
-  }
-
-  public async sendMessage(recipientId: string, content: string): Promise<boolean> {
-    try {
-      const connection = this.connections.get(recipientId);
-      if (!connection || !connection.dataChannel || connection.dataChannel.readyState !== 'open') {
-        return false;
+      // Disconnect signaling listener
+      if (this.signalingCleanup) {
+          try {
+              this.signalingCleanup();
+              console.log("WebRTC signaling listener stopped.");
+          } catch (e) { console.error("Error during signaling cleanup:", e); }
+          this.signalingCleanup = null;
       }
 
-      const recipientPublicKey = await this.keyExchangeManager.getPublicKey(recipientId);
-      const encryptedMessage = await this.encryptionManager.encryptMessage(
-        content,
-        recipientPublicKey
-      );
 
-      connection.dataChannel.send(JSON.stringify(encryptedMessage));
-      return true;
-    } catch (error) {
-      console.error('Error sending WebRTC message:', error);
-      return false;
-    }
-  }
-
-  public onMessage(callback: (message: { content: string; senderId: string }) => void): void {
-    this.messageCallbacks.add(callback);
-  }
-
-  private handleConnectionFailure(userId: string): void {
-    const connection = this.connections.get(userId);
-    if (connection) {
-      if (connection.dataChannel) {
-        connection.dataChannel.close();
+      // Disconnect key exchange listener
+      if (this.keyExchangeUnsubscribe) {
+           try {
+               await this.keyExchangeUnsubscribe();
+               console.log("Key exchange listener stopped.");
+           } catch (e) { console.error("Error during key exchange unsubscribe:", e); }
+           this.keyExchangeUnsubscribe = null;
       }
-      connection.connection.close();
-      this.connections.delete(userId);
-    }
-  }
 
-  public isConnected(userId: string): boolean {
-    const connection = this.connections.get(userId);
-    return !!(
-      connection &&
-      connection.dataChannel &&
-      connection.dataChannel.readyState === 'open'
-    );
+
+      // Cleanup KeyExchangeManager instance
+      if (this.keyExchangeManager) {
+          await this.keyExchangeManager.cleanup(); // Call its cleanup
+      }
+
+
+      // Close all peer connections
+      if (this.connectionManager) {
+          await this.connectionManager.closeAllConnections();
+          console.log("All peer connections closed.");
+      }
+
+
+      // Clear internal state
+      this.secureConnections.clear();
+      this.localKeyPair = null;
+      this.onMessageCallback = null;
+      this.messageCallbacks.clear();
+      // Reset other managers if necessary
+
+
+      console.log("WebRTCManager cleanup complete.");
   }
-=======
->>>>>>> 5f302a30cf4b3bc2c222d4572cbcc475d0f81193
 }

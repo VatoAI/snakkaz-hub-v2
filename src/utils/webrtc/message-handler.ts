@@ -1,69 +1,73 @@
-
 import { PeerManager } from './peer-manager';
 import { MessageSender } from './message-sender';
 import { MessageReceiver } from './message-receiver';
 import { MessageRetryManager } from './message-retry';
-import { encryptMessage } from '../encryption';
+// import { encryptMessage, decryptMessage } from '../encryption';
 
 export class MessageHandler {
   private messageSender: MessageSender;
   private messageReceiver: MessageReceiver;
   private messageRetryManager: MessageRetryManager;
+  private peerManager: PeerManager;
+  // Store the callback for incoming raw (already decrypted or non-encrypted) messages
+  private onMessageCallback: ((message: any, peerId: string) => void) | null = null;
   
   constructor(
-    private peerManager: PeerManager,
-    private secureConnections: Map<string, CryptoKey>
+    peerManager: PeerManager,
+    // secureConnections: Map<string, CryptoKey> // Remove from constructor if not used
   ) {
-    this.messageSender = new MessageSender(secureConnections);
+    this.peerManager = peerManager;
+    this.messageSender = new MessageSender();
     this.messageReceiver = new MessageReceiver();
     this.messageRetryManager = new MessageRetryManager(
       this.messageSender,
       this.peerManager.getConnection.bind(this.peerManager)
     );
+    this.setupPeerManagerListeners();
   }
 
-  public async sendMessage(peerId: string, message: string, isDirect: boolean = false): Promise<boolean> {
-    const connection = this.peerManager.getConnection(peerId);
-    
-    if (!connection || !connection.dataChannel || connection.dataChannel.readyState !== 'open') {
-      console.log(`Cannot send message to peer ${peerId}: no open data channel`);
-      return false;
-    }
+  private setupPeerManagerListeners(): void {
+    // Listen for data channel messages from PeerManager
+    this.peerManager.onDataChannelMessage = (message: string, peerId: string) => {
+        console.log(`MessageHandler received raw message string from PeerManager for ${peerId}`);
+        // Pass the raw string message directly to the callback set by WebRTCManager
+        // WebRTCManager's callback is now responsible for parsing and decryption.
+        if (this.onMessageCallback) {
+            try {
+                 // Forward the raw string data. WebRTCManager will handle parsing/decryption.
+                 this.onMessageCallback(message, peerId);
+            } catch (e) {
+                 console.error(`Error in onMessageCallback for peer ${peerId}:`, e);
+            }
 
-    try {
-      let messageToSend = message;
-      
-      if (isDirect) {
-        // Use E2EE for direct messages
-        const secureConnection = this.secureConnections.get(peerId);
-        if (!secureConnection) {
-          throw new Error(`No secure connection established with peer ${peerId}`);
+        } else {
+             console.warn(`No message callback set in MessageHandler for message from ${peerId}`);
         }
-        
-        const { encryptedContent, key, iv } = await encryptMessage(message);
-        messageToSend = JSON.stringify({
-          type: 'direct',
-          content: encryptedContent,
-          key: key,
-          iv: iv,
-          timestamp: new Date().toISOString(),
-          messageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        });
-      } else {
-        // For regular messages, just wrap with type
-        messageToSend = JSON.stringify({
-          type: 'regular',
-          content: message,
-          timestamp: new Date().toISOString(),
-          messageId: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        });
+    };
+  }
+
+  // Callback setup by WebRTCManager to receive the raw message string
+  public setupMessageCallback(callback: (message: any, peerId: string) => void): void {
+    this.onMessageCallback = callback;
+  }
+
+  // Renamed to reflect sending *encrypted* data object (already encrypted by WebRTCManager)
+  // The 'payload' here is the object like { iv: string, encryptedData: string }
+  public async sendEncryptedMessage(peerId: string, encryptedPayload: any): Promise<boolean> {
+    try {
+      const peerConnection = this.peerManager.getPeerConnection(peerId);
+      if (!peerConnection || !peerConnection.dataChannel || peerConnection.dataChannel.readyState !== 'open') {
+        console.error(`Data channel not ready or available for peer ${peerId}`);
+        return false;
       }
-      
-      console.log(`Sending ${isDirect ? 'direct' : 'regular'} message to ${peerId}`);
-      connection.dataChannel.send(messageToSend);
+
+      // Stringify the encrypted payload object before sending
+      const messageString = JSON.stringify(encryptedPayload);
+      console.log(`MessageHandler sending stringified payload to ${peerId}:`, messageString);
+      peerConnection.dataChannel.send(messageString);
       return true;
     } catch (error) {
-      console.error(`Error sending message to peer ${peerId}:`, error);
+      console.error(`Error sending message via data channel to ${peerId}:`, error);
       return false;
     }
   }
@@ -102,17 +106,13 @@ export class MessageHandler {
       // Reset retry count on successful connection
       this.messageSender.resetRetryCount(peerId);
       
-      return await this.sendMessage(peerId, message, true);
+      return await this.sendEncryptedMessage(peerId, message);
     } catch (error) {
       console.error(`Failed to send direct message to ${peerId}:`, error);
       throw error;
     }
   }
 
-  public setupMessageCallback(callback: (message: string, peerId: string) => void) {
-    return this.messageReceiver.setupMessageCallback(callback);
-  }
-  
   // Add method to retry failed message delivery
   public async retryMessage(peerId: string, message: string, isDirect: boolean = true): Promise<boolean> {
     return await this.messageRetryManager.retryMessage(peerId, message, isDirect);

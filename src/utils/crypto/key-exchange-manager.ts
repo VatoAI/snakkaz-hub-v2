@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { establishSecureConnection, generateKeyPair } from '../encryption';
+import type { JsonWebKey } from '../encryption';
 
 interface KeyExchangePayload {
   senderPublicKey: string;
@@ -12,6 +13,7 @@ export class KeyExchangeManager {
   private knownPublicKeys: Map<string, JsonWebKey> = new Map();
   private secureConnectionsCallback: ((peerId: string, secret: CryptoKey) => void) | null = null;
   private localKeyPair: { publicKey: JsonWebKey, privateKey: JsonWebKey } | null = null;
+  private keyExchangeUnsubscribe: (() => Promise<string>) | null = null;
 
   private constructor() {
   }
@@ -30,12 +32,14 @@ export class KeyExchangeManager {
 
   public setSecureConnectionCallback(callback: (peerId: string, secret: CryptoKey) => void): void {
     this.secureConnectionsCallback = callback;
+    console.log("KeyExchangeManager secure connection callback set.");
   }
 
   public async initiateKeyExchange(recipientId: string, localPublicKey: JsonWebKey): Promise<void> {
     if (!localPublicKey) {
       throw new Error("Local public key is not available for key exchange.");
     }
+    console.log(`Initiating key exchange with ${recipientId}`);
 
     const payload: KeyExchangePayload = {
       senderPublicKey: JSON.stringify(localPublicKey),
@@ -43,8 +47,9 @@ export class KeyExchangeManager {
       timestamp: Date.now()
     };
 
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-    if (!userId) throw new Error("User not authenticated for key exchange");
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error("User not authenticated for key exchange");
+    const userId = user.id;
 
     const { error } = await supabase
       .from('key_exchange')
@@ -59,13 +64,13 @@ export class KeyExchangeManager {
       console.error("Supabase key exchange insert error:", error);
       throw new Error(`Key exchange initiation failed: ${error.message}`);
     }
-    console.log(`Key exchange initiated with ${recipientId}`);
+    console.log(`Key exchange initiated successfully with ${recipientId}`);
   }
 
   public async handleIncomingKeyExchange(senderId: string, senderPublicKeyString: string): Promise<void> {
     console.log(`Handling incoming key exchange from ${senderId}`);
     if (!this.localKeyPair || !this.localKeyPair.privateKey) {
-      console.error("Cannot handle incoming key exchange: Local key pair not set.");
+      console.error("Cannot handle incoming key exchange: Local private key not set.");
       return;
     }
 
@@ -73,11 +78,11 @@ export class KeyExchangeManager {
     try {
       senderPublicKey = JSON.parse(senderPublicKeyString);
       if (!senderPublicKey || typeof senderPublicKey !== 'object' || !senderPublicKey.kty) {
-        throw new Error('Invalid public key format received.');
+        throw new Error('Invalid public key format received (parsing).');
       }
     } catch (e) {
-      console.error("Failed to parse incoming public key:", e);
-      throw new Error('Invalid public key format received.');
+      console.error("Failed to parse incoming public key string:", senderPublicKeyString, e);
+      throw new Error('Invalid public key format received (parsing error).');
     }
 
     this.knownPublicKeys.set(senderId, senderPublicKey);
@@ -86,12 +91,13 @@ export class KeyExchangeManager {
     try {
       console.log(`Attempting to establish secure connection with ${senderId}`);
       const sharedSecret = await establishSecureConnection(this.localKeyPair.privateKey, senderPublicKey);
-      console.log(`Secure connection established with ${senderId}`);
+      console.log(`Successfully derived shared secret with ${senderId}`);
 
       if (this.secureConnectionsCallback) {
         this.secureConnectionsCallback(senderId, sharedSecret);
+        console.log(`Shared secret passed back via callback for ${senderId}`);
       } else {
-        console.warn("Secure connection callback not set in KeyExchangeManager.");
+        console.warn("Secure connection callback not set in KeyExchangeManager. Secret cannot be stored.");
       }
     } catch (error) {
       console.error(`Failed to establish secure connection with ${senderId}:`, error);
@@ -99,16 +105,21 @@ export class KeyExchangeManager {
 
     const existingExchange = await this.getExistingKeyExchange(senderId);
     if (!existingExchange && this.localKeyPair.publicKey) {
-      console.log(`No existing exchange found with ${senderId}, initiating response.`);
+      console.log(`No existing exchange found with ${senderId}, initiating response key exchange.`);
       await this.initiateKeyExchange(senderId, this.localKeyPair.publicKey);
+    } else if (existingExchange) {
+      console.log(`Existing key exchange record found with ${senderId}. No response needed.`);
     } else {
-      console.log(`Existing exchange found or local public key missing for ${senderId}. No response initiated.`);
+      console.log(`Local public key missing for ${senderId}. Cannot initiate response.`);
     }
   }
 
   public async getPublicKey(userId: string): Promise<JsonWebKey | null> {
     const cachedKey = this.knownPublicKeys.get(userId);
-    if (cachedKey) return cachedKey;
+    if (cachedKey) {
+      console.log(`Returning cached public key for ${userId}`);
+      return cachedKey;
+    }
 
     console.log(`Fetching public key for ${userId} from database.`);
     const { data, error } = await supabase
@@ -120,7 +131,7 @@ export class KeyExchangeManager {
       .maybeSingle();
 
     if (error) {
-      console.error(`Error fetching public key for ${userId}:`, error);
+      console.error(`Error fetching public key for ${userId} from DB:`, error);
       return null;
     }
 
@@ -128,13 +139,13 @@ export class KeyExchangeManager {
       try {
         const publicKey = JSON.parse(data.public_key);
         if (!publicKey || typeof publicKey !== 'object' || !publicKey.kty) {
-          throw new Error('Invalid public key format in DB.');
+          throw new Error('Invalid public key format in DB (parsing).');
         }
         this.knownPublicKeys.set(userId, publicKey);
         console.log(`Successfully fetched and cached public key for ${userId}`);
         return publicKey;
       } catch(e) {
-        console.error(`Failed to parse public key from DB for ${userId}:`, e);
+        console.error(`Failed to parse public key from DB for ${userId}:`, data.public_key, e);
         return null;
       }
     } else {
@@ -143,28 +154,33 @@ export class KeyExchangeManager {
     }
   }
 
-  private async getExistingKeyExchange(userId: string): Promise<boolean> {
-    const localUserId = (await supabase.auth.getUser()).data.user?.id;
-    if (!localUserId) {
+  private async getExistingKeyExchange(recipientId: string): Promise<boolean> {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) {
       console.warn("Cannot check existing key exchange: User not authenticated.");
       return false;
     }
+    const localUserId = user.id;
 
-    const { data, error, count } = await supabase
+    const { error, count } = await supabase
       .from('key_exchange')
-      .select('id', { count: 'exact' })
+      .select('id', { count: 'exact', head: true })
       .eq('sender_id', localUserId)
-      .eq('recipient_id', userId)
-      .limit(1);
+      .eq('recipient_id', recipientId);
 
     if (error) {
-      console.error(`Failed to check existing key exchange with ${userId}:`, error);
+      console.error(`Failed to check existing key exchange with ${recipientId}:`, error);
       return false;
     }
     return (count ?? 0) > 0;
   }
 
-  public async setupKeyExchangeListener(): Promise<() => Promise<string>> {
+  public async setupKeyExchangeListener(): Promise<void> {
+    if (this.keyExchangeUnsubscribe) {
+      console.log("Key exchange listener already set up. Unsubscribing previous one.");
+      await this.keyExchangeUnsubscribe();
+    }
+
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new Error('User not authenticated for key exchange listener');
     const userId = user.id;
@@ -181,10 +197,14 @@ export class KeyExchangeManager {
           filter: `recipient_id=eq.${userId}`
         },
         async (payload) => {
-          console.log('Received key exchange payload:', payload);
+          console.log('Received raw key exchange payload:', payload);
           if (payload.new && payload.new.sender_id && payload.new.public_key) {
             const { sender_id, public_key } = payload.new as { sender_id: string; public_key: string };
-            await this.handleIncomingKeyExchange(sender_id, public_key);
+            if (sender_id !== userId) {
+              await this.handleIncomingKeyExchange(sender_id, public_key);
+            } else {
+              console.log("Ignoring own key exchange message.");
+            }
           } else {
             console.warn("Received incomplete key exchange payload:", payload);
           }
@@ -198,11 +218,24 @@ export class KeyExchangeManager {
         }
       });
 
-    return async () => {
+    this.keyExchangeUnsubscribe = async () => {
       console.log("Unsubscribing from key exchange channel.");
       const status = await channel.unsubscribe();
       console.log("Key exchange channel unsubscribe status:", status);
+      this.keyExchangeUnsubscribe = null;
       return status;
     };
+
+    console.log("Key exchange listener setup complete.");
+  }
+
+  public async cleanup(): Promise<void> {
+    if (this.keyExchangeUnsubscribe) {
+      await this.keyExchangeUnsubscribe();
+    }
+    this.knownPublicKeys.clear();
+    this.localKeyPair = null;
+    this.secureConnectionsCallback = null;
+    console.log("KeyExchangeManager cleaned up.");
   }
 } 
