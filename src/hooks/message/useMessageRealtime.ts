@@ -19,7 +19,7 @@ export const useMessageRealtime = (
     }
 
     // Subscribe to message changes
-    const subscriptionPromise = supabase.subscribeToMessages(
+    const subscription = supabase.subscribeToMessages(
       async (payload) => {
         const { eventType, new: newMessage, old: oldMessage } = payload;
 
@@ -111,11 +111,9 @@ export const useMessageRealtime = (
 
     // Return a cleanup function that will unsubscribe when called
     return () => {
-      subscriptionPromise.then(subscription => {
+      if (subscription && typeof subscription.unsubscribe === 'function') {
         subscription.unsubscribe();
-      }).catch(err => {
-        console.error("Error unsubscribing:", err);
-      });
+      }
     };
   }, [userId, receiverId, groupId, setMessages, supabase]);
 

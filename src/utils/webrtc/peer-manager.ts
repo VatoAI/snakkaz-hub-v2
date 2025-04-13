@@ -1,5 +1,6 @@
 
-import { PeerConnection, SignalPayload, SimplePeerConnection } from './types';
+import { PeerConnection } from './peer-connection';
+import { SignalPayload } from './types';
 import { SignalingService } from './signaling';
 import { RTCConfig } from './rtc-config';
 import { DataChannelHandler } from './data-channel-handler';
@@ -49,6 +50,10 @@ export class PeerManager {
     return PeerManager.instance;
   }
 
+  public getUserId(): string {
+    return this.userId;
+  }
+
   public setMessageCallback(callback: (message: string, peerId: string) => void) {
     this.messageCallback = callback;
     this.dataChannelHandler.setMessageCallback(callback);
@@ -57,21 +62,8 @@ export class PeerManager {
   private createPeerConnection(peerId: string): PeerConnection {
     const peerConnection = new RTCPeerConnection(RTCConfig);
     
-    // Create a PeerConnection object that implements the PeerConnection interface
-    const connection: PeerConnection = {
-      connection: peerConnection,
-      dataChannel: null,
-      peerId,
-      close: () => {
-        if (connection.dataChannel) {
-          connection.dataChannel.close();
-        }
-        connection.connection.close();
-      },
-      setDataChannel: (channel) => {
-        connection.dataChannel = channel;
-      }
-    };
+    // Create a PeerConnection object
+    const connection = new PeerConnection(peerConnection, peerId);
     
     peerConnection.onicecandidate = async (event) => {
       if (event.candidate) {
@@ -231,38 +223,6 @@ export class PeerManager {
     } catch (error) {
       console.error('Error handling ICE candidate:', error);
       throw error;
-    }
-  }
-
-  public async establishSecureConnection(
-    peerId: string,
-    remotePublicKey: CryptoKey,
-    localKeyPair: CryptoKeyPair
-  ): Promise<CryptoKey | null> {
-    try {
-      // Derive shared secret using ECDH
-      const sharedSecret = await crypto.subtle.deriveBits(
-        {
-          name: 'ECDH',
-          public: remotePublicKey
-        },
-        localKeyPair.privateKey,
-        256
-      );
-
-      // Convert shared secret to AES key
-      const sharedKey = await crypto.subtle.importKey(
-        'raw',
-        sharedSecret,
-        { name: 'AES-GCM', length: 256 },
-        true,
-        ['encrypt', 'decrypt']
-      );
-
-      return sharedKey;
-    } catch (error) {
-      console.error('Error establishing secure connection:', error);
-      return null;
     }
   }
 

@@ -1,7 +1,9 @@
+
 import { PeerManager } from './peer-manager';
 import { MessageSender } from './message-sender';
 import { MessageReceiver } from './message-receiver';
 import { MessageRetryManager } from './message-retry';
+import { encryptMessage } from '../encryption';
 
 export class MessageHandler {
   private messageSender: MessageSender;

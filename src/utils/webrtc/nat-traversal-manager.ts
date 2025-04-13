@@ -1,3 +1,4 @@
+
 export class NATTraversalManager {
   private stunServers: string[];
 
@@ -13,7 +14,8 @@ export class NATTraversalManager {
       // Create a dummy data channel (optional, but helps trigger ICE candidate gathering)
       pc.createDataChannel('dummy');
 
-      return await new Promise<"direct" | "relay" | "unknown">((resolve) => {
+      // Return a promise that resolves with the connection type
+      return new Promise<"direct" | "relay" | "unknown">((resolve) => {
         pc.onicecandidate = (event) => {
           if (event.candidate) {
             const candidateStr = event.candidate.candidate;

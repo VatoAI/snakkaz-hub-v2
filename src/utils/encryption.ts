@@ -1,3 +1,4 @@
+
 export const encryptMessage = async (plaintext: string): Promise<{ encryptedContent: string, key: string, iv: string }> => {
   try {
     // Generate a random encryption key and IV for this message
@@ -76,6 +77,90 @@ export const decryptMessage = async (encryptedContent: string, keyString: string
     return decoder.decode(decryptedBuffer);
   } catch (error) {
     console.error('Decryption error:', error);
+    throw error;
+  }
+};
+
+// Add generateKeyPair function for WebRTC
+export const generateKeyPair = async (): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> => {
+  try {
+    // Generate ECDH key pair
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: 'ECDH',
+        namedCurve: 'P-256'
+      },
+      true, // extractable
+      ['deriveKey', 'deriveBits'] // can be used for these operations
+    );
+
+    // Export keys to JWK format for transmission
+    const publicKey = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+    const privateKey = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
+
+    return { publicKey, privateKey };
+  } catch (error) {
+    console.error('Error generating key pair:', error);
+    throw error;
+  }
+};
+
+// Add establishSecureConnection function for WebRTC
+export const establishSecureConnection = async (
+  localPublicKey: JsonWebKey,
+  localPrivateKey: JsonWebKey,
+  remotePublicKey: JsonWebKey
+): Promise<CryptoKey> => {
+  try {
+    // Import the local private key
+    const privateKey = await crypto.subtle.importKey(
+      'jwk',
+      localPrivateKey,
+      {
+        name: 'ECDH',
+        namedCurve: 'P-256'
+      },
+      false, // not extractable
+      ['deriveKey', 'deriveBits'] // can be used for these operations
+    );
+
+    // Import the remote public key
+    const publicKey = await crypto.subtle.importKey(
+      'jwk',
+      remotePublicKey,
+      {
+        name: 'ECDH',
+        namedCurve: 'P-256'
+      },
+      true, // extractable
+      [] // public key doesn't need operations specified
+    );
+
+    // Derive shared bits using ECDH
+    const sharedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'ECDH',
+        public: publicKey
+      },
+      privateKey,
+      256 // number of bits to derive
+    );
+
+    // Convert the shared bits to an AES-GCM key
+    const sharedKey = await crypto.subtle.importKey(
+      'raw',
+      sharedBits,
+      {
+        name: 'AES-GCM',
+        length: 256
+      },
+      false, // not extractable
+      ['encrypt', 'decrypt'] // operations this key can perform
+    );
+
+    return sharedKey;
+  } catch (error) {
+    console.error('Error establishing secure connection:', error);
     throw error;
   }
 };

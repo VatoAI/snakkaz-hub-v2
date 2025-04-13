@@ -1,5 +1,6 @@
+
 import { useState } from 'react';
-import { SupabaseService } from '@/services/supabase.service';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -34,7 +35,11 @@ export function MigrationRunner() {
         EXECUTE FUNCTION clean_stale_presence();
       `;
 
-      await SupabaseService.executeSQL(sql);
+      // Use direct Supabase client call instead of executeSQL
+      const { error } = await supabase.rpc('exec_sql', { sql });
+      
+      if (error) throw error;
+      
       toast.success('Migration completed successfully');
     } catch (error) {
       console.error('Migration failed:', error);

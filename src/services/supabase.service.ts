@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseClient } from '@supabase/supabase-js';
 
@@ -73,6 +74,7 @@ export class SupabaseService {
         .limit(limit || 50);
       
       if (receiverId) {
+        // Use proper filter builder methods for complex conditions
         query = query.or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
         query = query.or(`sender_id.eq.${receiverId},receiver_id.eq.${receiverId}`);
       } else if (groupId) {
@@ -96,36 +98,41 @@ export class SupabaseService {
   
   public subscribeToMessages(
     callback: (payload: any) => void,
-    { userId, receiverId, groupId }: { userId?: string; receiverId?: string; groupId?: string }
+    filters: { userId?: string; receiverId?: string; groupId?: string }
   ) {
-    let channel = this.supabase
+    const channel = this.supabase
       .channel('public:messages')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
-          if (userId && receiverId) {
+          const newData = payload.new as any;
+          const oldData = payload.old as any;
+          
+          // Only send messages that match our filters
+          if (filters.userId && filters.receiverId) {
             if (
-              (payload.new.sender_id === userId && payload.new.receiver_id === receiverId) ||
-              (payload.new.sender_id === receiverId && payload.new.receiver_id === userId)
+              (newData?.sender_id === filters.userId && newData?.receiver_id === filters.receiverId) ||
+              (newData?.sender_id === filters.receiverId && newData?.receiver_id === filters.userId)
             ) {
               callback(payload);
             }
-          } else if (userId && !receiverId) {
-            if (payload.new.group_id === null) {
+          } else if (filters.userId && !filters.receiverId) {
+            if (newData?.group_id === null) {
               callback(payload);
             }
-          } else if (groupId) {
-            if (payload.new.group_id === groupId) {
+          } else if (filters.groupId) {
+            if (newData?.group_id === filters.groupId) {
               callback(payload);
             }
           } else {
             callback(payload);
           }
         }
-      );
+      )
+      .subscribe();
     
-    return channel.subscribe();
+    return channel;
   }
   
   public async uploadMedia(file: File, folder: string): Promise<string | null> {
@@ -151,7 +158,6 @@ export class SupabaseService {
     }
   }
 
-  // Fix the message sending method
   public async sendMessage({ 
     content, 
     senderId, 
@@ -176,23 +182,25 @@ export class SupabaseService {
     mediaType?: string | null; 
   }) {
     try {
-      // Convert groupId from string to correct type for database
-      // Database expects boolean or null, not string
+      // Handle groupId value properly to match the database schema
       const dbGroupId = groupId ? true : null;
       
+      // Create the insert object with proper types
+      const insertData = {
+        encrypted_content: encryptedContent,
+        encryption_key: encryptionKey,
+        iv: iv,
+        sender_id: senderId,
+        receiver_id: receiverId || null,
+        ephemeral_ttl: ttl || null,
+        media_url: mediaUrl || null,
+        media_type: mediaType || null,
+        group_id: dbGroupId
+      };
+
       const { error } = await this.supabase
         .from('messages')
-        .insert({
-          encrypted_content: encryptedContent,
-          encryption_key: encryptionKey,
-          iv: iv,
-          sender_id: senderId,
-          receiver_id: receiverId,
-          ephemeral_ttl: ttl,
-          media_url: mediaUrl,
-          media_type: mediaType,
-          group_id: dbGroupId
-        });
+        .insert(insertData);
       
       if (error) {
         throw error;

@@ -1,3 +1,4 @@
+
 import { PeerManager } from './peer-manager';
 import { PeerConnection } from './peer-connection';
 import { RTCConfig } from './rtc-config';
@@ -12,7 +13,11 @@ export class ConnectionManager {
     private secureConnections: Map<string, CryptoKey>,
     private localKeyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey } | null
   ) {
-    this.signalingService = new SignalingService(peerManager.getUserId());
+    if (peerManager) {
+      this.signalingService = new SignalingService(peerManager.getUserId());
+    } else {
+      this.signalingService = new SignalingService('unknown');
+    }
   }
 
   public async connectToPeer(peerId: string, peerPublicKey: JsonWebKey): Promise<PeerConnection | null> {
@@ -112,66 +117,12 @@ export class ConnectionManager {
     }
   }
 
-  public async createSecureConnection(peerId: string, remotePublicKey: JsonWebKey): Promise<CryptoKey | null> {
-    if (!this.localKeyPair) {
-      console.error('No local key pair available for secure connection');
-      return null;
-    }
-    
+  public async attemptReconnect(peerId: string, publicKey: JsonWebKey): Promise<boolean> {
     try {
-      // Import the remote public key
-      const importedPublicKey = await crypto.subtle.importKey(
-        'jwk',
-        remotePublicKey,
-        {
-          name: 'ECDH',
-          namedCurve: 'P-256'
-        },
-        true,
-        []
-      );
-      
-      // Import the local private key
-      const importedPrivateKey = await crypto.subtle.importKey(
-        'jwk',
-        this.localKeyPair.privateKey,
-        {
-          name: 'ECDH',
-          namedCurve: 'P-256'
-        },
-        true,
-        ['deriveKey', 'deriveBits']
-      );
-      
-      // Derive a shared secret using ECDH
-      const sharedSecret = await crypto.subtle.deriveBits(
-        {
-          name: 'ECDH',
-          public: importedPublicKey
-        },
-        importedPrivateKey,
-        256
-      );
-      
-      // Convert the shared secret to an AES key
-      const sharedKey = await crypto.subtle.importKey(
-        'raw',
-        sharedSecret,
-        {
-          name: 'AES-GCM',
-          length: 256
-        },
-        true,
-        ['encrypt', 'decrypt']
-      );
-      
-      // Store the secure connection
-      this.secureConnections.set(peerId, sharedKey);
-      
-      return sharedKey;
+      return await this.reconnect(peerId);
     } catch (error) {
-      console.error(`Error creating secure connection with peer ${peerId}:`, error);
-      return null;
+      console.error(`Error attempting reconnect to peer ${peerId}:`, error);
+      return false;
     }
   }
 }
