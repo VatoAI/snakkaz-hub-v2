@@ -1,116 +1,166 @@
-export async function generateKeyPair(): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> {
+
+export const encryptMessage = async (plaintext: string): Promise<{ encryptedContent: string, key: string, iv: string }> => {
   try {
+    // Generate a random encryption key and IV for this message
+    const key = await crypto.subtle.generateKey(
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt', 'decrypt']
+    );
+    
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    // Encode the message as UTF-8
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plaintext);
+    
+    // Encrypt the message
+    const encryptedBuffer = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      data
+    );
+    
+    // Convert encrypted data to base64 string
+    const encryptedContent = btoa(String.fromCharCode(...new Uint8Array(encryptedBuffer)));
+    
+    // Export the key to JWK format
+    const exportedKey = await crypto.subtle.exportKey('jwk', key);
+    
+    // Convert key to string and IV to base64 string
+    return {
+      encryptedContent,
+      key: JSON.stringify(exportedKey),
+      iv: btoa(String.fromCharCode(...iv))
+    };
+  } catch (error) {
+    console.error('Encryption error:', error);
+    throw error;
+  }
+};
+
+export const decryptMessage = async (encryptedContent: string, keyString: string): Promise<string> => {
+  try {
+    if (!encryptedContent || !keyString) {
+      throw new Error('Missing encrypted content or key');
+    }
+    
+    // Parse the key from string to JWK
+    const keyData = JSON.parse(keyString);
+    
+    // Import the key
+    const key = await crypto.subtle.importKey(
+      'jwk',
+      keyData,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['decrypt']
+    );
+    
+    // Get IV from the message (assuming it's stored with the message)
+    const iv = new Uint8Array(Array.from(atob(keyData.iv || ''), c => c.charCodeAt(0)));
+    
+    // Convert base64 encrypted content to ArrayBuffer
+    const encryptedBuffer = new Uint8Array(
+      Array.from(atob(encryptedContent), c => c.charCodeAt(0))
+    ).buffer;
+    
+    // Decrypt the message
+    const decryptedBuffer = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      encryptedBuffer
+    );
+    
+    // Decode the decrypted message
+    const decoder = new TextDecoder();
+    return decoder.decode(decryptedBuffer);
+  } catch (error) {
+    console.error('Decryption error:', error);
+    throw error;
+  }
+};
+
+// Add generateKeyPair function for WebRTC
+export const generateKeyPair = async (): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> => {
+  try {
+    // Generate ECDH key pair
     const keyPair = await crypto.subtle.generateKey(
       {
         name: 'ECDH',
         namedCurve: 'P-256'
       },
-      true,
-      ['deriveKey', 'deriveBits']
+      true, // extractable
+      ['deriveKey', 'deriveBits'] // can be used for these operations
     );
 
-    const [publicKey, privateKey] = await Promise.all([
-      crypto.subtle.exportKey('jwk', keyPair.publicKey),
-      crypto.subtle.exportKey('jwk', keyPair.privateKey)
-    ]);
+    // Export keys to JWK format for transmission
+    const publicKey = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+    const privateKey = await crypto.subtle.exportKey('jwk', keyPair.privateKey);
 
     return { publicKey, privateKey };
   } catch (error) {
     console.error('Error generating key pair:', error);
     throw error;
   }
-}
+};
 
-export async function encryptMessage(message: string, key: CryptoKey): Promise<string> {
-  try {
-    const encoder = new TextEncoder();
-    const encodedMessage = encoder.encode(message);
-    
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encryptedContent = await crypto.subtle.encrypt(
-      {
-        name: 'AES-GCM',
-        iv: iv
-      },
-      key,
-      encodedMessage
-    );
-
-    const encryptedArray = new Uint8Array(encryptedContent);
-    const result = new Uint8Array(iv.length + encryptedArray.length);
-    result.set(iv);
-    result.set(encryptedArray, iv.length);
-
-    return btoa(String.fromCharCode(...result));
-  } catch (error) {
-    console.error('Error encrypting message:', error);
-    throw error;
-  }
-}
-
-export async function decryptMessage(encryptedMessage: string, key: CryptoKey): Promise<string> {
-  try {
-    const encryptedArray = Uint8Array.from(atob(encryptedMessage), c => c.charCodeAt(0));
-    const iv = encryptedArray.slice(0, 12);
-    const encryptedContent = encryptedArray.slice(12);
-
-    const decryptedContent = await crypto.subtle.decrypt(
-      {
-        name: 'AES-GCM',
-        iv: iv
-      },
-      key,
-      encryptedContent
-    );
-
-    const decoder = new TextDecoder();
-    return decoder.decode(decryptedContent);
-  } catch (error) {
-    console.error('Error decrypting message:', error);
-    throw error;
-  }
-}
-
-export async function establishSecureConnection(
+// Add establishSecureConnection function for WebRTC
+export const establishSecureConnection = async (
   localPublicKey: JsonWebKey,
   localPrivateKey: JsonWebKey,
-  peerPublicKey: JsonWebKey
-): Promise<CryptoKey> {
+  remotePublicKey: JsonWebKey
+): Promise<CryptoKey> => {
   try {
-    const [localPrivate, peerPublic] = await Promise.all([
-      crypto.subtle.importKey(
-        'jwk',
-        localPrivateKey,
-        { name: 'ECDH', namedCurve: 'P-256' },
-        false,
-        ['deriveKey']
-      ),
-      crypto.subtle.importKey(
-        'jwk',
-        peerPublicKey,
-        { name: 'ECDH', namedCurve: 'P-256' },
-        false,
-        []
-      )
-    ]);
-
-    const derivedKey = await crypto.subtle.deriveKey(
+    // Import the local private key
+    const privateKey = await crypto.subtle.importKey(
+      'jwk',
+      localPrivateKey,
       {
         name: 'ECDH',
-        public: peerPublic
+        namedCurve: 'P-256'
       },
-      localPrivate,
+      false, // not extractable
+      ['deriveKey', 'deriveBits'] // can be used for these operations
+    );
+
+    // Import the remote public key
+    const publicKey = await crypto.subtle.importKey(
+      'jwk',
+      remotePublicKey,
+      {
+        name: 'ECDH',
+        namedCurve: 'P-256'
+      },
+      true, // extractable
+      [] // public key doesn't need operations specified
+    );
+
+    // Derive shared bits using ECDH
+    const sharedBits = await crypto.subtle.deriveBits(
+      {
+        name: 'ECDH',
+        public: publicKey
+      },
+      privateKey,
+      256 // number of bits to derive
+    );
+
+    // Convert the shared bits to an AES-GCM key
+    const sharedKey = await crypto.subtle.importKey(
+      'raw',
+      sharedBits,
       {
         name: 'AES-GCM',
         length: 256
       },
-      false,
-      ['encrypt', 'decrypt']
+      false, // not extractable
+      ['encrypt', 'decrypt'] // operations this key can perform
     );
 
-    return derivedKey;
+    return sharedKey;
   } catch (error) {
     console.error('Error establishing secure connection:', error);
     throw error;
   }
-} 
+};

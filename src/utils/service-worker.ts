@@ -1,3 +1,4 @@
+
 // Service Worker Configuration
 export const registerServiceWorker = async () => {
   if ('serviceWorker' in navigator) {
@@ -20,58 +21,15 @@ export const registerServiceWorker = async () => {
           });
         }
       });
+
+      return registration;
     } catch (error) {
       console.error('Service Worker registration failed:', error);
+      return null;
     }
   }
+  return null;
 };
-
-// Analytics blocking
-export const blockAnalytics = () => {
-  if (process.env.NEXT_PUBLIC_ANALYTICS_ENABLED === 'false') {
-    // Block Cloudflare Insights
-    const script = document.createElement('script');
-    script.textContent = `
-      window.addEventListener('load', function() {
-        const observer = new MutationObserver(function(mutations) {
-          mutations.forEach(function(mutation) {
-            if (mutation.addedNodes) {
-              mutation.addedNodes.forEach(function(node) {
-                if (node.nodeName === 'SCRIPT' && 
-                    node.src && 
-                    node.src.includes('cloudflareinsights.com')) {
-                  node.remove();
-                }
-              });
-            }
-          });
-        });
-        
-        observer.observe(document.documentElement, {
-          childList: true,
-          subtree: true
-        });
-      });
-    `;
-    document.head.appendChild(script);
-  }
-};
-
-function updateMetaTags() {
-  if (typeof document !== 'undefined') {
-    // Remove deprecated meta tag
-    const deprecatedMeta = document.querySelector('meta[name="apple-mobile-web-app-capable"]');
-    if (deprecatedMeta) {
-      deprecatedMeta.remove();
-    }
-
-    // Add modern meta tag
-    const metaTag = document.createElement('meta');
-    metaTag.name = 'mobile-web-app-capable';
-    metaTag.content = 'yes';
-    document.head.appendChild(metaTag);
-  }
-}
 
 // Handle service worker updates
 export function handleServiceWorkerUpdate(registration: ServiceWorkerRegistration) {
@@ -86,4 +44,4 @@ export function handleServiceWorkerUpdate(registration: ServiceWorkerRegistratio
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     window.location.reload();
   });
-} 
+}

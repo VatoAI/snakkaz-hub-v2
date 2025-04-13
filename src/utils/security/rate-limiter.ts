@@ -1,69 +1,78 @@
-export class RateLimiter {
-  private static readonly WINDOW_SIZE = 1000 * 60; // 1 minute
-  private static readonly MAX_ATTEMPTS = 5;
-  private attempts: Map<string, Array<number>> = new Map();
-  private blockedIPs: Map<string, number> = new Map();
-  private static readonly BLOCK_DURATION = 1000 * 60 * 15; // 15 minutes
 
-  public isAllowed(peerId: string): boolean {
+interface RateLimitInfo {
+  count: number;
+  firstRequestTime: number;
+  blockedUntil: number | null;
+}
+
+export class RateLimiter {
+  private rateLimitStore: Map<string, RateLimitInfo> = new Map();
+  private readonly MAX_REQUESTS = 10;
+  private readonly TIME_WINDOW = 1000 * 60; // 1 minute in milliseconds
+  private readonly BLOCK_DURATION = 1000 * 60 * 2; // 2 minutes in milliseconds
+
+  constructor() {}
+
+  public isAllowed(identifier: string): boolean {
     const now = Date.now();
-    const attempts = this.attempts.get(peerId) || [];
+    let info = this.rateLimitStore.get(identifier);
     
-    // Clean up old attempts
-    const recentAttempts = attempts.filter(time => now - time < RateLimiter.WINDOW_SIZE);
+    // If no entry exists, create a new one
+    if (!info) {
+      this.rateLimitStore.set(identifier, {
+        count: 1,
+        firstRequestTime: now,
+        blockedUntil: null
+      });
+      return true;
+    }
     
-    // Check if IP is blocked
-    const blockedUntil = this.blockedIPs.get(peerId);
-    if (blockedUntil && now < blockedUntil) {
+    // Check if currently blocked
+    if (info.blockedUntil !== null) {
+      if (now < info.blockedUntil) {
+        return false;
+      } else {
+        // Reset if block period is over
+        info = {
+          count: 1,
+          firstRequestTime: now,
+          blockedUntil: null
+        };
+        this.rateLimitStore.set(identifier, info);
+        return true;
+      }
+    }
+    
+    // Check if time window has passed
+    if (now - info.firstRequestTime > this.TIME_WINDOW) {
+      // Reset counter for new time window
+      info = {
+        count: 1,
+        firstRequestTime: now,
+        blockedUntil: null
+      };
+      this.rateLimitStore.set(identifier, info);
+      return true;
+    }
+    
+    // Increment counter and check if limit is exceeded
+    info.count += 1;
+    if (info.count > this.MAX_REQUESTS) {
+      info.blockedUntil = now + this.BLOCK_DURATION;
+      this.rateLimitStore.set(identifier, info);
       return false;
     }
     
-    // Check if attempts exceed limit
-    if (recentAttempts.length >= RateLimiter.MAX_ATTEMPTS) {
-      this.blockedIPs.set(peerId, now + RateLimiter.BLOCK_DURATION);
-      return false;
-    }
-    
-    // Add new attempt
-    recentAttempts.push(now);
-    this.attempts.set(peerId, recentAttempts);
+    this.rateLimitStore.set(identifier, info);
     return true;
   }
 
-  public getRemainingAttempts(peerId: string): number {
-    const now = Date.now();
-    const attempts = this.attempts.get(peerId) || [];
-    const recentAttempts = attempts.filter(time => now - time < RateLimiter.WINDOW_SIZE);
-    return Math.max(0, RateLimiter.MAX_ATTEMPTS - recentAttempts.length);
+  public getBlockedUntil(identifier: string): number | null {
+    const info = this.rateLimitStore.get(identifier);
+    return info?.blockedUntil || null;
   }
 
-  public getBlockedUntil(peerId: string): number | null {
-    return this.blockedIPs.get(peerId) || null;
+  public reset(identifier: string): void {
+    this.rateLimitStore.delete(identifier);
   }
-
-  public reset(peerId: string) {
-    this.attempts.delete(peerId);
-    this.blockedIPs.delete(peerId);
-  }
-
-  public cleanup() {
-    const now = Date.now();
-    
-    // Clean up old attempts
-    for (const [peerId, attempts] of this.attempts.entries()) {
-      const recentAttempts = attempts.filter(time => now - time < RateLimiter.WINDOW_SIZE);
-      if (recentAttempts.length === 0) {
-        this.attempts.delete(peerId);
-      } else {
-        this.attempts.set(peerId, recentAttempts);
-      }
-    }
-    
-    // Clean up expired blocks
-    for (const [peerId, blockedUntil] of this.blockedIPs.entries()) {
-      if (now >= blockedUntil) {
-        this.blockedIPs.delete(peerId);
-      }
-    }
-  }
-} 
+}

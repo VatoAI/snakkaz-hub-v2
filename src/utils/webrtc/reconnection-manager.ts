@@ -12,7 +12,7 @@ export class ReconnectionManager {
     private minReconnectInterval: number = 10000 // 10 seconds minimum between attempts
   ) {}
 
-  public async attemptReconnect(peerId: string, publicKey: JsonWebKey): Promise<any> {
+  public async attemptReconnect(peerId: string, publicKey: JsonWebKey): Promise<boolean> {
     // Check if we've attempted reconnect too recently
     const now = Date.now();
     const lastTime = this.lastReconnectTime.get(peerId) || 0;
@@ -20,14 +20,14 @@ export class ReconnectionManager {
 
     if (timeSinceLastAttempt < this.minReconnectInterval) {
       console.log(`Reconnection attempt to ${peerId} rejected: too soon since last attempt (${timeSinceLastAttempt}ms)`);
-      return Promise.resolve(false); // Don't attempt reconnect too frequently
+      return false; // Don't attempt reconnect too frequently
     }
 
     const attempts = this.reconnectAttempts.get(peerId) || 0;
     
     if (attempts >= this.maxReconnectAttempts) {
       console.log(`Max reconnection attempts (${this.maxReconnectAttempts}) reached for peer ${peerId}`);
-      return Promise.reject(new Error(`Max reconnection attempts reached for peer ${peerId}`));
+      throw new Error(`Max reconnection attempts reached for peer ${peerId}`);
     }
     
     // Clear any existing reconnect timer for this peer

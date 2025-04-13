@@ -1,75 +1,73 @@
-import { generateKeyPair } from './key-management';
-import { EncryptedMessage } from './types';
+
+import { generateKeyPair } from '../encryption';
+
+interface KeyPairWithTimestamp {
+  keyPair: { publicKey: JsonWebKey; privateKey: JsonWebKey };
+  timestamp: number;
+}
 
 export class PFSManager {
-  private static readonly KEY_ROTATION_INTERVAL = 1000 * 60 * 60; // 1 hour
-  private static readonly MAX_KEYS_PER_PEER = 5;
-  private keyPairs: Map<string, Array<{ publicKey: JsonWebKey; privateKey: JsonWebKey; timestamp: number }>> = new Map();
-  private rotationTimers: Map<string, NodeJS.Timeout> = new Map();
+  private keyPairStore: Map<string, KeyPairWithTimestamp[]> = new Map();
+  private readonly MAX_STORED_KEYS = 5;
+  private readonly KEY_ROTATION_INTERVAL = 1000 * 60 * 60; // 1 hour in milliseconds
 
-  constructor() {
-    this.initializeKeyRotation();
-  }
-
-  private initializeKeyRotation() {
-    // Clean up old keys periodically
-    setInterval(() => {
-      this.cleanupOldKeys();
-    }, PFSManager.KEY_ROTATION_INTERVAL);
-  }
+  constructor() {}
 
   public async getCurrentKeyPair(peerId: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> {
-    const peerKeys = this.keyPairs.get(peerId);
-    if (!peerKeys || peerKeys.length === 0) {
-      const newKeyPair = await generateKeyPair();
-      this.keyPairs.set(peerId, [{ ...newKeyPair, timestamp: Date.now() }]);
-      return newKeyPair;
+    let keyPairs = this.keyPairStore.get(peerId);
+    
+    if (!keyPairs || keyPairs.length === 0) {
+      const newKeyPair = await this.generateAndStoreKeyPair(peerId);
+      return newKeyPair.keyPair;
     }
-    return peerKeys[peerKeys.length - 1];
+    
+    // Return the most recent key pair
+    return keyPairs[keyPairs.length - 1].keyPair;
   }
 
-  public async rotateKeys(peerId: string): Promise<{ publicKey: JsonWebKey; privateKey: JsonWebKey }> {
-    const newKeyPair = await generateKeyPair();
-    const peerKeys = this.keyPairs.get(peerId) || [];
+  private async generateAndStoreKeyPair(peerId: string): Promise<KeyPairWithTimestamp> {
+    const keyPair = await generateKeyPair();
+    const keyPairWithTimestamp: KeyPairWithTimestamp = {
+      keyPair,
+      timestamp: Date.now()
+    };
+    
+    let keyPairs = this.keyPairStore.get(peerId) || [];
     
     // Add new key pair
-    peerKeys.push({ ...newKeyPair, timestamp: Date.now() });
+    keyPairs.push(keyPairWithTimestamp);
     
-    // Remove oldest key if we exceed the maximum
-    if (peerKeys.length > PFSManager.MAX_KEYS_PER_PEER) {
-      peerKeys.shift();
+    // Limit number of stored key pairs
+    if (keyPairs.length > this.MAX_STORED_KEYS) {
+      keyPairs = keyPairs.slice(-this.MAX_STORED_KEYS);
     }
     
-    this.keyPairs.set(peerId, peerKeys);
-    return newKeyPair;
+    this.keyPairStore.set(peerId, keyPairs);
+    
+    return keyPairWithTimestamp;
   }
 
-  private cleanupOldKeys() {
-    const now = Date.now();
-    for (const [peerId, keys] of this.keyPairs.entries()) {
-      const validKeys = keys.filter(key => 
-        now - key.timestamp < PFSManager.KEY_ROTATION_INTERVAL
-      );
-      if (validKeys.length === 0) {
-        this.keyPairs.delete(peerId);
-      } else {
-        this.keyPairs.set(peerId, validKeys);
-      }
+  public async rotateKeys(peerId: string): Promise<void> {
+    const keyPairs = this.keyPairStore.get(peerId);
+    
+    if (!keyPairs || keyPairs.length === 0) {
+      await this.generateAndStoreKeyPair(peerId);
+      return;
+    }
+    
+    const latestKeyPair = keyPairs[keyPairs.length - 1];
+    const timeSinceLastRotation = Date.now() - latestKeyPair.timestamp;
+    
+    if (timeSinceLastRotation > this.KEY_ROTATION_INTERVAL) {
+      await this.generateAndStoreKeyPair(peerId);
     }
   }
 
-  public getKeyHistory(peerId: string): Array<{ publicKey: JsonWebKey; timestamp: number }> {
-    const keys = this.keyPairs.get(peerId);
-    if (!keys) return [];
-    return keys.map(({ publicKey, timestamp }) => ({ publicKey, timestamp }));
+  public getKeyHistory(peerId: string): KeyPairWithTimestamp[] {
+    return this.keyPairStore.get(peerId) || [];
   }
 
-  public clearKeys(peerId: string) {
-    this.keyPairs.delete(peerId);
-    const timer = this.rotationTimers.get(peerId);
-    if (timer) {
-      clearInterval(timer);
-      this.rotationTimers.delete(peerId);
-    }
+  public clearKeys(peerId: string): void {
+    this.keyPairStore.delete(peerId);
   }
-} 
+}

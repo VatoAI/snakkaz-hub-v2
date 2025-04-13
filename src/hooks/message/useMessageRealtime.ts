@@ -1,3 +1,4 @@
+
 import { useCallback } from "react";
 import { SupabaseService } from "@/services/supabase.service";
 import { decryptMessage } from "@/utils/encryption";
@@ -14,7 +15,7 @@ export const useMessageRealtime = (
   const setupRealtimeSubscription = useCallback(() => {
     if (!userId) {
       console.log("Bruker ikke pålogget");
-      return;
+      return () => {};
     }
 
     // Subscribe to message changes
@@ -34,8 +35,7 @@ export const useMessageRealtime = (
 
             const content = await decryptMessage(
               newMessage.encrypted_content,
-              newMessage.encryption_key,
-              newMessage.iv
+              newMessage.encryption_key
             );
 
             const decryptedMessage: DecryptedMessage = {
@@ -67,12 +67,11 @@ export const useMessageRealtime = (
             prevMessages.map(msg => {
               if (msg.id === newMessage.id) {
                 // If the content was updated, decrypt it
-                if (newMessage.encrypted_content && newMessage.encryption_key && newMessage.iv) {
+                if (newMessage.encrypted_content && newMessage.encryption_key) {
                   // Use a promise to update the message content
                   decryptMessage(
                     newMessage.encrypted_content,
-                    newMessage.encryption_key,
-                    newMessage.iv
+                    newMessage.encryption_key
                   ).then(content => {
                     setMessages(prev => 
                       prev.map(m => 
@@ -110,9 +109,11 @@ export const useMessageRealtime = (
       }
     );
 
-    // Cleanup function
+    // Return a cleanup function that will unsubscribe when called
     return () => {
-      subscription.unsubscribe();
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
+      }
     };
   }, [userId, receiverId, groupId, setMessages, supabase]);
 

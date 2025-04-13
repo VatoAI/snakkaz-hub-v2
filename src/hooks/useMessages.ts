@@ -2,11 +2,11 @@
 import { useMessageState } from "./message/useMessageState";
 import { useMessageFetch } from "./message/useMessageFetch";
 import { useMessageRealtime } from "./message/useMessageRealtime";
-import { useMessageSend } from "./message/useMessageSend";
 import { useMessageP2P } from "./message/useMessageP2P";
 import { useMessageExpiry } from "./message/useMessageExpiry";
 import { useMessageActions } from "./message/useMessageActions";
 import { DecryptedMessage } from "@/types/message";
+import { useMessageSend } from "./useMessageSend";
 
 export const useMessages = (userId: string | null, receiverId?: string, groupId?: string) => {
   const {
@@ -27,8 +27,8 @@ export const useMessages = (userId: string | null, receiverId?: string, groupId?
   // Setup realtime subscription
   const { setupRealtimeSubscription } = useMessageRealtime(userId, setMessages, receiverId, groupId);
   
-  // Message sending, editing, and deleting
-  const { handleSendMessage, handleEditMessage, handleDeleteMessage } = useMessageSend(
+  // Message sending
+  const { handleSendMessage } = useMessageSend(
     userId, newMessage, setNewMessage, ttl, setIsLoading, toast
   );
   
@@ -45,8 +45,8 @@ export const useMessages = (userId: string | null, receiverId?: string, groupId?
     handleCancelEditMessage,
     handleSubmitEditMessage,
     handleDeleteMessageById
-  } = useMessageActions(userId, handleEditMessage, handleDeleteMessage);
-
+  } = useMessageActions(userId, null, null); // Pass null for now since we don't have edit/delete functions
+  
   // Handle message submission (new or edit)
   const handleSubmitMessage = async (webRTCManager: any, onlineUsers: Set<string>, mediaFile?: File) => {
     if (editingMessage) {

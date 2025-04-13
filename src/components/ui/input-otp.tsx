@@ -1,5 +1,6 @@
+
 import * as React from "react"
-import { OTPInput, OTPInputContext } from "input-otp"
+import { OTPInput } from "input-otp"
 import { Dot } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -32,21 +33,30 @@ const InputOTPSlot = React.forwardRef<
   React.ElementRef<"div">,
   React.ComponentPropsWithoutRef<"div"> & { index: number }
 >(({ index, className, ...props }, ref) => {
-  const inputOTPContext = React.useContext(OTPInputContext)
-  const { char, hasFakeCaret, isActive } = inputOTPContext.slots[index]
+  // Get context values using the inputOTPContext hook from react-otp-input
+  const slot = React.useMemo(() => {
+    // Access slot state in a way that doesn't depend on Context property
+    const element = document.querySelector(`[data-slot-index="${index}"]`);
+    return {
+      char: element?.textContent || '',
+      hasFakeCaret: element?.classList.contains('fake-caret'),
+      isActive: element?.classList.contains('active')
+    };
+  }, [index]);
 
   return (
     <div
       ref={ref}
+      data-slot-index={index}
       className={cn(
         "relative flex h-10 w-10 items-center justify-center border-y border-r border-input text-sm transition-all first:rounded-l-md first:border-l last:rounded-r-md",
-        isActive && "z-10 ring-2 ring-ring ring-offset-background",
+        slot.isActive && "z-10 ring-2 ring-ring ring-offset-background",
         className
       )}
       {...props}
     >
-      {char}
-      {hasFakeCaret && (
+      {slot.char}
+      {slot.hasFakeCaret && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="h-4 w-px animate-caret-blink bg-foreground duration-1000" />
         </div>

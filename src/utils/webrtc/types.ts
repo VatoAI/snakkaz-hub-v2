@@ -1,56 +1,47 @@
-import type { Database } from '@/integrations/supabase/types';
+import type { Database } from '../../types/supabase';
 
+// Basic WebRTC types
 export interface PeerConnection {
-  dataChannel: RTCDataChannel | null;
   connection: RTCPeerConnection;
+  dataChannel: RTCDataChannel | null;
   peerId: string;
-  close(): void;
-  setDataChannel(channel: RTCDataChannel): void;
+  close: () => void;
+  setDataChannel: (channel: RTCDataChannel) => void;
 }
 
 export interface SignalPayload {
-  target: string;
-  sender: string;
-  type: string;
-  data: any;
+  sender_id: string;
+  receiver_id: string;
+  signal_data: any;
 }
 
-export interface ConnectionState {
-  peerId: string;
-  state: RTCPeerConnectionState;
-  timestamp: number;
+export interface WebRTCOptions {
+  maxReconnectAttempts?: number;
+  reconnectInterval?: number;
+  iceServers?: RTCIceServer[];
 }
 
-export interface SignalingMessage {
-  type: 'offer' | 'answer' | 'ice-candidate' | 'key-exchange';
-  sender: string;
-  data: any;
-}
-
-export interface ConnectionStates {
-  [peerId: string]: ConnectionState;
-}
-
-export interface ConnectionManager {
-  retryManager: RetryManager;
-  timeoutManager: TimeoutManager;
-  secureConnectionManager: SecureConnectionManager;
-  handleOffer(peerId: string, offer: RTCSessionDescriptionInit): Promise<void>;
-  handleAnswer(peerId: string, answer: RTCSessionDescriptionInit): Promise<void>;
-  handleIceCandidate(peerId: string, candidate: RTCIceCandidateInit): Promise<void>;
-  establishSecureConnection(peerId: string, remotePublicKey: CryptoKey, localKeyPair: CryptoKeyPair): Promise<void>;
-  getConnectedPeerIds(): string[];
-  getOrCreatePeerConnection(peerId: string): PeerConnection;
-  createPeerConnection(peerId: string): PeerConnection;
+export interface IWebRTCManager {
+  initialize(): Promise<void>;
+  connectToPeer(peerId: string, peerPublicKey: JsonWebKey): Promise<PeerConnection | null>;
+  sendMessage(peerId: string, message: string, isDirect?: boolean): Promise<boolean>;
+  onMessage(callback: (message: string, peerId: string) => void): void;
+  sendDirectMessage(peerId: string, message: string): Promise<boolean>;
+  getPublicKey(): JsonWebKey | null;
+  disconnect(peerId: string): void;
   disconnectAll(): void;
+  getConnectionState(peerId: string): string;
+  getDataChannelState(peerId: string): string;
+  attemptReconnect(peerId: string): Promise<boolean>;
+  isPeerReady(peerId: string): boolean;
+  ensurePeerReady(peerId: string): Promise<boolean>;
 }
 
-export interface RetryManager {
-  maxRetries: number;
-  retryDelay: number;
-  shouldRetry(peerId: string): boolean;
-  incrementRetryCount(peerId: string): void;
-  resetRetryCount(peerId: string): void;
+// Simplified PeerConnection for compatibility with existing code
+export interface SimplePeerConnection {
+  connection: RTCPeerConnection;
+  dataChannel: RTCDataChannel | null;
+  peerId: string;
 }
 
 export interface TimeoutManager {

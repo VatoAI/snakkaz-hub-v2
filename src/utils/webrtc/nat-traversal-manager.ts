@@ -1,43 +1,61 @@
-import { PeerConnection } from './types';
-
 export class NATTraversalManager {
-  private static readonly ICE_SERVERS = [
+  private stunServers: string[];
+  private connectionAttempts: Map<string, number> = new Map();
+  private static readonly MAX_RELAY_ATTEMPTS = 3;
+  private static readonly ICE_SERVERS: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun3.l.google.com:19302' },
-    { urls: 'stun:stun4.l.google.com:19302' },
-    // Add your TURN servers here
-    // { urls: 'turn:your-turn-server.com', username: 'username', credential: 'credential' }
+    { urls: 'stun:stun1.l.google.com:19302' }
   ];
 
-  private connectionAttempts: Map<string, number> = new Map();
-  private static readonly MAX_DIRECT_ATTEMPTS = 3;
-  private static readonly MAX_RELAY_ATTEMPTS = 2;
+  constructor(stunServers: string[] = ['stun:stun.l.google.com:19302']) {
+    this.stunServers = stunServers;
+  }
 
-  public async setupConnection(peerId: string, connection: RTCPeerConnection): Promise<void> {
+  public async detectConnectionType(peerId: string): Promise<"direct" | "relay" | "unknown"> {
     try {
-      // First attempt: Direct connection
-      await this.attemptDirectConnection(peerId, connection);
+      // Attempt to create a peer connection with STUN servers
+      const pc = new RTCPeerConnection({ iceServers: this.getStunServers() });
+
+      // Create a dummy data channel (optional, but helps trigger ICE candidate gathering)
+      pc.createDataChannel('dummy');
+
+      // Return a promise that resolves with the connection type
+      return new Promise<"direct" | "relay" | "unknown">((resolve) => {
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            const candidateStr = event.candidate.candidate;
+
+            if (candidateStr.includes('typ relay')) {
+              resolve("relay");
+            } else if (candidateStr.includes('typ host')) {
+              resolve("direct");
+            } else {
+              resolve("unknown");
+            }
+
+            // Close the peer connection after detecting the type
+            pc.close();
+          } else {
+            // No more candidates, and none matched, so resolve with unknown
+            resolve("unknown");
+            pc.close();
+          }
+        };
+
+        // If no ICE candidates are gathered after a timeout, assume unknown
+        setTimeout(() => {
+          resolve("unknown");
+          pc.close();
+        }, 5000);
+      });
     } catch (error) {
-      console.log(`Direct connection failed for ${peerId}, attempting relay...`);
-      await this.attemptRelayConnection(peerId, connection);
+      console.error('Error detecting connection type:', error);
+      return "unknown";
     }
   }
 
-  private async attemptDirectConnection(peerId: string, connection: RTCPeerConnection): Promise<void> {
-    const attempts = this.connectionAttempts.get(peerId) || 0;
-    if (attempts >= NATTraversalManager.MAX_DIRECT_ATTEMPTS) {
-      throw new Error('Max direct connection attempts reached');
-    }
-
-    // Configure ICE with STUN only
-    const config = {
-      iceServers: NATTraversalManager.ICE_SERVERS.filter(server => server.urls.startsWith('stun:'))
-    };
-
-    await this.setupICE(connection, config);
-    this.connectionAttempts.set(peerId, attempts + 1);
+  private getStunServers(): RTCIceServer[] {
+    return this.stunServers.map(url => ({ urls: url }));
   }
 
   private async attemptRelayConnection(peerId: string, connection: RTCPeerConnection): Promise<void> {
@@ -98,4 +116,4 @@ export class NATTraversalManager {
       return 'unknown';
     }
   }
-} 
+}

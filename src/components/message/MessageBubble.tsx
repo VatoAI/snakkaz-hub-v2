@@ -1,9 +1,8 @@
+
+import React, { useState } from 'react';
 import { DecryptedMessage } from "@/types/message";
 import { MessageContent } from "./MessageContent";
 import { MessageActions } from "./MessageActions";
-import { Clock } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useTheme } from "@/contexts/ThemeContext";
 import { cn } from "@/lib/utils";
 
 interface MessageBubbleProps {
@@ -15,78 +14,50 @@ interface MessageBubbleProps {
   onDelete: (messageId: string) => void;
 }
 
-export const MessageBubble = ({
-  message,
-  isCurrentUser,
+export const MessageBubble = ({ 
+  message, 
+  isCurrentUser, 
   messageIndex,
   onMessageExpired,
   onEdit,
   onDelete
 }: MessageBubbleProps) => {
-  const { theme } = useTheme();
-  const isLastMessage = messageIndex === 0;
-
+  const [showActions, setShowActions] = useState(false);
+  
   return (
-    <div className={`group relative flex ${isCurrentUser ? 'justify-end' : 'justify-start'} mb-2`}>
-      <div
-        className={cn(
-          "relative max-w-[85%] px-4 py-2 shadow-md transition-all duration-200",
-          isCurrentUser
-            ? "rounded-2xl rounded-br-sm bg-gradient-snakkaz shadow-snakkaz"
-            : theme === 'dark'
-              ? "rounded-2xl rounded-bl-sm bg-snakkaz-darker/80 border border-snakkaz-blue/5"
-              : "rounded-2xl rounded-bl-sm bg-gray-100/90 border border-snakkaz-blue/5",
-          "hover:shadow-snakkaz-hover transform hover:-translate-y-0.5 transition-all duration-300",
-          isCurrentUser ? "text-white" : theme === 'dark' ? "text-gray-100" : "text-gray-900"
-        )}
-      >
-        <div className={cn(
-          "absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300",
-          isCurrentUser ? "bg-gradient-snakkaz-glow group-hover:opacity-100" : ""
-        )} />
-        
-        <div className="relative z-10">
-          <MessageContent 
-            message={message} 
-            onMessageExpired={onMessageExpired} 
-          />
-          
-          <div className="flex items-center justify-end gap-1 mt-1">
-            {message.is_encrypted && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <Clock className={cn(
-                      "w-3 h-3",
-                      isCurrentUser ? "text-white/70" : theme === 'dark' ? "text-gray-400" : "text-gray-500"
-                    )} />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Kryptert melding</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            <span className={cn(
-              "text-xs",
-              isCurrentUser ? "text-white/70" : theme === 'dark' ? "text-gray-400" : "text-gray-500"
-            )}>
-              {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </div>
-        </div>
-
-        <div className={cn(
-          "absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity z-20",
-          isCurrentUser ? "-right-2" : "-left-2"
-        )}>
+    <div 
+      className={cn(
+        "group relative rounded-lg px-3 py-2 my-1 max-w-[85%] break-words",
+        isCurrentUser 
+          ? "bg-gradient-to-br from-snakkaz-blue/80 to-snakkaz-blue/60 text-white ml-auto" 
+          : "bg-snakkaz-dark/80 border border-snakkaz-blue/10",
+        message.is_encrypted && "border-l-2 border-l-green-500"
+      )}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+      style={{
+        animationDelay: `${messageIndex * 0.05}s`,
+      }}
+    >
+      <MessageContent 
+        message={message} 
+        onMessageExpired={onMessageExpired} 
+      />
+      
+      {isCurrentUser && !message.is_deleted && (
+        <div 
+          className={cn(
+            "absolute -right-12 top-1/2 transform -translate-y-1/2 transition-opacity",
+            showActions ? "opacity-100" : "opacity-0"
+          )}
+        >
           <MessageActions
             message={message}
-            onEdit={onEdit}
-            onDelete={onDelete}
+            onEdit={() => onEdit(message)}
+            onDelete={() => onDelete(message.id)}
           />
         </div>
-      </div>
+      )}
     </div>
   );
 };

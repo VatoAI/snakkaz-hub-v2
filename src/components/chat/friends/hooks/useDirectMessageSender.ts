@@ -33,7 +33,7 @@ export const useDirectMessageSender = (
     
     try {
       console.log('Encrypting message for server delivery...');
-      const { encryptedContent, key, iv } = await encryptMessage(message.trim());
+      const encryptionResult = await encryptMessage(message.trim());
       
       console.log('Sending message via server...');
       const { error } = await supabase
@@ -41,9 +41,9 @@ export const useDirectMessageSender = (
         .insert({
           sender_id: currentUserId,
           receiver_id: friendId,
-          encrypted_content: encryptedContent,
-          encryption_key: key,
-          iv: iv,
+          encrypted_content: encryptionResult.encryptedContent,
+          encryption_key: encryptionResult.key,
+          iv: encryptionResult.iv,
           is_encrypted: true,
           read_at: null,
           is_deleted: false,

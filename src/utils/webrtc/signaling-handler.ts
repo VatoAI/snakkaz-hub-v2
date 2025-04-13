@@ -1,6 +1,5 @@
 
-import { PeerConnection } from './types';
-import { DataChannelHandler } from './data-channel-handler';
+import { PeerConnection, SignalPayload } from './types';
 import { SignalingService } from './signaling';
 
 export class SignalingHandler {
@@ -10,72 +9,113 @@ export class SignalingHandler {
   ) {}
 
   public async handleIncomingSignal(
-    signal: any, 
+    signal: SignalPayload,
     connections: Map<string, PeerConnection>,
-    createConnection: (peerId: string) => PeerConnection,
-    setupConnectionEventHandlers: (connection: PeerConnection, peerId: string) => void
+    createPeerConnectionFn: (peerId: string) => PeerConnection,
+    setupConnectionEventHandlersFn: (connection: PeerConnection) => void
   ): Promise<void> {
-    const { sender_id, signal_data } = signal;
+    const { sender_id: senderId, signal_data: data } = signal;
     
-    let connection = connections.get(sender_id);
-    if (!connection) {
-      console.log('Creating new peer connection for incoming signal from:', sender_id);
-      connection = createConnection(sender_id);
-      
-      connections.set(sender_id, connection);
-      setupConnectionEventHandlers(connection, sender_id);
+    if (!senderId || !data) {
+      console.log('Invalid signal received, missing sender or data');
+      return;
     }
-
+    
     try {
-      if (signal_data.candidate) {
-        const iceCandidate = new RTCIceCandidate(signal_data.candidate);
-        await connection.connection.addIceCandidate(iceCandidate);
-      } else if (signal_data.sdp) {
-        const sessionDescription = new RTCSessionDescription({
-          type: signal_data.type,
-          sdp: signal_data.sdp
-        });
-
-        // Check signaling state before setting remote description
-        if (signal_data.type === 'offer') {
-          // For offer, we should be in stable state or have-remote-offer state
-          const validStates = ['stable', 'have-remote-offer'];
-          if (validStates.includes(connection.connection.signalingState)) {
-            await connection.connection.setRemoteDescription(sessionDescription);
-            
-            // Only create answer if we're in have-remote-offer state
-            if (connection.connection.signalingState === 'have-remote-offer') {
-              try {
-                const answer = await connection.connection.createAnswer();
-                await connection.connection.setLocalDescription(answer);
-                
-                await this.signalingService.sendSignal({
-                  sender_id: this.userId,
-                  receiver_id: sender_id,
-                  signal_data: {
-                    type: answer.type,
-                    sdp: answer.sdp
-                  }
-                });
-              } catch (error) {
-                console.error(`Error creating answer for peer ${sender_id}:`, error);
-              }
-            }
-          } else {
-            console.log(`Cannot process offer in current signaling state: ${connection.connection.signalingState}`);
-          }
-        } else if (signal_data.type === 'answer') {
-          // For answer, we should be in have-local-offer state
-          if (connection.connection.signalingState === 'have-local-offer') {
-            await connection.connection.setRemoteDescription(sessionDescription);
-          } else {
-            console.log(`Cannot process answer in current signaling state: ${connection.connection.signalingState}`);
-          }
-        }
+      // Handle different signal types
+      if (data.type === 'offer') {
+        await this.handleOffer(senderId, data, connections, createPeerConnectionFn, setupConnectionEventHandlersFn);
+      } else if (data.type === 'answer') {
+        await this.handleAnswer(senderId, data, connections);
+      } else if (data.type === 'ice-candidate') {
+        await this.handleIceCandidate(senderId, data.candidate, connections);
+      } else {
+        console.log(`Unknown signal type: ${data.type}`);
       }
     } catch (error) {
       console.error('Error handling signal:', error);
-      // Don't delete the connection on error, let the connection state change handler manage that
+    }
+  }
+
+  private async handleOffer(
+    senderId: string,
+    offer: any,
+    connections: Map<string, PeerConnection>,
+    createPeerConnectionFn: (peerId: string) => PeerConnection,
+    setupConnectionEventHandlersFn: (connection: PeerConnection) => void
+  ): Promise<void> {
+    console.log(`Received offer from ${senderId}`);
+    
+    let connection = connections.get(senderId);
+    
+    if (!connection) {
+      connection = createPeerConnectionFn(senderId);
+      connections.set(senderId, connection);
+      setupConnectionEventHandlersFn(connection);
+    }
+    
+    try {
+      await connection.connection.setRemoteDescription(new RTCSessionDescription(offer));
+      
+      const answer = await connection.connection.createAnswer();
+      await connection.connection.setLocalDescription(answer);
+      
+      await this.signalingService.sendSignal({
+        sender_id: this.userId,
+        receiver_id: senderId,
+        signal_data: {
+          type: answer.type,
+          sdp: answer.sdp
+        }
+      });
+      
+      console.log(`Sent answer to ${senderId}`);
+    } catch (error) {
+      console.error('Error creating answer:', error);
+      throw error;
+    }
+  }
+
+  private async handleAnswer(
+    senderId: string,
+    answer: any,
+    connections: Map<string, PeerConnection>
+  ): Promise<void> {
+    console.log(`Received answer from ${senderId}`);
+    
+    const connection = connections.get(senderId);
+    if (!connection) {
+      throw new Error(`No connection found for peer ${senderId}`);
+    }
+    
+    try {
+      await connection.connection.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log(`Set remote description for ${senderId}`);
+    } catch (error) {
+      console.error('Error setting remote description:', error);
+      throw error;
+    }
+  }
+
+  private async handleIceCandidate(
+    senderId: string,
+    candidate: RTCIceCandidateInit,
+    connections: Map<string, PeerConnection>
+  ): Promise<void> {
+    console.log(`Received ICE candidate from ${senderId}`);
+    
+    const connection = connections.get(senderId);
+    if (!connection) {
+      console.log(`No connection found for peer ${senderId}, storing candidate for later`);
+      return;
+    }
+    
+    try {
+      await connection.connection.addIceCandidate(new RTCIceCandidate(candidate));
+      console.log(`Added ICE candidate for ${senderId}`);
+    } catch (error) {
+      console.error('Error adding ICE candidate:', error);
+      throw error;
     }
   }
 }

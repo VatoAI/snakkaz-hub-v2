@@ -1,14 +1,11 @@
-import type { PeerConnection as IPeerConnection } from './types';
+import { type PeerConnection as IPeerConnection } from './types';
 
-export class PeerConnectionImpl implements IPeerConnection {
-  public dataChannel: RTCDataChannel | null = null;
-  public connection: RTCPeerConnection;
-  public peerId: string;
-
-  constructor(connection: RTCPeerConnection, peerId: string) {
-    this.connection = connection;
-    this.peerId = peerId;
-  }
+export class PeerConnection implements IPeerConnection {
+  constructor(
+    public connection: RTCPeerConnection,
+    public peerId: string,
+    public dataChannel: RTCDataChannel | null = null
+  ) {}
 
   public close(): void {
     if (this.dataChannel) {
@@ -21,5 +18,3 @@ export class PeerConnectionImpl implements IPeerConnection {
     this.dataChannel = channel;
   }
 }
-
-export { PeerConnectionImpl as PeerConnection }; 

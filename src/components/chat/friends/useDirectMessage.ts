@@ -159,16 +159,16 @@ export const useDirectMessage = (
       if (!messageDelivered) {
         try {
           // Encrypt message for server transmission
-          const { encryptedContent, key, iv } = await encryptMessage(newMessage.trim());
+          const encryptionResult = await encryptMessage(newMessage.trim());
           
           const { error } = await supabase
             .from('messages')
             .insert({
               sender_id: currentUserId,
               receiver_id: friendId,
-              encrypted_content: encryptedContent,
-              encryption_key: key,
-              iv: iv,
+              encrypted_content: encryptionResult.encryptedContent,
+              encryption_key: encryptionResult.key,
+              iv: encryptionResult.iv,
               is_encrypted: true
             });
           

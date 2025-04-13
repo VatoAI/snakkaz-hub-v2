@@ -1,87 +1,198 @@
-const CACHE_NAME = 'snakkaz-cache-v1';
-const ALLOWED_ORIGINS = [
-  'https://snakkaz.com',
-  'https://wqpoozpbceucynsojmbk.supabase.co',
-  'https://static.cloudflareinsights.com'
+
+const CACHE_NAME = 'snakkaz-cache-v5';
+const urlsToCache = [
+  '/',
+  '/index.html',
+  '/icons/snakkaz-icon-192.png',
+  '/icons/snakkaz-icon-512.png',
+  '/manifest.json',
+  '/snakkaz-logo.png',
+  '/chat',
+  '/profil',
+  '/register',
+  '/login',
+  '/info',
+  '/favicon.ico'
 ];
 
-// Install event
+// Install Service Worker and cache essential resources
 self.addEventListener('install', (event) => {
+  console.log('Service Worker: Installing...');
+  
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/index.html',
-        '/manifest.json',
-        '/favicon.ico'
-      ]);
-    })
+    caches.open(CACHE_NAME)
+      .then((cache) => {
+        console.log('Service Worker: Caching app shell and content');
+        return cache.addAll(urlsToCache);
+      })
+      .then(() => {
+        console.log('Service Worker: Installation completed');
+        return self.skipWaiting();
+      })
+      .catch(error => {
+        console.error('Service Worker: Installation failed:', error);
+      })
   );
 });
 
-// Fetch event
-self.addEventListener('fetch', (event) => {
-  const url = new URL(event.request.url);
-
-  // Handle CORS requests
-  if (url.origin !== self.location.origin) {
-    // Check if the origin is allowed
-    if (ALLOWED_ORIGINS.includes(url.origin)) {
-      const corsHeaders = new Headers({
-        'Access-Control-Allow-Origin': url.origin,
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        'Access-Control-Allow-Credentials': 'true'
-      });
-
-      if (event.request.method === 'OPTIONS') {
-        event.respondWith(new Response(null, { headers: corsHeaders }));
-        return;
-      }
-
-      event.respondWith(
-        fetch(event.request, {
-          mode: 'cors',
-          credentials: 'include',
-          headers: corsHeaders
-        }).catch(error => {
-          console.error('Fetch error:', error);
-          return new Response(null, { status: 500 });
-        })
-      );
-    } else {
-      // Block requests from non-allowed origins
-      event.respondWith(new Response(null, { status: 403 }));
-    }
-    return;
-  }
-
-  // Handle same-origin requests
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
-  );
-});
-
-// Activate event
+// Activate Service Worker and clean up old caches
 self.addEventListener('activate', (event) => {
+  console.log('Service Worker: Activating...');
+  
+  const cacheWhitelist = [CACHE_NAME];
+  
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (!cacheWhitelist.includes(cacheName)) {
+            console.log('Service Worker: Deleting old cache', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     })
+    .then(() => {
+      console.log('Service Worker: Now active, controlling all clients');
+      return self.clients.claim();
+    })
+    .catch(error => {
+      console.error('Service Worker: Activation failed:', error);
+    })
   );
 });
 
-// Handle service worker updates
+// Network-first strategy for most requests, falling back to cache
+self.addEventListener('fetch', (event) => {
+  // Skip cross-origin requests
+  if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+  
+  // Skip supabase API requests
+  if (event.request.url.includes('supabase')) {
+    return;
+  }
+
+  // For HTML and app route requests (like /chat, /profil, etc.)
+  if (event.request.headers.get('Accept')?.includes('text/html') || 
+      event.request.url.match(/\/(chat|login|register|profil|info|admin)$/)) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseClone);
+          });
+          return response;
+        })
+        .catch(() => {
+          return caches.match(event.request)
+            .then(response => {
+              return response || caches.match('/');
+            });
+        })
+    );
+    return;
+  }
+
+  // For other requests
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        // Clone the response to store in cache
+        if (event.request.method === 'GET') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME)
+            .then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+        }
+        return response;
+      })
+      .catch(() => {
+        // If network fetch fails, try to serve from cache
+        return caches.match(event.request);
+      })
+  );
+});
+
+// Handle link check failures by serving a fallback
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data.action === 'skipWaiting') {
     self.skipWaiting();
   }
-}); 
+  
+  if (event.data.action === 'checkLink') {
+    const url = event.data.url;
+    
+    fetch(url, { method: 'HEAD', mode: 'no-cors' })
+      .then(() => {
+        // Link is available
+        event.ports[0].postMessage({ status: 'available', url });
+      })
+      .catch(() => {
+        // Link is not available, suggest fallback
+        event.ports[0].postMessage({ status: 'unavailable', url });
+      });
+  }
+});
+
+// Push notification handling
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  
+  try {
+    const data = event.data.json();
+    const options = {
+      body: data.body || 'Ny melding fra SnakkaZ',
+      icon: '/icons/snakkaz-icon-192.png',
+      badge: '/icons/snakkaz-icon-192.png',
+      vibrate: [100, 50, 100],
+      data: {
+        url: data.url || '/'
+      },
+      actions: [
+        {
+          action: 'open',
+          title: 'Åpne'
+        }
+      ]
+    };
+    
+    event.waitUntil(
+      self.registration.showNotification(
+        data.title || 'SnakkaZ', 
+        options
+      )
+    );
+  } catch (error) {
+    console.error('Error showing notification:', error);
+  }
+});
+
+// Notification click handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  if (event.action === 'open' || !event.action) {
+    event.waitUntil(
+      clients.matchAll({type: 'window'})
+        .then((clientList) => {
+          const url = event.notification.data.url || '/';
+          
+          // Check if a window is already open
+          for (const client of clientList) {
+            if (client.url === url && 'focus' in client) {
+              return client.focus();
+            }
+          }
+          
+          // If no window is open, open a new one
+          if (clients.openWindow) {
+            return clients.openWindow(url);
+          }
+        })
+    );
+  }
+});
