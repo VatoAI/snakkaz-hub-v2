@@ -1,11 +1,9 @@
-
 /**
  * Secure connection establishment utilities
  */
 
 // Etabler sikker forbindelse mellom to parter
 export const establishSecureConnection = async (
-  localPublicKey: JsonWebKey,
   localPrivateKey: JsonWebKey,
   remotePublicKey: JsonWebKey
 ): Promise<CryptoKey> => {

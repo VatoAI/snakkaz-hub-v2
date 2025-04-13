@@ -23,7 +23,7 @@ export interface WebRTCOptions {
 
 export interface IWebRTCManager {
   initialize(): Promise<void>;
-  connectToPeer(peerId: string, peerPublicKey: JsonWebKey): Promise<PeerConnection | null>;
+  connectToPeer(peerId: string, peerPublicKey?: any): Promise<PeerConnection | null>;
   sendMessage(peerId: string, message: string, isDirect?: boolean): Promise<boolean>;
   onMessage(callback: (message: string, peerId: string) => void): void;
   sendDirectMessage(peerId: string, message: string): Promise<boolean>;

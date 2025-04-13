@@ -1,4 +1,3 @@
-
 import { establishSecureConnection } from '../encryption';
 
 export class SecureConnectionManager {
@@ -6,7 +5,6 @@ export class SecureConnectionManager {
   
   public async establishSecureConnection(
     peerId: string,
-    localPublicKey: JsonWebKey,
     localPrivateKey: JsonWebKey,
     peerPublicKey: JsonWebKey
   ): Promise<boolean> {
@@ -17,7 +15,6 @@ export class SecureConnectionManager {
       
       console.log(`Establishing secure connection with peer ${peerId}`);
       const secureConnection = await establishSecureConnection(
-        localPublicKey,
         localPrivateKey,
         peerPublicKey
       );

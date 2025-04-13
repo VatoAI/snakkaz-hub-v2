@@ -1,4 +1,3 @@
-
 interface RateLimitInfo {
   count: number;
   firstRequestTime: number;
@@ -74,5 +73,43 @@ export class RateLimiter {
 
   public reset(identifier: string): void {
     this.rateLimitStore.delete(identifier);
+  }
+
+  public incrementAttempts(identifier: string): void {
+    const now = Date.now();
+    let info = this.rateLimitStore.get(identifier);
+    
+    // If no entry exists, create a new one
+    if (!info) {
+      this.rateLimitStore.set(identifier, {
+        count: 1,
+        firstRequestTime: now,
+        blockedUntil: null
+      });
+      return;
+    }
+    
+    // Don't increment if already blocked
+    if (info.blockedUntil !== null && now < info.blockedUntil) {
+      return;
+    }
+    
+    // Check if time window has passed
+    if (now - info.firstRequestTime > this.TIME_WINDOW) {
+      // Reset counter for new time window
+      info = {
+        count: 1,
+        firstRequestTime: now,
+        blockedUntil: null
+      };
+    } else {
+      // Increment counter and check if limit is exceeded
+      info.count += 1;
+      if (info.count > this.MAX_REQUESTS) {
+        info.blockedUntil = now + this.BLOCK_DURATION;
+      }
+    }
+    
+    this.rateLimitStore.set(identifier, info);
   }
 }
