@@ -32,6 +32,16 @@ async function initializeApp() {
     }
   } catch (error) {
     console.error("Failed to initialize app:", error);
+    
+    // Fallback rendering in case of error
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      ReactDOM.createRoot(rootElement).render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>,
+      );
+    }
   }
 }
 
