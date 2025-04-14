@@ -16,8 +16,8 @@ export default defineConfig(({ mode }) => ({
   },
   define: {
     global: 'window',
-    // Ensure __WS_TOKEN__ is defined for all environments
-    __WS_TOKEN__: JSON.stringify(process.env.WS_TOKEN || 'development-ws-token'),
+    // Define __WS_TOKEN__ as a string literal for all builds
+    __WS_TOKEN__: JSON.stringify('development-ws-token'),
   },
   server: {
     port: 8080,

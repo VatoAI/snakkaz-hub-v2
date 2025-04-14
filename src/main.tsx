@@ -6,6 +6,11 @@ import './index.css'
 import { supabase } from "./integrations/supabase/client"
 import { registerServiceWorker } from "./utils/service-worker"
 
+// Ensure __WS_TOKEN__ is defined globally
+declare global {
+  var __WS_TOKEN__: string;
+}
+
 async function initializeApp() {
   try {
     // Initialize service worker
