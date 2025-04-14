@@ -1,4 +1,5 @@
-import { SecurityEvent, SecurityMonitorStatus, SecurityStatus } from "@/types/security";
+
+import { SecurityEvent, SecurityMonitorStatus, SecurityStatus, SecurityEventSeverity } from "@/types/security";
 
 export class SecureConnectionMonitor {
   private status: SecurityMonitorStatus = {
