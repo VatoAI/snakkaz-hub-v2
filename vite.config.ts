@@ -2,19 +2,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { componentTagger } from "lovable-tagger";
 
-// Dynamically import the componentTagger to avoid ESM/CommonJS conflicts
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    // Use a placeholder for development mode - the actual tagging will be handled by Lovable's build system
-    mode === 'development' && {
-      name: 'lovable-tagger',
-      configResolved() {
-        // This is a placeholder for the componentTagger functionality
-        console.log('Lovable tagger initialized in development mode');
-      }
-    },
+    mode === 'development' && componentTagger(),
   ].filter(Boolean),
   resolve: {
     alias: {
