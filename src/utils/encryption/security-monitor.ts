@@ -1,59 +1,79 @@
-
-import { SecurityStatus, SecurityMonitorStatus } from '@/types/security';
-
-type StatusChangeListener = (status: SecurityMonitorStatus) => void;
+import { SecurityEvent, SecurityMonitorStatus, SecurityStatus } from "@/types/security";
 
 export class SecureConnectionMonitor {
-  private status: SecurityStatus = 'unknown';
-  private statusDetails?: string;
-  private lastUpdated: Date = new Date();
-  private statusListeners: StatusChangeListener[] = [];
+  private status: SecurityMonitorStatus = {
+    status: 'unknown',
+    lastUpdated: new Date(),
+  };
+  private listeners: Array<(status: SecurityMonitorStatus) => void> = [];
+  private static instance: SecureConnectionMonitor;
 
-  constructor() {
-    // Initialize with unknown status
-    this.updateStatus('unknown');
+  private constructor() {}
+
+  public static getInstance(): SecureConnectionMonitor {
+    if (!SecureConnectionMonitor.instance) {
+      SecureConnectionMonitor.instance = new SecureConnectionMonitor();
+    }
+    return SecureConnectionMonitor.instance;
   }
 
   public getStatus(): SecurityMonitorStatus {
-    return {
-      status: this.status,
-      lastUpdated: this.lastUpdated,
-      details: this.statusDetails
-    };
-  }
-
-  public updateStatus(status: SecurityStatus, details?: string): void {
-    this.status = status;
-    this.statusDetails = details;
-    this.lastUpdated = new Date();
-    
-    // Notify all listeners
-    this.notifyListeners();
+    return { ...this.status };
   }
 
   public resetStatus(): void {
     this.updateStatus('unknown');
   }
 
-  public addStatusChangeListener(listener: StatusChangeListener): void {
-    this.statusListeners.push(listener);
+  public updateStatus(status: SecurityStatus, details?: string): void {
+    this.status = {
+      status,
+      lastUpdated: new Date(),
+      details,
+    };
+    this.notifyListeners();
   }
 
-  public removeStatusChangeListener(listener: StatusChangeListener): void {
-    this.statusListeners = this.statusListeners.filter(l => l !== listener);
+  public recordEvent(type: SecurityEventSeverity, message: string): void {
+    const event: SecurityEvent = {
+      type,
+      message,
+      timestamp: new Date(),
+    };
+    
+    console.log('Security event:', event);
+    
+    // Update status based on event type
+    switch (type) {
+      case 'error':
+        this.updateStatus('error', message);
+        break;
+      case 'security_check_started':
+        this.updateStatus('verifying', 'Security check in progress');
+        break;
+      case 'security_check_completed':
+        this.updateStatus('secure', 'Security check completed');
+        break;
+      default:
+        // Other events don't affect status
+        break;
+    }
+  }
+
+  public addStatusChangeListener(listener: (status: SecurityMonitorStatus) => void): void {
+    this.listeners.push(listener);
+  }
+
+  public removeStatusChangeListener(listener: (status: SecurityMonitorStatus) => void): void {
+    this.listeners = this.listeners.filter(l => l !== listener);
   }
 
   private notifyListeners(): void {
-    const currentStatus = this.getStatus();
-    this.statusListeners.forEach(listener => {
-      try {
-        listener(currentStatus);
-      } catch (error) {
-        console.error('Error in status change listener:', error);
-      }
-    });
+    for (const listener of this.listeners) {
+      listener(this.status);
+    }
   }
 }
 
-// Create a singleton instance
-export const securityMonitor = new SecureConnectionMonitor();
+// Export a singleton instance
+export const securityMonitor = SecureConnectionMonitor.getInstance();
