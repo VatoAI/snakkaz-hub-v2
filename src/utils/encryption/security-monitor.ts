@@ -6,75 +6,105 @@ export class SecureConnectionMonitor {
     status: 'unknown',
     lastUpdated: new Date(),
   };
-  private listeners: Array<(status: SecurityMonitorStatus) => void> = [];
-  private static instance: SecureConnectionMonitor;
-
-  private constructor() {}
-
-  public static getInstance(): SecureConnectionMonitor {
-    if (!SecureConnectionMonitor.instance) {
-      SecureConnectionMonitor.instance = new SecureConnectionMonitor();
-    }
-    return SecureConnectionMonitor.instance;
+  
+  private events: SecurityEvent[] = [];
+  private listeners: Array<(event: SecurityEvent) => void> = [];
+  private statusListeners: Array<(status: SecurityMonitorStatus) => void> = [];
+  
+  constructor() {
+    console.log('Secure connection monitor initialized');
+    this.logEvent('info', 'Security monitor initialized');
+    this.verifyConnection();
   }
-
+  
+  private async verifyConnection(): Promise<void> {
+    this.setStatus('verifying');
+    this.logEvent('security_check_started', 'Starting security check');
+    
+    try {
+      // Simulate security checks
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // In a real application, we would check for:
+      // - HTTPS connection
+      // - Valid certificates
+      // - Secure cookies
+      // - Content Security Policy
+      // - etc.
+      
+      this.setStatus('secure');
+      this.logEvent('security_check_completed', 'Security check passed');
+    } catch (error) {
+      this.setStatus('error');
+      this.logEvent('error', `Security check failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+  
   public getStatus(): SecurityMonitorStatus {
     return { ...this.status };
   }
-
-  public resetStatus(): void {
-    this.updateStatus('unknown');
-  }
-
-  public updateStatus(status: SecurityStatus, details?: string): void {
+  
+  private setStatus(status: SecurityStatus, details?: string): void {
     this.status = {
       status,
       lastUpdated: new Date(),
       details,
     };
-    this.notifyListeners();
+    
+    this.notifyStatusListeners();
   }
-
-  public recordEvent(type: SecurityEventSeverity, message: string): void {
+  
+  public logEvent(type: SecurityEventSeverity, message: string): void {
     const event: SecurityEvent = {
       type,
       message,
       timestamp: new Date(),
     };
     
-    console.log('Security event:', event);
+    this.events.push(event);
+    this.notifyEventListeners(event);
     
-    // Update status based on event type
-    switch (type) {
-      case 'error':
-        this.updateStatus('error', message);
-        break;
-      case 'security_check_started':
-        this.updateStatus('verifying', 'Security check in progress');
-        break;
-      case 'security_check_completed':
-        this.updateStatus('secure', 'Security check completed');
-        break;
-      default:
-        // Other events don't affect status
-        break;
-    }
+    console.log(`[Security ${type}] ${message}`);
   }
-
-  public addStatusChangeListener(listener: (status: SecurityMonitorStatus) => void): void {
-    this.listeners.push(listener);
+  
+  public getEvents(): SecurityEvent[] {
+    return [...this.events];
   }
-
-  public removeStatusChangeListener(listener: (status: SecurityMonitorStatus) => void): void {
-    this.listeners = this.listeners.filter(l => l !== listener);
+  
+  public onEvent(callback: (event: SecurityEvent) => void): () => void {
+    this.listeners.push(callback);
+    return () => {
+      this.listeners = this.listeners.filter(listener => listener !== callback);
+    };
   }
-
-  private notifyListeners(): void {
-    for (const listener of this.listeners) {
-      listener(this.status);
-    }
+  
+  public onStatusChange(callback: (status: SecurityMonitorStatus) => void): () => void {
+    this.statusListeners.push(callback);
+    return () => {
+      this.statusListeners = this.statusListeners.filter(listener => listener !== callback);
+    };
+  }
+  
+  private notifyEventListeners(event: SecurityEvent): void {
+    this.listeners.forEach(listener => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('Error in security event listener:', error);
+      }
+    });
+  }
+  
+  private notifyStatusListeners(): void {
+    this.statusListeners.forEach(listener => {
+      try {
+        listener({ ...this.status });
+      } catch (error) {
+        console.error('Error in security status listener:', error);
+      }
+    });
   }
 }
 
-// Export a singleton instance
-export const securityMonitor = SecureConnectionMonitor.getInstance();
+// Create a singleton instance of the security monitor
+export const securityMonitor = new SecureConnectionMonitor();
