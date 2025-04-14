@@ -3,8 +3,8 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
-import { supabase } from "@/integrations/supabase/client"
-import { registerServiceWorker } from "@/utils/service-worker"
+import { supabase } from "./integrations/supabase/client"
+import { registerServiceWorker } from "./utils/service-worker"
 
 async function initializeApp() {
   // Initialize service worker
