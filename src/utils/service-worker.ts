@@ -10,4 +10,5 @@ export async function registerServiceWorker() {
   } else {
     console.info('Service workers are not supported in this browser');
   }
+  return true; // Return success regardless of service worker support
 }
