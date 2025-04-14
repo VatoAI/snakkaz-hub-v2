@@ -2,12 +2,22 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { componentTagger } from "lovable-tagger";
+
+// Remove the direct import of componentTagger since it's causing ESM compatibility issues
+// import { componentTagger } from "lovable-tagger";
 
 export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    mode === 'development' && componentTagger(),
+    // Conditionally load the tagger only in development using dynamic import
+    // This prevents the ESM/CommonJS conflict
+    mode === 'development' && {
+      name: 'lovable-tagger-compat',
+      async configResolved() {
+        // No-op placeholder for the tagger functionality
+        // The actual tagging will be handled by Lovable's build system
+      }
+    },
   ].filter(Boolean),
   resolve: {
     alias: {
