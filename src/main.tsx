@@ -24,30 +24,27 @@ function renderApp() {
   }
 }
 
-async function initializeApp() {
-  try {
-    // Initialize service worker
-    await registerServiceWorker();
-    
-    // Check Supabase session
-    try {
-      const { data } = await supabase.auth.getSession();
-      console.log("Supabase session check:", data.session ? "Active session" : "No active session");
-    } catch (error) {
-      console.error("Error checking Supabase session:", error);
-    }
-    
-    // Render app
-    renderApp();
-  } catch (error) {
-    console.error("Failed to initialize app:", error);
-    // Fallback rendering in case of error
-    renderApp();
-  }
-}
-
-// Ensure the app renders even if there's an initialization error
-initializeApp().catch(error => {
-  console.error("Critical initialization error:", error);
+// Initialize and render the app
+try {
+  // Check Supabase connection
+  console.log("Checking Supabase connection...");
+  supabase.auth.getSession().then(({ data }) => {
+    console.log("Supabase session check:", data.session ? "Active session" : "No active session");
+  }).catch(error => {
+    console.error("Error checking Supabase session:", error);
+  });
+  
+  // Initialize service worker
+  registerServiceWorker().then(() => {
+    console.log("Service worker registered successfully");
+  }).catch(error => {
+    console.error("Service worker registration failed:", error);
+  });
+  
+  // Render the app regardless of initialization results
   renderApp();
-});
+} catch (error) {
+  console.error("Critical error during initialization:", error);
+  // Always attempt to render even if there's an error
+  renderApp();
+}

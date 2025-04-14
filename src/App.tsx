@@ -1,16 +1,24 @@
 
 import React, { useEffect, useState } from 'react';
+import { Button } from "./components/ui/button";
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate initialization process
-    const timer = setTimeout(() => {
+    // Simulate initialization process with better error handling
+    try {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    } catch (err) {
+      console.error("Error in initialization:", err);
+      setError("Det oppstod en feil under oppstart av applikasjonen.");
       setIsLoading(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    }
   }, []);
 
   return (
@@ -20,14 +28,27 @@ function App() {
         <p className="text-lg mt-2">Secure Communication Platform</p>
       </header>
       <main className="container mx-auto mt-8">
-        <div className="bg-black/40 backdrop-blur-md p-8 rounded-xl border border-white/10">
+        <div className="glass-morphism p-8 rounded-xl">
           <div className="text-center">
-            {isLoading ? (
+            {error ? (
+              <>
+                <p className="text-red-400 mb-4">{error}</p>
+                <Button 
+                  onClick={() => window.location.reload()}
+                  variant="warning"
+                >
+                  Last på nytt
+                </Button>
+              </>
+            ) : isLoading ? (
               <p className="mb-4">Laster applikasjonen...</p>
             ) : (
               <>
                 <p className="mb-4">Velkommen til SnakkaZ Hub!</p>
                 <p>Din sikre kommunikasjonsplattform er klar.</p>
+                <div className="mt-6">
+                  <Button>Kom i gang</Button>
+                </div>
               </>
             )}
           </div>
