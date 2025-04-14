@@ -11,6 +11,19 @@ declare global {
   var __WS_TOKEN__: string;
 }
 
+function renderApp() {
+  const rootElement = document.getElementById('root');
+  if (rootElement) {
+    ReactDOM.createRoot(rootElement).render(
+      <React.StrictMode>
+        <App />
+      </React.StrictMode>,
+    );
+  } else {
+    console.error("Root element not found");
+  }
+}
+
 async function initializeApp() {
   try {
     // Initialize service worker
@@ -25,29 +38,16 @@ async function initializeApp() {
     }
     
     // Render app
-    const rootElement = document.getElementById('root');
-    if (rootElement) {
-      ReactDOM.createRoot(rootElement).render(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
-      );
-    } else {
-      console.error("Root element not found");
-    }
+    renderApp();
   } catch (error) {
     console.error("Failed to initialize app:", error);
-    
     // Fallback rendering in case of error
-    const rootElement = document.getElementById('root');
-    if (rootElement) {
-      ReactDOM.createRoot(rootElement).render(
-        <React.StrictMode>
-          <App />
-        </React.StrictMode>,
-      );
-    }
+    renderApp();
   }
 }
 
-initializeApp().catch(console.error);
+// Ensure the app renders even if there's an initialization error
+initializeApp().catch(error => {
+  console.error("Critical initialization error:", error);
+  renderApp();
+});
